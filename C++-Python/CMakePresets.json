@@ -1,0 +1,16 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "ucrt64-release",
+      "displayName": "MSYS2 UCRT64 Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../build-native/ucrt64-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_COMPILER": "E:/msys2/ucrt64/bin/g++.exe",
+        "CMAKE_MAKE_PROGRAM": "E:/msys2/ucrt64/bin/ninja.exe"
+      }
+    }
+  ]
+}

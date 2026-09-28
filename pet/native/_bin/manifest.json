@@ -1,0 +1,81 @@
+{
+    "schema":  1,
+    "compiler":  "g++.exe (Rev4, Built by MSYS2 project) 16.2.0",
+    "build_type":  "Release",
+    "files":  [
+                  {
+                      "name":  "libgcc_s_seh-1.dll",
+                      "sha256":  "68ca4574b331402879dec403ba4f14491c9b8fc4aa3f4a41432008714b9bc5df",
+                      "architecture":  "pei-x86-64",
+                      "direct_imports":  [
+                                             "KERNEL32.dll",
+                                             "api-ms-win-crt-heap-l1-1-0.dll",
+                                             "api-ms-win-crt-private-l1-1-0.dll",
+                                             "api-ms-win-crt-runtime-l1-1-0.dll",
+                                             "api-ms-win-crt-stdio-l1-1-0.dll",
+                                             "api-ms-win-crt-string-l1-1-0.dll",
+                                             "libwinpthread-1.dll"
+                                         ],
+                      "source":  "E:\\msys2\\ucrt64\\bin\\libgcc_s_seh-1.dll",
+                      "source_package":  "mingw-w64-ucrt-x86_64-libgcc 16.2.0-4"
+                  },
+                  {
+                      "name":  "libstdc++-6.dll",
+                      "sha256":  "b30dbd914d903992acb28b38455947153886656beafbd91c465c31aa258f9c45",
+                      "architecture":  "pei-x86-64",
+                      "direct_imports":  [
+                                             "libgcc_s_seh-1.dll",
+                                             "KERNEL32.dll",
+                                             "api-ms-win-crt-convert-l1-1-0.dll",
+                                             "api-ms-win-crt-environment-l1-1-0.dll",
+                                             "api-ms-win-crt-filesystem-l1-1-0.dll",
+                                             "api-ms-win-crt-heap-l1-1-0.dll",
+                                             "api-ms-win-crt-locale-l1-1-0.dll",
+                                             "api-ms-win-crt-math-l1-1-0.dll",
+                                             "api-ms-win-crt-private-l1-1-0.dll",
+                                             "api-ms-win-crt-runtime-l1-1-0.dll",
+                                             "api-ms-win-crt-stdio-l1-1-0.dll",
+                                             "api-ms-win-crt-string-l1-1-0.dll",
+                                             "api-ms-win-crt-time-l1-1-0.dll",
+                                             "api-ms-win-crt-utility-l1-1-0.dll",
+                                             "libwinpthread-1.dll"
+                                         ],
+                      "source":  "E:\\msys2\\ucrt64\\bin\\libstdc++-6.dll",
+                      "source_package":  "mingw-w64-ucrt-x86_64-libstdc++ 16.2.0-4"
+                  },
+                  {
+                      "name":  "libwinpthread-1.dll",
+                      "sha256":  "d1b3564a65a000a4eab341641d1f4f1a9c80ca91cc69b20e79999e55ef0b1613",
+                      "architecture":  "pei-x86-64",
+                      "direct_imports":  [
+                                             "KERNEL32.dll",
+                                             "api-ms-win-crt-convert-l1-1-0.dll",
+                                             "api-ms-win-crt-heap-l1-1-0.dll",
+                                             "api-ms-win-crt-private-l1-1-0.dll",
+                                             "api-ms-win-crt-runtime-l1-1-0.dll",
+                                             "api-ms-win-crt-stdio-l1-1-0.dll",
+                                             "api-ms-win-crt-string-l1-1-0.dll",
+                                             "api-ms-win-crt-utility-l1-1-0.dll"
+                                         ],
+                      "source":  "E:\\msys2\\ucrt64\\bin\\libwinpthread-1.dll",
+                      "source_package":  "mingw-w64-ucrt-x86_64-libwinpthread 14.0.0.r420.g61d40c4c0-1"
+                  },
+                  {
+                      "name":  "pet_core.dll",
+                      "sha256":  "d139ddaf806af61c435a9c4d389cf6b94d5d69610b3caa4dc998f89b809d5fc9",
+                      "architecture":  "pei-x86-64",
+                      "direct_imports":  [
+                                             "libgcc_s_seh-1.dll",
+                                             "KERNEL32.dll",
+                                             "api-ms-win-crt-math-l1-1-0.dll",
+                                             "api-ms-win-crt-private-l1-1-0.dll",
+                                             "api-ms-win-crt-runtime-l1-1-0.dll",
+                                             "api-ms-win-crt-stdio-l1-1-0.dll",
+                                             "api-ms-win-crt-string-l1-1-0.dll",
+                                             "libstdc++-6.dll"
+                                         ],
+                      "source":  "E:\\CODE\\desktop-pet\\build-native\\ucrt64-release\\pet_core.dll",
+                      "source_package":  "project"
+                  }
+              ]
+}
