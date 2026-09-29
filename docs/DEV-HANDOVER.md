@@ -382,7 +382,7 @@ _on_tick(now)
 
 - `tests/` 下 123 个 `.py`（另含 bridge 的 JS 测试）；`pytest.ini` 指定 `testpaths = tests`。
 - `tests/conftest.py`（275 行）提供 autouse fixture：**静音音频**（测试不出声）、模态框直通、`no-real-dsh`（禁止真实拉起外部 dsh）、Qt 资源收口（防 offscreen 泄漏）等。
-- 打包与桥接验证脚本另存于 `scripts/`（如 `verify_bundle_qt.py`）、`tests/` 内的 smoke/手动校验脚本（如 `manual_ssl_proxy_check.py`，代理/证书诊断用）。
+- 打包与桥接验证脚本另存于 `scripts/`（如 `verify_bundle_qt.py`、`manual_ssl_proxy_check.py`，代理/证书诊断用）。
 
 ### 6.2 关键测试族
 
@@ -544,7 +544,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm-
 8. **跨线程纪律**：`_TTSWorker` 中禁止触碰 QWidget/QMediaPlayer；一律经 `_AudioBridge` queued 信号回 GUI 线程。
 9. **预合成状态的清理时机**：`_consume_precache` 会清空整组状态，气泡文本必须先取后用（历史缺陷点）。
 10. **缓存 IO 静默降级**：缓存目录不可访问时不报错、只记 debug 日志，排查报时无声时先看目录权限与磁盘。
-11. **在线依赖与代理**：edge-tts 依赖微软在线语音服务，企业代理/证书异常会合成失败（`certifi` 已入依赖）；离线场景只能靠已有缓存或纯气泡。诊断脚本见 `tests/manual_ssl_proxy_check.py`。
+11. **在线依赖与代理**：edge-tts 依赖微软在线语音服务，企业代理/证书异常会合成失败（`certifi` 已入依赖）；离线场景只能靠已有缓存或纯气泡。诊断脚本见 `scripts/manual_ssl_proxy_check.py`。
 12. **编码坑**：目标机控制台 GBK，用 `Get-Content` 读 UTF-8 源码会乱码（文件无问题，加 `-Encoding UTF8` 或 `PYTHONUTF8=1`）；打包链有 `check_bundle_encoding.py` 门禁。
 13. **并发编辑同一文件互相覆盖**：同一文件的多处并行编辑会互相冲掉，必须串行改。
 14. **时序测试纪律**：禁止固定 `sleep`、赌目录顺序、`monotonic` 绝对值算术；用事件同步 + 宽预算。

@@ -1561,3 +1561,128 @@ def test_runtime_marker_written_on_first_show(tmp_path, app):
     data = json.loads(marker.read_text(encoding="utf-8"))
     assert data["pid"] == os.getpid()
     win.close()
+
+
+def test_second_instance_avoids_live_overlap(app, tmp_path):
+    """后启动的实例检测到存活实例占位后向左错开。"""
+    from tests.test_window_pause import FakeLibrary
+    from pet.window import PetWindow
+
+    cfg_a = Config(base=tmp_path)
+    cfg_a.save()
+    win_a = PetWindow(FakeLibrary(), cfg_a)
+    rect_a = (win_a.x(), win_a.y(), win_a._w, win_a._h)
+    marker = cfg_a.dir / f"runtime-{os.getppid()}.json"
+    marker.write_text(json.dumps(
+        {"pid": os.getppid(), "x": rect_a[0], "y": rect_a[1], "w": rect_a[2], "h": rect_a[3]},
+    ), encoding="utf-8")
+
+    cfg_b = Config(base=tmp_path, instance_id="slot-1")
+    win_b = PetWindow(FakeLibrary(), cfg_b)
+    try:
+        assert win_b.x() < win_a.x()
+    finally:
+        win_a.close()
+        win_b.close()
+    app.processEvents()
+
+
+def test_runtime_marker_written_and_stale_cleaned(app, tmp_path):
+    """实例启动后写入 runtime 标记；死进程的标记被顺手清理。"""
+    from tests.test_window_pause import FakeLibrary
+    from pet.window import PetWindow
+
+    cfg = Config(base=tmp_path)
+    cfg.save()
+    stale = cfg.dir / "runtime-99999999.json"
+    stale.write_text(json.dumps({"pid": 99999999, "x": 0, "y": 0, "w": 100, "h": 100}),
+                     encoding="utf-8")
+    win = PetWindow(FakeLibrary(), cfg)
+    try:
+        own = cfg.dir / f"runtime-{os.getpid()}.json"
+        assert own.exists()
+        assert not stale.exists()
+    finally:
+        win.close()
+    app.processEvents()
+
+
+def test_character_alias_roundtrip(tmp_path):
+    """角色别名：设置 → 读取 → 空名恢复默认，且持久化到配置文件。"""
+    cfg = Config(base=tmp_path)
+    assert cfg.character_alias("shenshen") == ""
+
+    cfg.set_character_alias("shenshen", "大肥鱼")
+    assert cfg.character_alias("shenshen") == "大肥鱼"
+
+    cfg2 = Config(base=tmp_path)
+    assert cfg2.character_alias("shenshen") == "大肥鱼"
+
+    cfg2.set_character_alias("shenshen", "")
+    assert cfg2.character_alias("shenshen") == ""
+
+    cfg2.set_character_alias("shenshen", "x" * 40)
+    assert len(cfg2.character_alias("shenshen")) == 24
+
+
+def test_character_display_name_prefers_alias(tmp_path):
+    """显示名统一解析：用户别名优先，未设置时回退目录显示名。"""
+    cfg = Config(base=tmp_path)
+    assert cfg.character_display_name("shenshen") == catalog.character_display_name("shenshen")
+
+    cfg.set_character_alias("shenshen", "小鲸鱼")
+    assert cfg.character_display_name("shenshen") == "小鲸鱼"
+
+    cfg.set_character_alias("shenshen", "")
+    assert cfg.character_display_name("shenshen") == catalog.character_display_name("shenshen")
+
+
+def _section_titles(dialog):
+    from pet.modern_settings_dialog import SettingsSection
+    from PySide6.QtWidgets import QLabel
+    titles = []
+    for section in dialog.findChildren(SettingsSection):
+        labels = [l.text() for l in section.findChildren(QLabel) if l.text()]
+        if labels:
+            titles.append(labels[0])
+    return titles
+
+
+def test_spawn_section_hidden_from_settings(app, tmp_path):
+    from pet.modern_settings_dialog import ModernSettingsDialog
+
+    cfg = Config(base=tmp_path)
+    dialog = ModernSettingsDialog(cfg, include_ai=False, standalone=True)
+    try:
+        assert "多开" not in _section_titles(dialog), "「多开」实验分组必须隐藏"
+    finally:
+        dialog.close()
+        app.processEvents()
+
+
+def test_spawn_config_value_preserved_on_save(app, tmp_path):
+    from pet.modern_settings_dialog import ModernSettingsDialog
+
+    cfg = Config(base=tmp_path)
+    cfg.set("experimental_single_process_spawn", True)
+    dialog = ModernSettingsDialog(cfg, include_ai=False, standalone=True)
+    try:
+        dialog._save()
+    finally:
+        dialog.close()
+        app.processEvents()
+    assert cfg.get("experimental_single_process_spawn") is True
+
+
+def test_spawn_config_round_trip_default_false(app, tmp_path):
+    from pet.modern_settings_dialog import ModernSettingsDialog
+
+    cfg = Config(base=tmp_path)
+    dialog = ModernSettingsDialog(cfg, include_ai=False, standalone=True)
+    try:
+        dialog._save()
+    finally:
+        dialog.close()
+        app.processEvents()
+    assert cfg.get("experimental_single_process_spawn") is False
+

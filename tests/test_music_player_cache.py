@@ -611,3 +611,11 @@ def test_player_scan_never_runs_in_tests(monkeypatch, tmp_path):
     music_players.find_player("netease")
 
     assert calls == [], "测试进程里发生了真实盘扫描"
+
+
+def test_music_detect_non_windows_returns_false(monkeypatch):
+    from pet import music_detect
+
+    monkeypatch.setattr(music_detect.sys, "platform", "linux")
+    assert music_detect.is_music_playing() is False
+

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import ctypes
 import sys
-import time
 from ctypes import wintypes
 
 user32 = ctypes.windll.user32
@@ -41,7 +40,7 @@ def enum_windows(pid: int):
 def main() -> int:
     pid = int(sys.argv[1]) if len(sys.argv) > 1 else 0
     if not pid:
-        print('用法: python tests/win_diag.py <pid>')
+        print('用法: python scripts/win_diag.py <pid>')
         return 1
     wins = enum_windows(pid)
     print(f'PID {pid} 的顶层窗口数: {len(wins)}')

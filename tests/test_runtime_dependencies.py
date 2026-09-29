@@ -138,3 +138,18 @@ def test_psutil_is_declared_for_player_probe():
     from pet import now_playing
 
     assert callable(now_playing.player_process_running)
+
+
+def test_catalog_integrity():
+    from pet import catalog
+
+    assert len(catalog.ANIM_FILES) == 51
+    assert len(catalog.ACTS) == 42
+    assert len(catalog.CLICKS) == 3
+    assert len(catalog.MOVES) == 3
+    assert catalog.IDLE in catalog.ANIM_FILES
+    assert catalog.TURN in catalog.ANIM_FILES
+    assert catalog.DRAG in catalog.ANIM_FILES
+    assert all(n in catalog.ANIM_FILES for n in catalog.CLICKS + catalog.MOVES)
+    assert catalog.FRAME_MS > 0
+

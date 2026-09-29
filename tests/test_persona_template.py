@@ -175,3 +175,27 @@ def test_all_advertised_fields_reach_presentation_layer():
                 "UPSTREAM_FIELDS[" + repr(group) + "] 的 " + repr(field)
                 + " 在桥接插件中不存在，模板不得宣称"
             )
+
+
+def test_render_template_exposes_future_upstream_fields_and_nested_payload():
+    from pet.persona_phrases import render_template
+
+    text = render_template(
+        "{name}|{errorCode}|{payload.pluginId}|{data.reason}|{missing}",
+        {
+            "name": "DSH",
+            "payload": {"pluginId": "p1", "reason": "retry", "errorCode": "E1"},
+        },
+    )
+    assert text == "DSH|E1|p1|retry|{missing}"
+
+
+def test_render_template_supports_list_index_and_format_spec():
+    from pet.persona_phrases import render_template
+
+    text = render_template(
+        "{questions[0][label]}:{count:02d}",
+        {"questions": [{"label": "方案 A"}], "count": 3},
+    )
+    assert text == "方案 A:03"
+

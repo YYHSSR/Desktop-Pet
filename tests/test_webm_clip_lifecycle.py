@@ -147,3 +147,41 @@ def test_timer_is_precise_and_frame_interval_is_42ms():
 
     clip.cleanup()
     app.processEvents()
+
+
+class _RecordingSignal:
+    def __init__(self):
+        self.emit_count = 0
+
+    def emit(self):
+        self.emit_count += 1
+
+
+class _RecordingInvoker:
+    def __init__(self):
+        self.arm_requested = _RecordingSignal()
+
+
+def test_worker_thread_register_defers_timer_to_gui():
+    app = QApplication.instance() or QApplication([])
+    reg = webm_clip_module._OrphanClipRegistry()
+    reg._arm_invoker = _RecordingInvoker()
+
+    worker = threading.Thread(target=reg.register, args=(object(),))
+    worker.start()
+    worker.join(timeout=5)
+    assert not worker.is_alive()
+
+    assert reg._arm_invoker.arm_requested.emit_count == 1, \
+        "worker 线程 register 必须经编排信号请求 GUI 建 timer"
+    assert reg._timer is None, "worker 线程绝不就地创建 QTimer"
+
+    reg._arm_sweep_timer()
+    try:
+        assert reg._timer is not None
+        assert reg._timer.thread() is app.thread(), "timer 必须在 GUI 线程"
+        assert reg._timer.isActive(), "timer 必须在 GUI 线程启动"
+    finally:
+        if reg._timer is not None:
+            reg._timer.stop()
+

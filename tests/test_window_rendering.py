@@ -929,3 +929,34 @@ def test_rebuild_frame_invalidates_on_same_mtime_same_size_content_change(tmp_pa
     pet.movie = clip2
     pet.lib = _RebuildLibrary({"idle": clip2}, clip_paths={"idle": path})
     assert pet._frame_signature(0, 1.0) == sig_v1
+
+
+def test_rotated_region_bounds_zero_angle_returns_copy():
+    from PySide6.QtCore import QRect
+    from pet.window_effects import rotated_region_bounds
+
+    region = QRect(10, 20, 100, 40)
+    bounds = rotated_region_bounds(region, QRect(0, 0, 200, 200), 0.0)
+    assert bounds == region
+
+
+def test_rotated_region_bounds_90_degrees_swaps_dimensions():
+    from PySide6.QtCore import QRect
+    from pet.window_effects import rotated_region_bounds
+
+    pivot = QRect(0, 0, 200, 200)
+    bounds = rotated_region_bounds(QRect(50, 80, 100, 40), pivot, 90.0)
+    assert bounds.width() == 40
+    assert bounds.height() == 100
+
+
+def test_rotated_region_bounds_45_degrees_square_grows():
+    from PySide6.QtCore import QRect
+    from pet.window_effects import rotated_region_bounds
+
+    pivot = QRect(0, 0, 200, 200)
+    bounds = rotated_region_bounds(QRect(50, 50, 100, 100), pivot, 45.0)
+    expected = round(100 * 2 ** 0.5)
+    assert abs(bounds.width() - expected) <= 2
+    assert abs(bounds.height() - expected) <= 2
+

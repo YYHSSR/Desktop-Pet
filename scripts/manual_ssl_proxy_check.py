@@ -4,7 +4,7 @@
 - verify_ssl=True  -> 应报 SSL 证书错误且附带跳过的指引
 - verify_ssl=False -> 应能连接成功（勾选跳过 SSL 后可用）
 
-用法: python tests/manual_ssl_proxy_check.py
+用法: python scripts/manual_ssl_proxy_check.py
 """
 from __future__ import annotations
 

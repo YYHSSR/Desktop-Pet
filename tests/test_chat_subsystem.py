@@ -3377,3 +3377,41 @@ def test_system_notify_toggle_persists_on_save(tmp_path, monkeypatch):
     assert Config(tmp_path).get("system_notifications_enabled") is False, "拨动后的新值必须生效"
     page.close()
     app.processEvents()
+
+
+def test_safe_emit_delivers_on_live_object():
+    from PySide6.QtCore import QObject, Signal
+    from PySide6.QtWidgets import QApplication
+    from pet.chat.utils import _safe_emit
+
+    class _SafeEmitObj(QObject):
+        sig = Signal(bool, str)
+
+    _app = QApplication.instance() or QApplication([])
+    obj = _SafeEmitObj()
+    received: list = []
+    obj.sig.connect(lambda *a: received.append(a))
+    _safe_emit(obj, "sig", True, "ok")
+    assert received == [(True, "ok")]
+
+
+def test_safe_emit_on_deleted_object_is_silent():
+    from PySide6.QtCore import QCoreApplication, QEvent, QObject, Signal
+    from PySide6.QtWidgets import QApplication
+    import shiboken6
+    from pet.chat.utils import _safe_emit
+
+    class _SafeEmitObj(QObject):
+        sig = Signal(bool, str)
+
+    _app = QApplication.instance() or QApplication([])
+    obj = _SafeEmitObj()
+    received: list = []
+    obj.sig.connect(lambda *a: received.append(a))
+    obj.deleteLater()
+    QCoreApplication.sendPostedEvents(obj, QEvent.Type.DeferredDelete)
+    assert not shiboken6.isValid(obj)
+    _safe_emit(obj, "sig", True, "ok")
+    assert received == []
+
+

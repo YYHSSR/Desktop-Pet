@@ -1,3 +1,5 @@
+import pytest
+
 from pet.menu_layout import (
     load_default_menu_layout,
     materialize_implicit_separators,
@@ -2567,3 +2569,86 @@ def test_music_align_ready_and_callback_routing(monkeypatch):
     assert shared_mod._align_lyric(pet, "不存在的动作") is False
     ctrl.shutdown()
     app.processEvents()
+
+
+class _ToggleCfg:
+    def __init__(self, values: dict):
+        self._values = dict(values)
+
+    def get(self, key, default=None):
+        return self._values.get(key, default)
+
+
+class _TogglePet:
+    def __init__(self, values: dict | None = None, with_cfg: bool = True):
+        if with_cfg:
+            self.cfg = _ToggleCfg(values or {})
+        self.voice_calls = 0
+        self.festival_calls = 0
+
+    def on_toggle_voice_chime(self):
+        self.voice_calls += 1
+
+    def on_toggle_festival(self):
+        self.festival_calls += 1
+
+
+@pytest.mark.parametrize("action_id,key,caller,on_label,off_label", [
+    ("voice_chime_toggle", "voice_chime_enabled", "voice_calls",
+     "关闭语音报时", "启用语音报时"),
+    ("festival_toggle", "festival_reminder_enabled", "festival_calls",
+     "关闭节日提醒", "启用节日提醒"),
+])
+def test_flag_toggle_spec_flips_label_and_click_calls_back(
+        action_id, key, caller, on_label, off_label):
+    from PySide6.QtWidgets import QApplication, QMenu
+    from pet.context_menus import registry as registry_mod
+
+    app = QApplication.instance() or QApplication([])
+    spec = registry_mod.MENU_ACTIONS._specs[action_id]
+
+    pet = _TogglePet({key: False})
+    menu = QMenu()
+    action = spec.build(menu, pet)
+    assert action.text() == off_label
+    action.trigger()
+    assert getattr(pet, caller) == 1
+    menu.close()
+
+    pet = _TogglePet({key: True})
+    menu = QMenu()
+    action = spec.build(menu, pet)
+    assert action.text() == on_label
+    action.trigger()
+    assert getattr(pet, caller) == 1
+    menu.close()
+    app.processEvents()
+
+
+def test_flag_toggle_spec_tolerates_missing_config():
+    """无 cfg 的宿主（裸测试替身）按「关」渲染，不得抛异常。"""
+    from PySide6.QtWidgets import QApplication, QMenu
+    from pet.context_menus import registry as registry_mod
+
+    app = QApplication.instance() or QApplication([])
+    spec = registry_mod.MENU_ACTIONS._specs["voice_chime_toggle"]
+    pet = _TogglePet(with_cfg=False)
+    menu = QMenu()
+    action = spec.build(menu, pet)
+    assert action.text() == "启用语音报时"
+    action.trigger()
+    assert pet.voice_calls == 1
+    menu.close()
+    app.processEvents()
+
+
+def test_two_toggles_share_one_factory():
+    """两个开关必须由同一工厂产出（防回潮：各自再抄一份同构实现）。"""
+    from pet.context_menus import registry as registry_mod
+
+    for builder in (registry_mod._build_voice_chime_toggle,
+                    registry_mod._build_festival_toggle):
+        assert builder.__qualname__.startswith("_flag_toggle_spec.<locals>"), (
+            f"{builder.__qualname__} 必须来自 _flag_toggle_spec 工厂"
+        )
+

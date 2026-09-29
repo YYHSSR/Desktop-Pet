@@ -531,3 +531,68 @@ class TestPublisherAlive:
         assert hub.shareable_start("idle", sub) == "feed"
         assert hub._sources[PATH].publisher is pub
         assert sub._feed_source is not None
+
+
+def _consume_fanout_frames(clip, counter, cap: int, timeout: float = 20.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline and len(counter) < cap:
+        clip._poll()
+        time.sleep(0.005)
+
+
+def test_two_clips_share_single_decode():
+    import time
+    from pathlib import Path
+    from PySide6.QtWidgets import QApplication
+    from pet.decode_fanout import DecodeFanoutHub
+    from pet.webm_clip import WebMClip
+
+    sample_webm = Path("assets/characters/shenshen/videos/idle/待机呼吸休闲.webm")
+    if not sample_webm.exists():
+        pytest.skip(f"WebM sample file not found: {sample_webm}")
+
+    app = QApplication.instance() or QApplication([])
+    hub = DecodeFanoutHub(enabled=True)
+    pub = WebMClip(sample_webm)
+    sub = WebMClip(sample_webm)
+
+    assert hub.shareable_start("idle", pub) == "publish"
+    assert pub.start() is True
+    assert hub.shareable_start("idle", sub) == "feed"
+
+    source = hub._sources[str(sample_webm)]
+    assert source.publisher is pub
+    assert len(source.subscriptions) == 1
+    assert sub._feed_source is not None
+    assert pub._publish_sink is not None
+
+    pubs: list = []
+    subs: list = []
+    errors: list = []
+    pub.frameChanged.connect(pubs.append)
+    sub.frameChanged.connect(subs.append)
+    pub.errorOccurred.connect(errors.append)
+    sub.errorOccurred.connect(errors.append)
+    try:
+        assert sub.start() is True
+        assert sub._reader_proc is None, "订阅者不得拉起 ffmpeg（G-53-2 在库断言）"
+        _consume_fanout_frames(pub, pubs, cap=30)
+        _consume_fanout_frames(sub, subs, cap=30)
+        assert len(pubs) >= 30, f"发布者出帧不足: {len(pubs)} errors={errors}"
+        assert len(subs) >= 30, f"订阅者出帧不足: {len(subs)} errors={errors}"
+        assert all(subs[i] < subs[i + 1] for i in range(len(subs) - 1)), \
+            f"订阅者帧号乱序: {subs}"
+        assert errors == []
+        assert sub._reader_proc is None, "消费全程订阅者不得拉起 ffmpeg"
+        assert pubs and subs and subs[-1] > 0, "订阅者帧号应跟随共享源（非本地从 0 起）"
+    finally:
+        try:
+            pub.stop()
+            sub.stop()
+        except Exception:
+            pass
+        hub.stop_all()
+        pub.cleanup()
+        sub.cleanup()
+        app.processEvents()
+
