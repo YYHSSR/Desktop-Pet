@@ -169,7 +169,10 @@ def test_cold_cache_menu_build_never_scans_filesystem(monkeypatch):
 
     monkeypatch.setattr(music_players, "Path", _SpyPath)
 
-    menu = _build_full_menu(monkeypatch, _FakePet())
+    pet = _FakePet()
+    menu = _build_full_menu(monkeypatch, pet)
+    shared.add_music_open_netease(menu, pet)
+    shared.add_music_open_qqmusic(menu, pet)
     try:
         assert scans == [], "GUI 线程构建菜单时发生了播放器目录浅扫"
         assert searches == [], "GUI 线程构建菜单时调用了会扫描的搜索入口"

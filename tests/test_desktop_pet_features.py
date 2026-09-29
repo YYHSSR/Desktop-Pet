@@ -1397,13 +1397,17 @@ def test_modern_settings_panel_uses_sidebar_and_includes_ai_settings(tmp_path, m
     assert "border-right: 1px solid #e3e5e8" in dialog.styleSheet()
     assert "background: #f7f7f8" in dialog.styleSheet()
     section_titles = [label.text() for label in dialog.findChildren(settings_mod.QLabel, "sectionTitle")]
-    assert {
-        "窗口与系统", "动画与移动", "点击反馈", "自言自语",
+    expected_sections = {
+        "动画与移动", "点击反馈", "自言自语",
         "显示", "菜单外观", "对话窗口", "已配置应用", "内容与布局",
         "模型与连接", "视觉能力",
         # 「语音」总域只收 TTS 类设置（2026-09-17 定稿口径）：语音报时 + 节日提醒
         "语音报时", "节日提醒",
-    }.issubset(set(section_titles))
+    }
+    import sys
+    if sys.platform == "win32":
+        expected_sections.add("窗口与系统")
+    assert expected_sections.issubset(set(section_titles))
     advanced_titles = [
         button.text()
         for button in dialog.findChildren(

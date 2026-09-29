@@ -1950,8 +1950,13 @@ def test_menu_editor_retains_but_marks_platform_unavailable_action(tmp_path, mon
     if sys.platform == "win32":
         return
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    cfg = Config(tmp_path)
+    cfg.set("context_menu_layout", {
+        "schema_version": 1,
+        "layout_id": "test-platform",
+        "nodes": [{"type": "action", "id": "proactive_screen", "visible": True}],
+    })
+    dialog = ModernSettingsDialog(cfg, include_ai=True)
     item = dialog.menu_layout_editor.item_for_action("proactive_screen")
 
     assert item is not None

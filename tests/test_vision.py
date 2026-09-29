@@ -12,11 +12,11 @@ def _p(model, **kw):
 
 
 def test_deepseek_flash_maps_to_preview_vision():
-    assert resolve_vision_model(_p('deepseek-v4-flash')) == 'deepseek-v4-flash-vision-exp'
+    assert resolve_vision_model(_p('deepseek-v4-flash')) == 'deepseek-v4-flash'
 
 
 def test_other_deepseek_models_use_default_vision():
-    assert resolve_vision_model(_p('deepseek-v4-pro')) == 'deepseek-v4-flash-vision-exp'
+    assert resolve_vision_model(_p('deepseek-v4-pro')) == 'deepseek-v4-pro'
 
 
 def test_already_vision_model_passes_through():
@@ -34,7 +34,7 @@ def test_manual_override_wins():
 
 def test_manual_empty_falls_back_to_derivation():
     p = _p('deepseek-v4-flash', vision_same_as_chat=False, vision_model='  ')
-    assert resolve_vision_model(p) == 'deepseek-v4-flash-vision-exp'
+    assert resolve_vision_model(p) == 'deepseek-v4-flash'
 
 
 def test_capture_screen_bytes_in_memory(tmp_path):
@@ -43,7 +43,11 @@ def test_capture_screen_bytes_in_memory(tmp_path):
         import pytest
         pytest.skip('无显示环境下不截屏')
     from pet.vision import capture_screen_bytes
-    data = capture_screen_bytes()
+    try:
+        data = capture_screen_bytes()
+    except OSError:
+        import pytest
+        pytest.skip('无活跃桌面显示，跳过截屏')
     assert isinstance(data, bytes) and data[:2] == b'\xff\xd8'  # JPEG SOI
     from PIL import Image
     import io

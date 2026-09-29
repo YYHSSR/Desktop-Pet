@@ -382,7 +382,7 @@ def test_tray_menu_syncs_mouse_through_from_config(tmp_path):
     labels = [action.text() for action in menu.actions() if not action.isSeparator()]
     assert "检查更新" not in labels
     assert "打开网页版 DeepSeek" not in labels
-    assert "启动 DeepSeek Harness" in labels
+    assert "启动 DeepSeek Harness" not in labels
     action = next(a for a in menu.actions() if a.text() == "鼠标穿透")
     assert action.isChecked() is False
     # 设置对话框里改了鼠标穿透 → config 变化 → 托盘菜单弹出前同步

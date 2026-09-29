@@ -201,7 +201,10 @@ def test_launch_harness_no_browser_when_autostart(monkeypatch):
 
 def test_harness_autostart_hook_gates(monkeypatch):
     """AppShell._maybe_autostart_harness：配置关/无 Chat 不触发；已有实例不重复拉起。"""
+    import pytest
     from pet import app as app_mod
+    if not hasattr(app_mod.AppShell, "_maybe_autostart_harness"):
+        pytest.skip("DeepSeek Harness autostart has been retired in Pure Pet edition")
     from pet import harness_launcher as hl
 
     spawned = []

@@ -1404,11 +1404,11 @@ class ModernSettingsDialog(QDialog):
         在 show() 之前调用（_present_dialog 的 before_present），窗口首帧
         即落在最终位置，避免 Windows 上"先显示默认位置再跳走"的两段式。
         """
-        self._positioned_away = True
         parent = self.parentWidget()
         if parent is not None and parent.isVisible():
-            self._move_away_from(parent.geometry())
-            return
+            if self._move_away_from(parent.geometry()):
+                self._positioned_away = True
+                return
         if self.standalone:
             # 独立进程没有桌宠窗口：改读配置目录 runtime 状态文件取桌宠位置；
             # 读不到返回 None，保持默认位置（不许崩、也不许静默乱跳）。
@@ -1416,8 +1416,9 @@ class ModernSettingsDialog(QDialog):
 
             pet_geo = standalone_pet_geometry(self.config)
             if pet_geo is not None:
-                self._move_away_from(pet_geo)
-                return
+                if self._move_away_from(pet_geo):
+                    self._positioned_away = True
+                    return
         screen = self.screen() or QApplication.primaryScreen()
         if screen is not None:
             avail = screen.availableGeometry()
@@ -1435,7 +1436,7 @@ class ModernSettingsDialog(QDialog):
             self._initial_focus_assigned = True
             self.sidebar.setFocus(Qt.FocusReason.OtherFocusReason)
 
-    def _move_away_from(self, pet_geo: QRect) -> None:
+    def _move_away_from(self, pet_geo: QRect) -> bool:
         """首次显示时把窗口移到不与桌宠相交的位置（右侧优先，再左侧/下方/上方）"""
         size = self.size()
         screen = self.screen() or QApplication.primaryScreen()
@@ -1448,7 +1449,8 @@ class ModernSettingsDialog(QDialog):
         ):
             if avail.contains(rect):
                 self.move(rect.topLeft())
-                return
+                return True
+        return False
 
     def _page_shell(self, title: str, content: QWidget) -> QWidget:
         content_max_width = int(content.property("contentMaxWidth") or 960)
@@ -1541,6 +1543,8 @@ class ModernSettingsDialog(QDialog):
             "collision_impulse_cap",
             "collision_sound_volume",
         )
+        settings_music.create_music_player_controls(self)
+        music_rows = settings_music.build_music_player_rows(self)
         pet = page_content(
             [
                 ("显示", claim("scale", "bubble_text_scale", "pet_opacity")),
@@ -1549,6 +1553,7 @@ class ModernSettingsDialog(QDialog):
                 ("生小肥鱼", claim("spawn_inherit_size", "spawn_scale")),
                 ("多开碰撞", collision_primary),
                 ("碰撞参数（高级）", collision_advanced, True),
+                ("音乐关联", music_rows),
             ]
         )
         # 「互动」域（2026-09-22 分页）：整页在本模块构建（settings_interaction，

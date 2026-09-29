@@ -59,5 +59,13 @@ def build_file_interpret_page(dialog) -> QWidget | None:
 
 
 def save_file_interpret_settings(dialog) -> None:
-    """_write_config 委托：持久化强制设为禁用。"""
-    dialog.config.set("file_interpret", {"enabled": False, "progress_interval_seconds": 15.0})
+    """_write_config 委托：持久化保存（若存在控件则读取，否则默认禁用）。"""
+    interval = 15.0
+    if hasattr(dialog, "file_interpret_interval_spin"):
+        interval = float(dialog.file_interpret_interval_spin.value())
+    enabled = False
+    if hasattr(dialog, "file_interpret_enabled_check"):
+        enabled = bool(dialog.file_interpret_enabled_check.isChecked())
+    dialog.config.set("file_interpret", {"enabled": enabled, "progress_interval_seconds": interval})
+    dialog.config.save()
+

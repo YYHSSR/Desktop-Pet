@@ -364,7 +364,7 @@ def test_ai_settings_is_modeless_so_pet_can_still_move(tmp_path: Path):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    owner = AppShell(app, Config(tmp_path))
+    owner = AppShell(app, Config(tmp_path), enable_chat=True)
     # 设置对话框/气泡为每窗状态，经 AppShell 路由到唯一的 PetInstance（批5.1）
     owner.instance.open_chat_settings()
     dialog = owner.instance.chat_settings_dialog

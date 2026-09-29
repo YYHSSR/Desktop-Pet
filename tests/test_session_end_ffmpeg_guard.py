@@ -182,7 +182,7 @@ def test_control_group_spawns_normally_without_session_end(tmp_path, monkeypatch
 
     assert clip.start() is True
     assert spy.read_frames_calls, "正常运行期必须照常拉起 reader（对照组）"
-    clip._ensure_meta()
+    clip._ensure_meta(_from_warm=True)
     assert spy.count_calls, "正常运行期元数据探测照常（对照组）"
     clip.cleanup()
 
