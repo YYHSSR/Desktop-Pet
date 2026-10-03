@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import math
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Set
 
 # ---- 默认物理常量 ----
 DEFAULT_RESTITUTION: float = 0.82       # 默认恢复系数

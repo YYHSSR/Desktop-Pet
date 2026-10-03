@@ -128,4 +128,3 @@ def test_static_scene_sets_real_static_flag_only_on_wall():
     assert members[0].is_infinite_mass
     assert members[0].flags & collision.FLAG_STATIC
     assert all(not (member.flags & collision.FLAG_STATIC) for member in members[1:])
-

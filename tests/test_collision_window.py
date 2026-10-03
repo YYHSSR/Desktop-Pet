@@ -729,9 +729,8 @@ def test_collision_impulse_hit_threshold_and_position_clamp(tmp_path, app, monke
     """真实撞击才进入物理，并将分离位置限制在屏幕边界内。"""
     win, session = _make_pet_window(tmp_path, "pet_threshold")
     win.move(0, 0)
-    sounds = []
-    monkeypatch.setattr(win, "_start_squash", lambda: sounds.append("squash"))
-    monkeypatch.setattr(win, "_play_collision_sound", lambda: sounds.append("sound"))
+    hit_feedback = []
+    monkeypatch.setattr(win, "_start_squash", lambda: hit_feedback.append("squash"))
     win._move_plan = {"start_x": 0, "target_x": 20, "start_y": 0, "target_y": 20, "duration": 1.0}
     win._move_timer.start()
 
@@ -739,7 +738,7 @@ def test_collision_impulse_hit_threshold_and_position_clamp(tmp_path, app, monke
                                 "dvy_a": 0.0, "dx_a": 0.0, "dy_a": 0.0})
     app.processEvents()
     assert win._phys_vel == [0.0, 0.0]
-    assert sounds == []
+    assert hit_feedback == []
     assert win._move_plan is not None
 
     session.impulse_ready.emit({"a": "pet_threshold", "b": "pet_b", "dvx_a": 400.0,
@@ -749,33 +748,11 @@ def test_collision_impulse_hit_threshold_and_position_clamp(tmp_path, app, monke
     right, bottom = win._collision_clamp_pos(10**9, 10**9)
     assert left <= win.x() <= right
     assert top <= win.y() <= bottom
-    assert sounds == ["sound", "squash"]
+    assert hit_feedback == ["squash"]
     assert win._move_plan is None
     win.close()
 
 
-def test_collision_sound_cooldown_and_disabled(tmp_path, app, monkeypatch):
-    win, _ = _make_pet_window(tmp_path, "pet_sound")
-    sounds = []
-    monkeypatch.setattr("pet.window.play_press_sound", lambda pair, volume: sounds.append((pair, volume)))
-    monkeypatch.setattr("pet.window.play_sound", lambda path, volume: sounds.append((path, volume)))
-    win.collision_sound_volume = 0.42
-    monkeypatch.setattr("pet.window.resolve_click_sound_pair", lambda pack, data_dir=None: None)
-    times = iter((1.0, 1.1, 1.4))
-    monkeypatch.setattr("pet.window.time.monotonic", lambda: next(times))
-    win._play_collision_sound()
-    assert len(sounds) == 1
-    assert sounds[0][1] == pytest.approx(0.42)
-    win._play_collision_sound()
-    assert len(sounds) == 1
-    win._play_collision_sound()
-    assert len(sounds) == 2
-    assert sounds[1][1] == pytest.approx(0.42)
-    win.collision_sound_enabled = False
-    win._last_collision_sound_at = float("-inf")
-    win._play_collision_sound()
-    assert len(sounds) == 2
-    win.close()
 
 
 def _prediction_peer(win, runtime_id="pet_b", vx=0.0, flags=None):

@@ -472,7 +472,7 @@ def _shell_with_window(app, tmp_path, win):
     from pet.app import AppShell
     from pet.config import Config
 
-    shell = AppShell(app, Config(tmp_path), enable_chat=False)
+    shell = AppShell(app, Config(tmp_path),)
     shell._instances[0].win = win
     return shell
 
@@ -559,7 +559,7 @@ def test_app_shell_start_installs_session_watcher(app, tmp_path, monkeypatch):
         )
 
     monkeypatch.setattr(app_mod, "install_session_watcher", _fake_install)
-    shell = AppShell(app, Config(tmp_path), enable_chat=False)
+    shell = AppShell(app, Config(tmp_path),)
     try:
         shell._install_session_watcher()
         shell._install_session_watcher()  # 幂等：不重复安装

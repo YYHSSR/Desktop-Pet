@@ -1,6 +1,6 @@
 # 验收测试文件清单
 
-仓库中不存在 `tests/test_modern_settings_dialog.py` 和 `tests/test_dsh_pet_bridge.py`。检查 Git 历史（包括所有本地及远程引用）后，未发现这两个路径曾被提交、重命名或拆分后保留原文件名。因此验收不创建同名空文件，而按实际测试边界执行下列文件。
+验收按当前测试文件的实际边界执行；旧插件桥接及其 Node 测试已退役。
 
 ## 设置窗口验收
 
@@ -24,28 +24,17 @@ python -m pytest -q `
   tests/test_settings_event_gating.py
 ```
 
-## DSH Bridge 验收
+## ChatGPT Work/Codex 联动验收
 
-Bridge 验收采用真实插件源码上的 Node contract 测试，并结合桌宠端真实事件解析/状态处理测试：
-
-- `tests/test_bridge_root_control.js`：读取并检查实际的 `integrations/dsh-pet-bridge/index.js`，验证控制结果与未知会话行为（子代理归一到根会话）；
-- `tests/test_bridge_interaction_dedup.js`：验证审批/问题写盘去重的身份字段（降级键必须带 sessionId）；
-- `tests/test_bridge_question_callid.js`：mux question 帧的 callId 构造（按会话反查、帧自带优先）；
-- `tests/test_bridge_user_action_guard.js`：tool/result 兜底只走 resolveQuestion，不再写恒不可达的 user_action；
-- `tests/test_bridge_manifest.js`：插件可独立加载（inject 契约）+ 清单零依赖红线；
-- `integrations/dsh-pet-bridge/verify_import.mjs`：hermetic 零依赖冒烟（无 node_modules 隔离目录 import + envelope 形状 + 动态 import/require 禁令）；
-- `tests/test_agent_link.py`：真实 `AgentLinkManager`、tailer、事件映射、请求生命周期和交互队列；
-- `tests/test_dsh_state.py`：真实 DSH JSONL 状态读取与状态转换。
-
-验收命令：
+验证本机 rollout 的会话身份、增量读取、并发聚合、等待输入、启停和桌面端启动：
 
 ```powershell
-node --check integrations/dsh-pet-bridge/index.js
-node --test tests/test_bridge_hardfailure.js tests/test_bridge_interaction_dedup.js tests/test_bridge_manifest.js tests/test_bridge_question_callid.js tests/test_bridge_retry.js tests/test_bridge_root_control.js tests/test_bridge_user_action_guard.js
-node integrations/dsh-pet-bridge/verify_import.mjs
 $env:QT_QPA_PLATFORM = "offscreen"
-python -m pytest -q tests/test_agent_link.py tests/test_dsh_state.py
+python -m pytest -q tests/test_chatgpt_desktop.py tests/test_codex_monitor.py tests/test_cursor_monitor.py tests/test_agent_multi_session.py tests/test_agent_link.py tests/test_agent_link_threads.py
 ```
+
+2026-10-03 的完整验证与已知基线失败见
+[`PR-REPORT-CHATGPT-LINK-2026-10-03.md`](PR-REPORT-CHATGPT-LINK-2026-10-03.md)。
 
 ## Qt 生命周期与最终全量验收
 
@@ -58,7 +47,7 @@ python -m pytest -q -k "not decode_fanout"
 python -m pytest -q tests/test_decode_fanout.py tests/test_decode_fanout_integration.py
 ```
 
-第一步应先完整结束且无 native abort；第二步只能在第一步通过后运行。本轮实测结果：
+第一步应先完整结束且无 native abort；第二步只能在第一步通过后运行。下列数字为历史基线，当前结果见上方交付报告：
 
 - 主套件：`1895 passed, 8 skipped, 2 deselected`（2 deselected = 本机两个已知环境假红：高刷屏 drag 节流钟差、collision 真时钟竞态）；
 - 解码扇出族（原跨进程 shm broker 已被进程内 fan-out 取代）：`29 passed`。

@@ -264,4 +264,3 @@ def test_collects_recursive_imports_and_replaces_stale_bytes(tmp_path, monkeypat
     assert manifest["provider"] == "conda" and manifest["applicable"] is True
     (internal / "conda-runtime-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     assert candidate.load_runtime_manifest(tmp_path / "bundle", tmp_path / "conda") == manifest
-

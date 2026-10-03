@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Agent Exploration Loop Watchdog.
 
-This module deliberately consumes the normalized DSH event stream instead of
+This module deliberately consumes the normalized agent event stream instead of
 counting raw tool calls.  A step is the unit of agency: parallel calls in one
 step are merged, while sessions remain isolated.
 """
@@ -59,7 +59,6 @@ _COMMAND_SEMANTIC_ENTRY = re.compile(
     r"type|cat|head|tail|pwd|ls|dir|cd|tree|stat|which|realpath)\b",
     re.I,
 )
-_CONTROL_QUEUE_WORDS = re.compile(r"dsh-pet-bridge[\\/]watchdog-(?:request|response)-|watchdog-(?:request|response)-[^\s]*\.json", re.I)
 
 
 def _text(value, limit=240) -> str:
@@ -123,8 +122,6 @@ def classify_event(record: dict) -> WatchdogClass:
     event = _text(record.get("event")).lower()
     tool = _text(record.get("tool") or record.get("toolName") or record.get("name"))
     text = f"{tool} {_text(record.get('argsKey'))} {_target(record, tool)}"
-    if _CONTROL_QUEUE_WORDS.search(text):
-        return WatchdogClass.RUN
     command_word = _target(record, tool).split(None, 1)[0].lower() if _target(record, tool) else ""
     if "reasoning" in event or "think" in event or _THINK_WORDS.search(tool):
         return WatchdogClass.THINK
@@ -551,7 +548,7 @@ class ExplorationWatchdog(QObject):
         for index, item in enumerate(completed):
             if not item.think_fingerprints:
                 continue
-            # A reasoning event can occupy its own DSH step.  Associate the
+            # A reasoning event can occupy its own agent step.  Associate the
             # following non-Think steps with it until the next reasoning step,
             # so Think→Read is one cycle rather than a false Think-only cycle.
             segment = [item]
@@ -655,5 +652,3 @@ class ExplorationWatchdog(QObject):
 
     def _emit_decision(self, session, payload):
         self.warning.emit(session, payload)
-
-

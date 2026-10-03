@@ -29,8 +29,6 @@ import pet.app as app_mod
 import pet.slot_manager as slot_manager_mod
 from pet import catalog
 from pet.app import AppShell, PetInstance, _read_spawn_offset_env
-from pet.chat import session_store as session_store_mod
-from pet.chat.session_store import SessionStore
 from pet.collision_ipc import CollisionIpcSession
 from pet.config import APP_DIR_NAME, Config
 from pet.window import PetWindow
@@ -124,7 +122,7 @@ def _make_primary_with_slot(tmp_path):
     config.save()
     slot_id, slot_handle = slot_manager_mod.acquire_pet_slot(
         config.dir, preferred_slot=0)
-    shell = AppShell(QApplication.instance(), config, enable_chat=True,
+    shell = AppShell(QApplication.instance(), config,
                      slot_handle=slot_handle, slot_id=slot_id)
     return shell, config, slot_handle
 
@@ -138,59 +136,6 @@ def _stop_sessions(*insts):
             pass
 
 
-def test_spawn_in_process_creates_isolated_second_window(tmp_path, app, monkeypatch):
-    """flag 开时进程内 spawn 生成第二个实例：窗身份/Config/SessionStore 隔离。"""
-    shell, config, primary_handle = _make_primary_with_slot(tmp_path)
-
-    built = []
-
-    def fake_build_window(self, character_id, lib=None, build_tray=True):
-        win = _FakeWindow()
-        win.cfg = self.config
-        win._single_process_spawn = self.shell._single_process_spawn
-        self.win = win
-        built.append((self.slot_id, build_tray))
-        return win
-
-    monkeypatch.setattr(app_mod.PetInstance, "_build_window", fake_build_window)
-    monkeypatch.setattr(
-        app_mod.PetInstance, "_apply_spawn_offset", lambda self: None)
-    monkeypatch.setattr(
-        app_mod.PetInstance, "_check_autostart_wanted", lambda self: None)
-
-    primary = shell.instance
-    assert len(shell.instances) == 1
-    assert primary.slot_id == 0
-
-    second = shell.spawn_in_process_window(1)
-
-    assert len(shell.instances) == 2
-    assert second is not primary
-    # 窗身份 / slot 分配
-    assert second.slot_id == 1
-    assert second.config.instance_id == "slot-1"
-    # Config 隔离（不同配置文件）
-    assert second.config.path != primary.config.path
-    # SessionStore 目录隔离
-    root_primary = SessionStore(primary.config.dir, primary.config.instance_id).root
-    root_second = SessionStore(second.config.dir, second.config.instance_id).root
-    assert root_second != root_primary
-    # 窗身份：second 拥有独立窗口
-    assert second.win is not None and second.win is not primary.win
-    # spawn 路径不新建/替换进程级托盘
-    assert built[-1][1] is False
-    # slot 锁句柄独立
-    assert second.slot_handle is not None
-    assert second.slot_handle is not primary.slot_handle
-    # P1-2：第二窗标记版本化读进程级快照（flag 开 = versioned）
-    assert second.win._single_process_spawn is True
-
-    # 释放：停本测试启动的 second 会话 + 解锁两把锁
-    _stop_sessions(second)
-    second.win.close()
-    slot_manager_mod._unlock_file(second.slot_handle)
-    second.slot_handle = None
-    slot_manager_mod._unlock_file(primary_handle)
 
 
 
@@ -238,7 +183,7 @@ def test_spawn_flag_off_keeps_process_launcher(tmp_path, app, monkeypatch):
     config = Config(tmp_path)
     config.set("experimental_single_process_spawn", False)
     config.save()
-    shell = AppShell(QApplication.instance(), config, enable_chat=True)
+    shell = AppShell(QApplication.instance(), config,)
 
     launched = []
     monkeypatch.setattr(app_mod, "launch_new_pet", lambda index: launched.append(index))
@@ -248,80 +193,6 @@ def test_spawn_flag_off_keeps_process_launcher(tmp_path, app, monkeypatch):
     assert len(shell.instances) == 1
 
 
-def test_exit_window_cleans_window_resources_only(tmp_path, app, monkeypatch):
-    """「退出这只」：只收口本窗（位置/prewarm/agent/本窗 writer/slot/标记/
-    本窗碰撞会话与 broker），不碰其它窗的进程级资源。"""
-    shell, config, primary_handle = _make_primary_with_slot(tmp_path)
-
-    # 预备第二个实例（主窗仍留在集合里：本测试验证"非最后一窗"的窗级退出）
-    slot_id, slot_handle = slot_manager_mod.acquire_pet_slot(
-        config.dir, preferred_slot=1)
-    instance_id = slot_manager_mod.slot_to_instance_id(slot_id)
-    sec_config = Config(base=tmp_path, instance_id=instance_id)
-    sec = PetInstance(
-        shell, sec_config, enable_chat=True, slot_handle=slot_handle, slot_id=slot_id)
-    win = _FakeWindow()
-    win.cfg = sec_config
-    win._single_process_spawn = shell._single_process_spawn  # True（P1-2）
-    sec.win = win
-    shell._instances.append(sec)
-
-    # 预写本窗 runtime 标记（退出这只应删掉它）
-    marker = slot_manager_mod.runtime_marker_path(
-        config.dir, instance_id, versioned=True)
-    marker.write_text(
-        json.dumps({"pid": os.getpid(), "x": 0, "y": 0, "w": 100, "h": 100}),
-        encoding="utf-8")
-
-    # 对本窗 session writer 打点（close_writer_for_root 应被调用）
-    sec_root = SessionStore(sec_config.dir, sec_config.instance_id).root
-    closed_roots = []
-    monkeypatch.setattr(
-        session_store_mod, "close_writer_for_root",
-        lambda root, timeout=10.0: closed_roots.append(str(root)) or True)
-
-    # 进程级资源打点：本窗碰撞会话应停；共享解码 hub（进程级）绝不被单窗退出
-    # 拆除（各窗共用；真收口只在全部退出的 stop_all）。主窗（其它窗）的会话/资源
-    # 绝不应被动。
-    sec_ipc_stop = []
-    primary_ipc_stop = []
-    permanent_calls = []
-    monkeypatch.setattr(sec.collision_ipc, "stop", lambda: sec_ipc_stop.append(1))
-    monkeypatch.setattr(shell.instance.collision_ipc, "stop",
-                        lambda: primary_ipc_stop.append(1))
-    monkeypatch.setattr(
-        session_store_mod, "close_all_writers",
-        lambda timeout=10.0, permanent=False: permanent_calls.append(permanent) or True)
-
-    # 批5.3：各窗共用同一进程级 hub（共享解码），单窗退出绝不拆它——先在此
-    # 建一个共享源，退出后仍应存活（hub 不因单窗退出而清空）。
-    hub = shell._decode_hub
-    pub_movie = _FanoutMovie(str(tmp_path / "idle.webm"))
-    assert hub is sec.broker_facade is shell.instance.broker_facade, \
-        "批5.3：broker_facade 已是进程级共享 hub"
-    assert hub.shareable_start("idle", pub_movie) == "publish"
-    assert hub._sources, "共享源已建立（发布者）"
-
-    assert len(shell.instances) == 2
-    shell._on_window_exit_requested(sec)
-
-    # 窗级收口顺序：save → 删标记 → close
-    assert win.calls == ["save", "marker_del", "close"]
-    assert win.lib is not None
-    assert win.agent_link_manager.shutdown_calls == 1
-    assert not marker.exists(), "「退出这只」应删除本窗 runtime 标记"
-    assert sec.slot_handle is None, "「退出这只」应释放本窗 slot 锁"
-    assert closed_roots == [str(sec_root)], "只关本窗 sessions-slot-N 的 writer"
-    # 本窗碰撞会话被停；主窗（其它窗）的未被动
-    assert sec_ipc_stop == [1]
-    assert primary_ipc_stop == []
-    assert permanent_calls == []
-    # 共享解码 hub 不被单窗退出拆除（进程级：各窗共用，真收口仅在全部退出）
-    assert hub._sources, "单窗退出不得清空共享解码 hub 的源表"
-    # 主窗仍在（非最后一窗不触全进程退出）
-    assert len(shell.instances) == 1
-
-    slot_manager_mod._unlock_file(primary_handle)
 
 
 def _alive_pid() -> int:
@@ -333,7 +204,7 @@ def test_switch_character_rebuilds_own_session_and_broker(tmp_path, app, monkeyp
     """C2 地雷随「不再共享」消解：热切换只重建本窗自持的 collision_ipc /
     broker_facade（旧会话被停、新会话被 start、对象 id 变化），不碰其它窗。"""
     config = Config(tmp_path)
-    shell = AppShell(QApplication.instance(), config, enable_chat=True)
+    shell = AppShell(QApplication.instance(), config,)
 
     monkeypatch.setattr(
         app_mod.PetInstance, "_create_library", lambda self, cid: _FakeLib())
@@ -353,7 +224,7 @@ def test_switch_character_rebuilds_own_session_and_broker(tmp_path, app, monkeyp
     shell.instance.win = win0
 
     # 第二个窗（独立会话/资源）：其 collision_ipc/broker 不应被 touch
-    sec = PetInstance(shell, Config(tmp_path, instance_id="slot-1"), enable_chat=True)
+    sec = PetInstance(shell, Config(tmp_path, instance_id="slot-1"),)
     sec_win = _FakeWindow()
     sec_win.cfg = sec.config
     sec.win = sec_win
@@ -445,127 +316,16 @@ def test_spawn_offset_env_wired_to_primary_instance(tmp_path, app, monkeypatch):
     # env → AppShell(spawn_offset=...) → PetInstance._spawn_offset
     offset = _read_spawn_offset_env()
     config = Config(tmp_path)
-    shell = AppShell(QApplication.instance(), config, enable_chat=True,
+    shell = AppShell(QApplication.instance(), config,
                      spawn_offset=offset)
     assert shell.instance._spawn_offset == 0  # 无 env 时默认 0
-    shell2 = AppShell(QApplication.instance(), Config(tmp_path), enable_chat=True,
+    shell2 = AppShell(QApplication.instance(), Config(tmp_path),
                       spawn_offset=5)
     assert shell2.instance._spawn_offset == 5
 
 
-def test_exit_primary_promotes_primary_window(tmp_path, app, monkeypatch):
-    """P1-3：「退出这只」退主窗后实例提升——托盘/灵动岛/Dock 动作指向存活实例。"""
-    shell, config, primary_handle = _make_primary_with_slot(tmp_path)
-    primary = shell.instance
-    primary.win = _FakeWindow()
-    primary.win.cfg = config
-    primary.win._single_process_spawn = True
-
-    # 第二个实例即将成为新主窗
-    slot_id, slot_handle = slot_manager_mod.acquire_pet_slot(config.dir, preferred_slot=1)
-    sec = PetInstance(shell, Config(base=tmp_path, instance_id="slot-1"),
-                      enable_chat=True, slot_handle=slot_handle, slot_id=slot_id)
-    sec_win = _FakeWindow()
-    sec_win.cfg = sec.config
-    sec_win._single_process_spawn = True
-    sec.win = sec_win
-    shell._instances.append(sec)
-
-    monkeypatch.setattr(session_store_mod, "close_writer_for_root",
-                        lambda root, timeout=10.0: True)
-    monkeypatch.setattr(shell.instance.collision_ipc, "stop", lambda: None)
-    monkeypatch.setattr(shell.instance.broker_facade, "shutdown", lambda: None)
-    monkeypatch.setattr(sec.collision_ipc, "stop", lambda: None)
-    monkeypatch.setattr(sec.broker_facade, "shutdown", lambda: None)
-
-    assert shell.instance is primary
-    shell._on_window_exit_requested(shell.instance)
-
-    # 主窗退出后：新列表头（sec）成为主窗，self.instance 更新为存活实例
-    assert len(shell.instances) == 1
-    assert shell.instance is sec
-    assert shell.instance is shell.instances[0]
-    assert shell._instances[0].win is sec_win
-    assert shell.instance.win is sec_win
-
-    # 收口：释放 sec 持有的 slot-1 锁（主窗锁已在退出处理器中解锁）
-    slot_manager_mod._unlock_file(sec.slot_handle)
-    sec.slot_handle = None
 
 
-def test_exit_window_closes_subwindows(tmp_path, app, monkeypatch):
-    """P1-5：「退出这只」关闭该窗从属聊天窗/设置窗并断开引用（防 writer 复活）。"""
-    shell, config, primary_handle = _make_primary_with_slot(tmp_path)
-    shell.instance.win = _FakeWindow()
-    shell.instance.win.cfg = config
-    shell.instance.win._single_process_spawn = True
-
-    saves = []
-
-    class _Store:
-        def save(self, session):
-            saves.append(session)
-
-    class _Subwindow:
-        def __init__(self):
-            self.store = _Store()
-            self.session = object()
-            self.deleted = False
-
-        def close(self):
-            closed.append(self)
-
-        def deleteLater(self):
-            self.deleted = True
-
-    sub_legacy = _Subwindow()
-    sub_modern = _Subwindow()
-    sub_quick = _Subwindow()
-    sub_settings = _Subwindow()
-    sub_mod_settings = _Subwindow()
-    shell.instance.legacy_chat_window = sub_legacy
-    shell.instance.modern_chat_window = sub_modern
-    shell.instance.quick_chat = sub_quick
-    shell.instance.chat_settings_dialog = sub_settings
-    shell.instance.modern_settings_dialog = sub_mod_settings
-    shell.instance.chat_window = sub_legacy
-    closed = []
-
-    # 预备第二个实例（让退出主窗不是最后一窗，避免触发 app.quit）
-    slot_id, slot_handle = slot_manager_mod.acquire_pet_slot(config.dir, preferred_slot=1)
-    sec = PetInstance(shell, Config(base=tmp_path, instance_id="slot-1"),
-                      enable_chat=True, slot_handle=slot_handle, slot_id=slot_id)
-    sec_win = _FakeWindow()
-    sec_win.cfg = sec.config
-    sec_win._single_process_spawn = True
-    sec.win = sec_win
-    shell._instances.append(sec)
-
-    monkeypatch.setattr(session_store_mod, "close_writer_for_root",
-                        lambda root, timeout=10.0: True)
-    monkeypatch.setattr(shell.instance.collision_ipc, "stop", lambda: None)
-    monkeypatch.setattr(shell.instance.broker_facade, "shutdown", lambda: None)
-    monkeypatch.setattr(sec.collision_ipc, "stop", lambda: None)
-    monkeypatch.setattr(sec.broker_facade, "shutdown", lambda: None)
-
-    shell._on_window_exit_requested(shell.instance)
-
-    # 从属窗全部被 close + deleteLater 调度
-    assert set(closed) == {sub_legacy, sub_modern, sub_quick, sub_settings, sub_mod_settings}
-    # 三聊天窗 live session 被保存（P0-2）
-    assert len(saves) == 3
-    # 实例引用被清空（P1-5 防止 writer 复活的关键——窗口被解除持有/复用）
-    assert shell.instance.legacy_chat_window is None
-    assert shell.instance.modern_chat_window is None
-    assert shell.instance.quick_chat is None
-    assert shell.instance.chat_settings_dialog is None
-    assert shell.instance.modern_settings_dialog is None
-    assert shell.instance.chat_window is None
-    # 主窗提升为 sec，未触发 app.quit（第二窗仍在）
-    assert shell.instance is sec
-
-    slot_manager_mod._unlock_file(sec.slot_handle)
-    sec.slot_handle = None
 
 
 def test_exit_flag_off_does_not_inject_on_exit_window(tmp_path, app, monkeypatch):
@@ -574,7 +334,7 @@ def test_exit_flag_off_does_not_inject_on_exit_window(tmp_path, app, monkeypatch
     config = Config(tmp_path)
     config.set("experimental_single_process_spawn", False)
     config.save()
-    shell = AppShell(QApplication.instance(), config, enable_chat=True)
+    shell = AppShell(QApplication.instance(), config,)
     inst = shell.instance
     win = _FakeWindow()
     win.cfg = config
@@ -597,7 +357,7 @@ def test_exit_flag_on_injects_on_exit_window(tmp_path, app, monkeypatch):
     config = Config(tmp_path)
     config.set("experimental_single_process_spawn", True)
     config.save()
-    shell = AppShell(QApplication.instance(), config, enable_chat=True)
+    shell = AppShell(QApplication.instance(), config,)
     inst = shell.instance
     win = _FakeWindow()
     win.cfg = config
@@ -621,76 +381,12 @@ def test_exit_flag_on_injects_on_exit_window(tmp_path, app, monkeypatch):
 # --------------------------------------------------------------------------
 # P1-7 / T-3：close_root per-root 屏障
 # --------------------------------------------------------------------------
-def _make_session_store_pairs(tmp_path):
-    store_a = SessionStore(tmp_path, "slot-1")
-    store_b = SessionStore(tmp_path, "slot-2")
-    return store_a, store_b
 
 
-def _create_sessions(store):
-    from pet.chat.models import ChatSession
-    session = store.create("char", "provider", "prompt")
-    return session
 
 
-def test_close_root_closes_only_target_writer(tmp_path, app):
-    """T-3：close_root 只关闭目标 root 的 writer，其它窗 writer 保持可用。"""
-    store_a, store_b = _make_session_store_pairs(tmp_path)
-    sa = _create_sessions(store_a)
-    sb = _create_sessions(store_b)
-    assert store_a.save(sa) is True
-    assert store_b.save(sb) is True
-    root_a = store_a.root
-    root_b = store_b.root
-    assert session_store_mod._registry.get_writer(root_a) is not None
-    assert session_store_mod._registry.get_writer(root_b) is not None
-
-    assert session_store_mod.close_writer_for_root(root_a) is True
-    assert session_store_mod._registry.get_writer(root_a) is None
-    # B 窗 writer 不受影响、仍可写
-    assert session_store_mod._registry.get_writer(root_b) is not None
-    assert store_b.save(sb) is True
 
 
-def test_close_root_per_root_barrier_does_not_reject_other_window(tmp_path, app, monkeypatch):
-    """P1-7：关 A 窗 writer 期间 B 窗 save 不被拒（per-root 屏障取代全局 _closing）。"""
-    store_a, store_b = _make_session_store_pairs(tmp_path)
-    sa = _create_sessions(store_a)
-    sb = _create_sessions(store_b)
-    assert store_a.save(sa) is True
-    assert store_b.save(sb) is True
-    root_a = store_a.root
-
-    writer_a = session_store_mod._registry.get_writer(root_a)
-    writer_b = session_store_mod._registry.get_writer(store_b.root)
-    assert writer_a is not None and writer_b is not None
-
-    entered = threading.Event()
-    release = threading.Event()
-    orig_close = writer_a.close
-
-    def blocking_close(timeout=10.0):
-        entered.set()
-        release.wait(5.0)
-        return orig_close(timeout=timeout)
-
-    monkeypatch.setattr(writer_a, "close", blocking_close)
-
-    result = {}
-
-    def do_close():
-        result["ok"] = session_store_mod.close_writer_for_root(root_a)
-
-    t = threading.Thread(target=do_close)
-    t.start()
-    assert entered.wait(5.0), "close_root(A) 应已进入且阻塞"
-    try:
-        # A 窗 writer 关闭窗口期内，B 窗 save 不被拒（per-root 屏障）
-        assert store_b.save(sb) is True, "关 A 窗 writer 期间 B 窗 save 不应被拒"
-    finally:
-        release.set()
-        t.join(5.0)
-    assert result["ok"] is True
 
 
 # --------------------------------------------------------------------------
@@ -768,20 +464,6 @@ def test_spawn_in_process_slot_scan_cap_raises(tmp_path, app, monkeypatch):
     slot_manager_mod._unlock_file(primary_handle)
 
 
-def test_enable_chat_setter_does_not_write_shell(tmp_path, app):
-    """P2-4：PetInstance.enable_chat setter 不得改写进程级 shell（只读转发）。"""
-    shell = AppShell(QApplication.instance(), Config(tmp_path), enable_chat=True)
-    inst = shell.instance
-    # setter 只缓存无 shell 兜底，不改写进程级权威源
-    inst.enable_chat = False
-    assert shell.enable_chat is True, "PetInstance setter 不得改写进程级 shell"
-    assert inst.enable_chat is True, "getter 仍读 shell 权威值（只读转发）"
-
-    # 无 shell（__new__ 测试桩）：setter 缓存值作兜底
-    bare = PetInstance.__new__(PetInstance)
-    bare._enable_chat = True
-    bare.enable_chat = False
-    assert bare.enable_chat is False
 
 
 def test_in_process_spawn_shares_process_hub(tmp_path, app, monkeypatch):
@@ -794,7 +476,7 @@ def test_in_process_spawn_shares_process_hub(tmp_path, app, monkeypatch):
     config.set("experimental_shared_decode", True)
     config.save()
     slot_id, slot_handle = slot_manager_mod.acquire_pet_slot(config.dir, preferred_slot=0)
-    shell = AppShell(QApplication.instance(), config, enable_chat=True,
+    shell = AppShell(QApplication.instance(), config,
                      slot_handle=slot_handle, slot_id=slot_id)
     # 双门开 → 进程级 hub 启用
     assert shell._decode_hub.enabled is True
@@ -830,7 +512,7 @@ def test_in_process_spawn_hub_disabled_when_shared_decode_off(tmp_path, app, mon
     config.set("experimental_shared_decode", False)
     config.save()
     slot_id, slot_handle = slot_manager_mod.acquire_pet_slot(config.dir, preferred_slot=0)
-    shell = AppShell(QApplication.instance(), config, enable_chat=True,
+    shell = AppShell(QApplication.instance(), config,
                      slot_handle=slot_handle, slot_id=slot_id)
     assert shell._decode_hub.enabled is False
     assert shell.instance.broker_facade.enabled is False
@@ -949,7 +631,7 @@ def test_switch_character_new_window_gets_new_session(tmp_path, app, monkeypatch
     """T-6 补全（attach 半边）：热切换先重建本窗会话再建窗——_build_window
     执行时 self.collision_ipc 必须已是新会话（PetWindow 构造期 attach 它）。"""
     config = Config(tmp_path)
-    shell = AppShell(QApplication.instance(), config, enable_chat=True)
+    shell = AppShell(QApplication.instance(), config,)
     monkeypatch.setattr(
         app_mod.PetInstance, "_create_library", lambda self, cid: _FakeLib())
 
@@ -983,7 +665,7 @@ def test_switch_character_new_window_gets_new_session(tmp_path, app, monkeypatch
 def test_non_primary_switch_builds_no_tray(tmp_path, app, monkeypatch):
     """T-6 补全（托盘半边）：非主窗热切换 build_tray=False，绝不动共享托盘。"""
     config = Config(tmp_path)
-    shell = AppShell(QApplication.instance(), config, enable_chat=True)
+    shell = AppShell(QApplication.instance(), config,)
     monkeypatch.setattr(
         app_mod.PetInstance, "_create_library", lambda self, cid: _FakeLib())
 
@@ -1001,8 +683,7 @@ def test_non_primary_switch_builds_no_tray(tmp_path, app, monkeypatch):
     primary_win = _FakeWindow()
     primary_win.cfg = config
     shell.instance.win = primary_win
-    sec = PetInstance(shell, Config(tmp_path, instance_id="slot-1"),
-                      enable_chat=True)
+    sec = PetInstance(shell, Config(tmp_path, instance_id="slot-1"),)
     sec_win = _FakeWindow()
     sec_win.cfg = sec.config
     sec.win = sec_win
@@ -1024,7 +705,7 @@ def test_seed_slot_config_follows_main_settings(tmp_path):
     """新 slot 首次多开：配置跟随主设置（剔除每窗状态键，落种含 user_customized=False）。"""
     config_dir = tmp_path / "cfg"
     config_dir.mkdir()
-    main_cfg = {"character": "shenshen", "click_sound_enabled": False,
+    main_cfg = {"character": "shenshen", "no_move": False,
                 "rx": 0.5, "ry": 0.9, "screen_name": "X", "facing": "left"}
     (config_dir / "config.json").write_text(
         json.dumps(main_cfg), encoding="utf-8")
@@ -1032,7 +713,7 @@ def test_seed_slot_config_follows_main_settings(tmp_path):
     assert slot_manager_mod.seed_slot_config_from_main(config_dir, 2) is True
     seeded = json.loads(
         (config_dir / "config-slot-2.json").read_text(encoding="utf-8"))
-    assert seeded["click_sound_enabled"] is False  # 跟随主设置
+    assert seeded["no_move"] is False  # 跟随主设置
     assert seeded["character"] == "shenshen"
     assert seeded.get("user_customized") is False  # 落种默认不置位
     for k in ("rx", "ry", "screen_name", "facing"):
@@ -1209,8 +890,7 @@ def test_clear_spawned_pets_closes_in_process_children_no_residue(
     # 第二个实例（进程内子窗，同 pid=主进程）
     slot_id, slot_handle = slot_manager_mod.acquire_pet_slot(
         config.dir, preferred_slot=1)
-    sec = PetInstance(shell, Config(base=tmp_path, instance_id="slot-1"),
-                      enable_chat=True, slot_handle=slot_handle, slot_id=slot_id)
+    sec = PetInstance(shell, Config(base=tmp_path, instance_id="slot-1"), slot_handle=slot_handle, slot_id=slot_id)
     sec_win = _FakeWindow()
     sec_win.cfg = sec.config
     sec_win._single_process_spawn = True
@@ -1266,7 +946,7 @@ def test_clear_spawned_pets_multi_process_flag_off_no_in_process_children(
     config = Config(tmp_path)
     config.set("experimental_single_process_spawn", False)
     config.save()
-    shell = AppShell(QApplication.instance(), config, enable_chat=True)
+    shell = AppShell(QApplication.instance(), config,)
 
     primary_win = _FakeWindow()
     primary_win.cfg = config
@@ -1322,8 +1002,7 @@ def _add_child_instance(shell, tmp_path, config, preferred_slot, monkeypatch):
     """建一个进程内子窗实例（fake window + 会话打桩），返回 (inst, win)。"""
     slot_id, handle = slot_manager_mod.acquire_pet_slot(
         config.dir, preferred_slot=preferred_slot)
-    inst = PetInstance(shell, Config(base=tmp_path, instance_id=f"slot-{slot_id}"),
-                       enable_chat=True, slot_handle=handle, slot_id=slot_id)
+    inst = PetInstance(shell, Config(base=tmp_path, instance_id=f"slot-{slot_id}"), slot_handle=handle, slot_id=slot_id)
     win = _FakeWindow()
     win.cfg = inst.config
     win._single_process_spawn = True
@@ -1438,7 +1117,6 @@ def test_clear_spawned_pets_defers_heavy_teardown_to_reaper_thread(
     """批 G：链式「退出子肥鱼」把每窗的重资源回收（writer 关闭 / agent
     shutdown / 碰撞会话停止——各有界阻塞秒级）挪到进程级 reaper 线程执行；
     UI 线程只保留关窗/摘标记/释放锁等毫秒级步骤，主桌宠不再冻结。"""
-    import threading
 
     shell, config, primary_handle = _make_primary_with_slot(tmp_path)
     inst, win = _add_child_instance(shell, tmp_path, config, 1, monkeypatch)
@@ -1453,10 +1131,6 @@ def test_clear_spawned_pets_defers_heavy_teardown_to_reaper_thread(
         lambda: heavy_threads.append(
             ("agent", threading.current_thread().name)))
     monkeypatch.setattr(
-        app_mod.AppShell, "_close_instance_session_writer",
-        lambda self, _inst: heavy_threads.append(
-            ("writer", threading.current_thread().name)))
-    monkeypatch.setattr(
         app_mod.QMessageBox, "question",
         lambda *a, **kw: app_mod.QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(app_mod.QMessageBox, "information", lambda *a, **kw: None)
@@ -1469,7 +1143,7 @@ def test_clear_spawned_pets_defers_heavy_teardown_to_reaper_thread(
     assert inst not in shell.instances
     # 重回收全部发生，且都在 reaper 线程而非 UI 主线程
     labels = sorted(label for label, _t in heavy_threads)
-    assert labels == ["agent", "collision", "writer"]
+    assert labels == ["agent", "collision"]
     assert all(t == "pet-teardown-reaper" for _label, t in heavy_threads)
     # defer 模式下关窗前摘下 agent 引用：closeEvent 不在 UI 线程重复 join
     assert win.agent_link_manager is None
@@ -1478,47 +1152,6 @@ def test_clear_spawned_pets_defers_heavy_teardown_to_reaper_thread(
     slot_manager_mod._unlock_file(primary_handle)
 
 
-def test_settings_dialog_clear_button_routes_through_shell_chain(
-        tmp_path, app, monkeypatch):
-    """批 E：设置界面「一键退出」经 win.on_clear_spawned_pets（真实接线 =
-    shell.clear_spawned_pets）走到进程内子窗链式关闭——单进程模式子肥鱼清得掉。
-    批 I：全程无确认框无结果框。"""
-    from PySide6.QtWidgets import QMessageBox, QWidget
-
-    from pet.modern_settings_dialog import ModernSettingsDialog
-
-    shell, config, primary_handle = _make_primary_with_slot(tmp_path)
-    child, child_win = _add_child_instance(shell, tmp_path, config, 1, monkeypatch)
-
-    questions = []
-    monkeypatch.setattr(
-        QMessageBox, "question",
-        lambda *a, **kw: (questions.append(a),
-                          QMessageBox.StandardButton.Yes)[1])
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **kw: None)
-
-    # 对话框父窗 = 已接线 on_clear_spawned_pets 的 PetWindow（app.py:361 形态）。
-    pet_win = QWidget()
-    pet_win.on_clear_spawned_pets = shell.clear_spawned_pets
-    dialog = ModernSettingsDialog(config, pet_win, include_ai=False)
-    try:
-        dialog.clear_spawned_pets_btn.click()
-        assert questions == [], "批 I：无确认框"
-        # 关闭被 singleShot(0) 延后：点击后同步阶段尚未触碰子窗。
-        assert child_win.calls == []
-        _pump(0.5)
-        assert child_win.calls == ["save", "marker_del", "close"]
-        assert child not in shell.instances
-        assert shell.instance is shell.instances[0]
-    finally:
-        dialog.close()
-        pet_win.close()
-        app.processEvents()
-
-    if child.slot_handle is not None:
-        slot_manager_mod._unlock_file(child.slot_handle)
-        child.slot_handle = None
-    slot_manager_mod._unlock_file(primary_handle)
 
 
 def test_clear_spawned_entry_wired_only_on_primary(tmp_path, app, monkeypatch):
@@ -1652,7 +1285,7 @@ def test_spawn_section_hidden_from_settings(app, tmp_path):
     from pet.modern_settings_dialog import ModernSettingsDialog
 
     cfg = Config(base=tmp_path)
-    dialog = ModernSettingsDialog(cfg, include_ai=False, standalone=True)
+    dialog = ModernSettingsDialog(cfg, standalone=True)
     try:
         assert "多开" not in _section_titles(dialog), "「多开」实验分组必须隐藏"
     finally:
@@ -1665,7 +1298,7 @@ def test_spawn_config_value_preserved_on_save(app, tmp_path):
 
     cfg = Config(base=tmp_path)
     cfg.set("experimental_single_process_spawn", True)
-    dialog = ModernSettingsDialog(cfg, include_ai=False, standalone=True)
+    dialog = ModernSettingsDialog(cfg, standalone=True)
     try:
         dialog._save()
     finally:
@@ -1678,11 +1311,10 @@ def test_spawn_config_round_trip_default_false(app, tmp_path):
     from pet.modern_settings_dialog import ModernSettingsDialog
 
     cfg = Config(base=tmp_path)
-    dialog = ModernSettingsDialog(cfg, include_ai=False, standalone=True)
+    dialog = ModernSettingsDialog(cfg, standalone=True)
     try:
         dialog._save()
     finally:
         dialog.close()
         app.processEvents()
     assert cfg.get("experimental_single_process_spawn") is False
-

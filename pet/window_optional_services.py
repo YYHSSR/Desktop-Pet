@@ -22,60 +22,31 @@ class WindowFeatureGateMixin:
     """供 PetWindow 混入的可选服务/效果懒装配能力。"""
 
     cfg: Any
-    proactive_watcher: Any = None
     agent_link_manager: Any = None
     _file_eater: Any = None
-    _file_interpret: Any = None
     # 桌宠隐藏时的气泡改道面（AppShell 注入 → 灵动岛反馈气泡），见
     # window_alerts.redirect_hidden_bubble；None = 维持原丢弃行为。
     hidden_bubble_redirect: Any = None
     # 桌宠隐藏期间灵动岛反馈面是否可用（AppShell 注入 → _island_chat_available）。
     island_feedback_available: Any = None
 
-    def pause_agent_link_for_hide(self) -> None:
-        """桌宠隐藏时的联动监视器处置（_pause_activity 委托）。
-
-        灵动岛反馈面可用（hidden_chat 开 + 岛在）时**不暂停**：隐藏期间岛是
-        交互面，DSH 联动事件仍需实时驱动岛反馈气泡（气泡经
-        hidden_bubble_redirect 改道）。否则照旧 pause() 省电（原行为）。"""
-        manager = getattr(self, "agent_link_manager", None)
-        if manager is None:
-            return
-        island_feedback = getattr(self, "island_feedback_available", None)
-        if callable(island_feedback):
-            try:
-                if island_feedback():
-                    return
-            except Exception:
-                pass
-        manager.pause()
     _broker_facade: Any = None
     _golden_spin: Any = None
     _edge_probe: Any = None
     _throw_egg: Any = None
-    _music_lyric: Any = None
 
     # ------------------------------------------------------------ 判定
-    def _proactive_wanted(self) -> bool:
-        raw = self.cfg.get("proactive_screen", {})
-        return bool((raw or {}).get("enabled", False))
 
     def _agent_link_wanted(self) -> bool:
         raw = self.cfg.get("agent_link", {})
         if not isinstance(raw, dict):
             return False
-        for key in ("dsh", "claude", "cursor", "opencode"):
+        for key in ("codex", "cursor"):
             if bool(raw.get(key, False)):
                 return True
         return bool(raw.get("custom_agents"))
 
     # ------------------------------------------------------------ 懒创建
-    def _ensure_proactive_watcher(self):
-        """首次启用主动识屏时懒创建观察器；已存在则原样返回。"""
-        if self.proactive_watcher is None:
-            from .proactive import ProactiveScreenWatcher
-            self.proactive_watcher = ProactiveScreenWatcher(self, self.cfg)
-        return self.proactive_watcher
 
     def _ensure_agent_link_manager(self):
         """首次启用 Agent 联动时懒创建管理器；已存在则原样返回。"""
@@ -93,17 +64,6 @@ class WindowFeatureGateMixin:
         return self._file_eater
 
     # ------------------------------------------------------------ 文件解读
-    def install_file_interpreter(self):
-        """挂载拖文件解读控制器（幂等）并与投喂处理器互相接线。
-
-        启用与否不再走 sync：offer() 每次实时读 file_interpret.enabled，
-        设置页改动即时生效且无需同步钩子。
-        """
-        if self._file_interpret is None:
-            from .file_interpret import FileInterpretController
-            self._file_interpret = FileInterpretController(self)
-        self.install_file_eater().interpret_offer = self._file_interpret.offer
-        return self._file_interpret
 
     # ------------------------------------------------------------ 黄金回旋/边缘探头
     def _install_effect_services(self):
@@ -119,60 +79,7 @@ class WindowFeatureGateMixin:
             self._throw_egg = ThrowEggController(self)
         return self
 
-    # ------------------------------------------------------------ 歌词显示
-    def install_music_lyric(self):
-        """安装歌词显示控制器（幂等）。"""
-        if self._music_lyric is None:
-            from .music_lyric_controller import MusicLyricController
-            self._music_lyric = MusicLyricController(self)
-        return self._music_lyric
 
-    def set_instrumental_playing(self, on: bool) -> None:
-        """标记"当前放的是纯音乐"，让音乐自动唱歌不再触发。
-
-        纯音乐没有可唱的句子。这里只置标志，真正的判定在
-        ``window_alerts.check_music_sing``——在那里拦一道，比让歌词控制器
-        每拍去"停止唱歌"要干净：否则两边一个关一个开，会持续打架。
-        """
-        self._instrumental_playing = bool(on)
-        if on:
-            self._music_sing_active = False
-
-    def sync_music_lyric(self) -> None:
-        """按配置启停歌词显示。
-
-        不在这里判断窗口可见性：隐藏/显示是随时发生的，而控制器每次轮询都会
-        自行检查可见性并空转。放在这里判断反而会漏掉"配置写入时窗口恰好隐藏"
-        的情况，导致功能再也起不来。
-        """
-        enabled = bool(self.cfg.get("music_lyric_enabled", False))
-        if not enabled and self._music_lyric is None:
-            return  # 从未启用过：不为一个关着的功能白养一个定时器
-        controller = self.install_music_lyric()
-        controller.apply_lead()  # 提前量可能刚在设置里改过，先同步再启停
-        controller.sync_enabled(enabled)
-
-    def pause_music_lyric(self) -> None:
-        """窗口隐藏：停掉歌词的 1s 轮询（`_effects_on_hidden` 调用）。
-
-        控制器只停表不复位：``_on_tick`` 本就在不可见时短路，隐藏期间进度基准
-        同样不推进，"停表"与"继续空转"的观感一致；复位反而会顺带清掉纯音乐
-        标志。显示时由 ``_effects_on_shown`` → ``sync_music_lyric`` 按配置恢复。
-        """
-        controller = getattr(self, "_music_lyric", None)
-        if controller is not None:
-            controller.pause()
-
-    def shutdown_music_lyric(self) -> None:
-        """窗口关闭/会话结束：停掉歌词轮询（与 agent_link.shutdown 同处收口）。
-
-        关闭后 ``win.close()`` 只隐藏不销毁，残留的 QTimer 会继续对半销毁
-        窗口触发；会话结束（关机/注销）路径上更不该再每秒起一次
-        ``asyncio.run`` + WinRT SMTC 调用（issue #111 的纪律）。
-        """
-        controller = getattr(self, "_music_lyric", None)
-        if controller is not None:
-            controller.shutdown()
 
     def trigger_golden_spin(self) -> None:
         """右键菜单入口：立即开始黄金回旋（边缘探头激活时不叠加）。"""
@@ -285,17 +192,11 @@ class WindowFeatureGateMixin:
         spin = getattr(self, "_golden_spin", None)
         if spin is not None:
             spin.cancel()
-        # 歌词轮询同属"不可见即零消耗"：隐藏期间停表，显示时由
-        # _effects_on_shown → sync_music_lyric 按配置恢复。
-        self.pause_music_lyric()
 
     def _effects_on_shown(self) -> None:
         edge = getattr(self, "_edge_probe", None)
         if edge is not None:
             edge.resume()
-        # 首次显示时若配置已开也在这里装上（sync_music_lyric 幂等）；
-        # 隐藏期间用户可能刚改过开关，故恢复也要重读配置而不是无条件 start。
-        self.sync_music_lyric()
 
     def match_shutdown(self) -> None:
         """会话结束（Windows 关机/注销）收口本窗（issue #111）。
@@ -336,10 +237,6 @@ class WindowFeatureGateMixin:
             logging.getLogger(__name__).debug("会话结束时暂停窗口活动失败", exc_info=True)
         self._closing = True
         try:
-            self.shutdown_music_lyric()
-        except Exception:
-            logging.getLogger(__name__).debug("会话结束时停止歌词轮询失败", exc_info=True)
-        try:
             detach = getattr(self, "detach_collision_session", None)
             if callable(detach):
                 detach()
@@ -352,14 +249,9 @@ class WindowFeatureGateMixin:
     # ------------------------------------------------------------ 同步
     def sync_optional_services(self) -> None:
         """设置刷新公共入口：按配置懒装配/同步主动识屏、Agent 联动与效果控制器。"""
-        if self._proactive_wanted():
-            self._ensure_proactive_watcher().apply_config()
-        elif self.proactive_watcher is not None:
-            self.proactive_watcher.apply_config()
         if self._agent_link_wanted():
             self._ensure_agent_link_manager().apply_config()
         elif self.agent_link_manager is not None:
             self.agent_link_manager.apply_config()
         self._install_effect_services()
         self._edge_probe.set_enabled(bool(self.cfg.get("edge_probe_enabled", False)))
-        self.sync_music_lyric()

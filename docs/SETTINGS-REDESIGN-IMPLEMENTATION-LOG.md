@@ -143,13 +143,12 @@
 不拆**）。互动域原先是 18 行 / 3 组**平铺、零折叠**，是当时最长的"无折叠"域，主人反馈
 "单页面太多东西"。
 
-- 「互动」域改为页内 `SettingsTabContainer` 两个标签：**点击与音效**（组：输入 / 点击反馈）
-  与 **自言自语**（组：自言自语）。组名不变——它们被 3 处用例硬编码断言
-  （`test_menu_layout` / `test_desktop_pet_features` / `test_requested_regressions`）。
-- 侧栏 9 个域与其顺序**不变**：域清单是外部契约（截图脚本按索引取页、多处用例按名称断言），
+- 「互动」域改为页内 `SettingsTabContainer` 两个标签：**点击反馈**（组：输入 / 点击反馈）
+  与 **自言自语**（组：自言自语）。组名不变——它们被多处用例硬编码断言。
+- 侧栏域与其顺序保持稳定：域清单是外部契约（截图脚本按索引取页、多处用例按名称断言），
   页内标签才是同域任务的正确容器。
 - 整域的行定义与页装配搬进新模块 `pet/settings_interaction.py`（与
-  `settings_file_interpret.py` / `settings_music.py` 同口径：行在模块内建、不进
+  `settings_file_interpret.py` 同口径：行在模块内建、不进
   `all_rows` 快照、因此不需要 `claim`）。`modern_settings_dialog.py` 由此净减 94 行
   （2441 → 2347），并**首次因拆分下调行数预算**——预算作为"绊线"的预期用法。
 - 显隐联动与搜索索引不受影响：都按 `settingRow_<键>` 的 `objectName` 工作；搜索命中非默认

@@ -269,27 +269,6 @@ def test_modern_settings_dialog_py_line_budget():
     )
 
 
-def test_modern_settings_dialog_no_top_level_chat_import():
-    """no-chat 打包变体 excludes=['pet.chat']：modern_settings_dialog 顶层若直接
-    import pet.chat.*（如 ai_settings_page），产物运行时点「桌宠设置」会在模块
-    导入期抛 ModuleNotFoundError，导致设置界面整体打不开（测试环境因 pet.chat
-    齐全而全绿，属打包专属回归）。chat 依赖必须延迟到 include_ai 分支内的
-    函数级 import，no-chat 时 include_ai=False 不触发。"""
-    offenders = []
-    for lineno, line in enumerate(_read("modern_settings_dialog.py").splitlines(), 1):
-        if line[:1].isspace():
-            continue  # 仅检查模块顶层（无缩进）import；函数内延迟 import 合法
-        stripped = line.strip()
-        if (stripped.startswith("from .chat")
-                or stripped.startswith("from pet.chat")
-                or stripped.startswith("import pet.chat")
-                or stripped == "from . import chat"):
-            offenders.append(f"modern_settings_dialog.py:{lineno}: {stripped}")
-    assert not offenders, (
-        "modern_settings_dialog 顶层 import pet.chat 回潮：no-chat 打包变体"
-        "（excludes=['pet.chat']）运行时设置界面会打不开。chat 依赖须延迟到"
-        " include_ai 分支内的函数级 import。\n" + "\n".join(offenders)
-    )
 
 
 def test_settings_widgets_orphan_cluster_guard():

@@ -595,4 +595,3 @@ def test_two_clips_share_single_decode():
         pub.cleanup()
         sub.cleanup()
         app.processEvents()
-

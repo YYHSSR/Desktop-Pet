@@ -1,29 +1,5 @@
 # -*- coding: utf-8 -*-
-"""节日提醒设置页（现代设置对话框侧栏页）。
-
-配置键（config.py 顶层平铺键，共 11 个）：
-    festival_reminder_enabled / festival_reminder_cn /
-    festival_reminder_solar_terms / festival_reminder_west /
-    festival_reminder_mode / festival_reminder_count /
-    festival_reminder_times / festival_reminder_show_quote /
-    festival_reminder_speak / festival_custom_quotes_cn /
-    festival_custom_quotes_west
-
-语音播报（``festival_reminder_speak``）复用语音报时服务的音频通道，不新增音色/
-语速/音调/音量键；同一分钟两者都到点时由报时让位（见 festival_service）。
-
-风格对齐 pet/voice_chime_settings.py 与 pet/exploration_watchdog_settings.py：
-自含 QWidget 页，提供 apply_to_config，
-由 modern_settings_dialog.py 在 automation 域注册并参与 _write_config 保存。
-
-**本页刻意不提供「试听/立即提醒」按钮**：立即提醒已由右键菜单「今日节日」
-承担，而 modern_settings_dialog.py 的行数预算只剩个位数余量（见该文件顶部
-预算注释），再挂一个信号回调会直接顶爆预算。
-
-关于导入方向：本模块顶层 ``from .modern_settings_dialog import ...`` 看似
-循环导入，实际安全——modern_settings_dialog 在 ``__init__`` 内**函数级**
-import 本模块，模块级依赖是单向的（与 voice_chime_settings 同构）。
-"""
+"""节日气泡提醒设置：分类、时刻、文案和立即预览；由自动化与联动页保存。"""
 
 from __future__ import annotations
 
@@ -55,14 +31,13 @@ from .modern_settings_dialog import (
     ToggleSwitch,
 )
 from .settings_widgets import ModernSelect
-from .voice_chime import clean_flag
+from .reminder_values import clean_flag
 
 
 class FestivalSettingsPage(QWidget):
     """自含节日提醒设置页。"""
 
-    #: 用户点击「立即试听」时发出（无载荷）。回调由本页自行向上解析并调用；
-    #: 保留信号是为了让外部（测试/宿主）也能观察到试听动作，与语音报时页对称。
+    #: 用户点击「立即预览」时发出（无载荷）。回调由本页自行向上解析并调用；
     preview_requested = Signal()
 
     def __init__(self, config, parent: QWidget | None = None):
@@ -85,8 +60,6 @@ class FestivalSettingsPage(QWidget):
         self.west_check = ToggleSwitch(self)
         self.west_check.setChecked(flag("festival_reminder_west", True))
 
-        self.speak_check = ToggleSwitch(self)
-        self.speak_check.setChecked(flag("festival_reminder_speak", False))
 
         # ---- 提醒时间 ----
         self.mode_select = ModernSelect(self, width=170)
@@ -134,8 +107,8 @@ class FestivalSettingsPage(QWidget):
             str(self.config.get("festival_custom_quotes_west", "") or "")
         )
 
-        # ---- 试听 ----
-        self.preview_btn = QPushButton("立即试听", self)
+        # ---- 预览 ----
+        self.preview_btn = QPushButton("立即预览", self)
         self.preview_btn.setToolTip("按当前配置立即演示一次节日提醒（无需等到节日当天）")
         self.preview_btn.clicked.connect(self._on_preview_clicked)
 
@@ -174,14 +147,6 @@ class FestivalSettingsPage(QWidget):
                         "情人节、愚人节、复活节、母亲节、父亲节、万圣节、"
                         "平安夜、圣诞节。内置文案只取公有领域作品。",
                         self.west_check,
-                    ),
-                    SettingRow(
-                        "festival_reminder_speak",
-                        "语音播报",
-                        "用语音念出节日提醒（音色/语速/音调/音量沿用「语音报时」的设置）。"
-                        "与语音报时共用同一条音频通道，因此不会叠音；两者恰好同一分钟时"
-                        "由报时让位。需要 edge-tts，缺失时只出气泡不出声。",
-                        self.speak_check,
                     ),
                 ],
                 self,
@@ -247,9 +212,9 @@ class FestivalSettingsPage(QWidget):
                     ),
                     SettingRow(
                         "festival_preview",
-                        "立即试听",
+                        "立即预览",
                         "按当前配置立即演示一次，无需等到节日当天；"
-                        "开启「语音播报」时会一并念出来，否则只显示气泡。"
+                        "提醒通过气泡显示。"
                         "当天没有节日/节气时会直接说明。",
                         self.preview_btn,
                     ),
@@ -262,10 +227,10 @@ class FestivalSettingsPage(QWidget):
 
     # ------------------------------------------------------------ 交互
     def _on_preview_clicked(self) -> None:
-        """试听：先落盘当前控件值，再透传给窗口的「今日节日」入口。
+        """预览：先落盘当前控件值，再透传给窗口的「今日节日」入口。
 
-        **先 apply_to_config 再触发**：与语音报时试听同约定——服务端按最新配置
-        组装文案与语音参数，否则试听的是上一次保存的设置。
+        **先 apply_to_config 再触发**：服务端按最新配置
+        组装文案，否则预览的是上一次保存的设置。
         """
         self.apply_to_config()
         callback = self._resolve_preview_callback()
@@ -276,7 +241,7 @@ class FestivalSettingsPage(QWidget):
     def _resolve_preview_callback(self):
         """向上查找窗口暴露的 ``on_festival_now`` 回调（找到即返回，找不到返回 None）。
 
-        为什么不走「页面发信号 → modern_settings_dialog 处理」那条路（语音报时用的
+        为什么不走「页面发信号 → modern_settings_dialog 处理」那条路（旧版使用的
         是那条）：该对话框的行数预算只剩个位数余量，再挂一个信号连接与处理方法会
         直接顶爆预算。放在本页则**零成本**（本文件不受行数预算约束）。
 
@@ -313,6 +278,5 @@ class FestivalSettingsPage(QWidget):
         self.config.set("festival_reminder_count", self.count_spin.value())
         self.config.set("festival_reminder_times", self.times_edit.text().strip())
         self.config.set("festival_reminder_show_quote", self.quote_check.isChecked())
-        self.config.set("festival_reminder_speak", self.speak_check.isChecked())
         self.config.set("festival_custom_quotes_cn", self.custom_cn_edit.toPlainText().strip())
         self.config.set("festival_custom_quotes_west", self.custom_west_edit.toPlainText().strip())

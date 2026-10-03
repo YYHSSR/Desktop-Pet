@@ -49,7 +49,7 @@ def fs_watch_loop(host, *, monotonic=None) -> None:
     clock = monotonic if monotonic is not None else _fs_monotonic
     stop = host._fs_stop
     # Phase 1：避免纯桌宠启动即加载 PIL；该线程真正需要检测光标时才导入。
-    from . import vision as vision_mod
+    from . import cursor_visibility as cursor_mod
     polls = 0
     consecutive_errors = 0
     next_fullscreen = clock() + 1.0
@@ -62,7 +62,7 @@ def fs_watch_loop(host, *, monotonic=None) -> None:
             return
         if host._cursor_hidden_passthrough_enabled():
             try:
-                visibility = vision_mod.get_cursor_visibility()
+                visibility = cursor_mod.get_cursor_visibility()
                 if shiboken6.isValid(host) is False:
                     return
                 host.cursor_visibility_changed.emit(visibility)
@@ -218,14 +218,5 @@ def set_stream_capture_mode(host, on: bool) -> None:
     if was_visible:
         host.show()  # 只在原本可见时恢复：手动/自动隐藏的桌宠不被意外唤出
     host._speech_bubble.set_capture_compat(on, host=host)
-    if getattr(host, "_quick_chat_capture_widget", None) is not None and shiboken6.isValid(host._quick_chat_capture_widget):
-        host._quick_chat_capture_widget.set_capture_compat(on, host=host)
     if not on:
         host.set_capture_headroom(0)
-
-
-def set_quick_chat_capture_widget(host, widget) -> None:
-    """注册/清空快速对话气泡的捕获子控件引用并同步当前捕获模式。"""
-    host._quick_chat_capture_widget = widget
-    if widget is not None and callable(getattr(widget, "set_capture_compat", None)):
-        widget.set_capture_compat(host._stream_capture_mode, host=host)

@@ -46,24 +46,6 @@ def test_config_dynamic_island_keeps_at_least_one_component(tmp_path: Path):
     assert island["show_info"] is True  # 至少保留一个组件
 
 
-def test_modern_chat_window_pin_toggle_persists(tmp_path: Path):
-    app = QApplication.instance() or QApplication([])
-    from pet.chat.widgets import ChatWindow
-
-    cfg = _config(tmp_path)
-    win = ChatWindow(cfg, "shenshen")
-    try:
-        assert hasattr(win, "pin_button")
-        win.pin_button.setChecked(True)
-        win.toggle_always_on_top()
-        assert cfg.get("chat_always_on_top") is True
-        assert bool(win.windowFlags() & __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.WindowType.WindowStaysOnTopHint)
-        win.pin_button.setChecked(False)
-        win.toggle_always_on_top()
-        assert cfg.get("chat_always_on_top") is False
-    finally:
-        win.close()
-        app.processEvents()
 
 
 def test_dynamic_island_widget_import_and_signal(tmp_path: Path):
@@ -116,7 +98,3 @@ def test_dynamic_island_resizes_when_custom_info_changes(tmp_path: Path):
         island.hide()
         island.deleteLater()
         app.processEvents()
-
-
-
-

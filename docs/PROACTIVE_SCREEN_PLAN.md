@@ -16,10 +16,6 @@
 | 5 | 画面变化检测 | ✅ Pillow 缩至 9×8 灰度 dHash + Hamming 距离，纯函数可单测；阈值默认 8/64 | dHash 标准算法 |
 | 6 | 智谱免费视觉模型 | ✅ `glm-4.6v-flash` 免费、OpenAI 兼容、支持 `data:image/jpeg;base64`、可关思考模式 | [智谱 OpenAI 兼容文档](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction)、[GLM-4.6V-Flash 文档](https://docs.bigmodel.cn/cn/guide/models/free/glm-4.6v-flash) |
 | 7 | GLM 免费档具体 RPM/TPM | ⚠️ 官方未公开具体数值 → 采用保守软流控（最小间隔 60s + 每日上限 15 + 429 指数退避 + 连续失败自动停一天），撞限流概率≈0 | 官方限流页无公开数值 |
-| 8 | DeepSeek 视觉计费 | ✅ 每图最多 **384 token**（先等比缩到约 800×800）；输入 1.5/3.0 元每百万 token，输出 4.5/9.0 元每百万 token | [DeepSeek 定价](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)、[视觉 token 换算](https://api-docs.deepseek.com/zh-cn/guides/vision#token-usage) |
-| 9 | DeepSeek 视觉请求格式 | ✅ base64 data URL、`detail: low` 可省 token、图片只允许在 user 消息 | 同上 |
-| 10 | Claude Code hooks 事件 | ✅ `SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / PostToolUseFailure / Stop / SubagentStop` 等可执行本地命令 | [Claude Code Hooks 文档](https://code.claude.com/docs/en/hooks) |
-| 11 | DSH 事件 | ✅ DSH 插件可通过 `ctx.on(...)` 监听事件（`tools/pre-execute`、`session/event` 等）；Clawd 用 DSH 插件事件驱动桌宠状态，字段见其 eventMap | [DSH 插件开发教程](https://dev.to/henry_lin_3ac6363747f45b4/deepseek-harness-dsh-cha-jian-kai-fa-jiao-cheng-4h6j)、[Clawd deepseek-harness.js](https://raw.githubusercontent.com/rullerzhou-afk/clawd-on-desk/main/agents/deepseek-harness.js) |
 | 13 | mtime 轮询不可行 | ✅ 已确认是历史方案失败根因（批量刷盘、无法区分状态）；永久弃用 | 同上 |
 
 ---
@@ -70,11 +66,7 @@ QTimer 8s（仅 enabled && 可见时运行；禁用/隐藏时零定时器）
 
 ### 成本与限流（已验证数字）
 
-- **DeepSeek**：每图 ≤384 token 输入（官方上限），回复约 50~200 token 输出。
-  - 单次最坏：`384×3.0/1e6 + 200×9.0/1e6 ≈ 0.0012 + 0.0018 = ¥0.003`；
-  - 每天 15 次上限 ≈ **¥0.05/天封顶**，实际通常 <¥0.01。
-- **GLM-4.6V-Flash**：免费；官方未公开 RPM/TPM，用「60s 最小间隔 + 15 次/天 + 429 退避 + 连续失败自动停」保证不撞限流。
-- 本地端侧 VLM（Ollama/LM Studio）留作后续 `local` 选项，零成本。
+
 
 ### 性能账（不违背低功耗初衷）
 
@@ -103,7 +95,6 @@ QTimer 8s（仅 enabled && 可见时运行；禁用/隐藏时零定时器）
 | Agent | 事件源（已验证） | 实现 |
 |---|---|---|
 | DSH | DSH 插件事件（`session/event` 等；Clawd eventMap：SessionStart/UserPromptSubmit/PreToolUse/PostToolUse/Stop…） | 提供轻量 DSH 插件包，把事件写入 `agent-events/dsh.jsonl`；桌宠 tail |
-| Claude Code | 官方 hooks（PreToolUse/PostToolUse/Stop/SubagentStop/…）执行本地脚本追加事件 | 开启时经用户确认把 hook 写入 `.claude/settings.json`；桌宠 tail `agent-events/claude.jsonl` |
 | Cursor | `~/.cursor/projects/**/agent-transcripts/*.jsonl` | byte-offset tail（1.5s，仅最近目录，有界） |
 
 统一输出：`(agent, session_id, state)` → 桌宠切动作（thinking→写代码/working→敲击桌面/attention→气泡提醒）。

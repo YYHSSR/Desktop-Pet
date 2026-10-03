@@ -611,7 +611,7 @@ class PetSpeechBubble(QFrame):
 
         ``buttons`` 为 ``[(label, callback), ...]`` 时进入「交互气泡」模式：气泡内
         排一行可点按钮（审批同意/拒绝、问题 A/B/C），点击即回调并把决策交还上层
-        （如回写 DSH）。交互气泡自动 sticky，且临时关闭鼠标穿透让按钮可点，
+        （如打开所属应用）。交互气泡自动 sticky，且临时关闭鼠标穿透让按钮可点，
         收起/隐藏时恢复穿透。
         """
         text = str(text).strip()
@@ -777,7 +777,7 @@ class PetSpeechBubble(QFrame):
         - ``("__header__", text)``：分支标题行（独占一行、加粗）——多分支问题
           弹窗按分支分组展示的标题。
         - ``("__hint__", text)``：灰色提示行（独占一行）——例如自由文本问题
-          「请到 DSH 界面输入文本回答」。
+          「请到所属应用输入文本回答」。
         """
         while self._button_layout.count():
             item = self._button_layout.takeAt(0)

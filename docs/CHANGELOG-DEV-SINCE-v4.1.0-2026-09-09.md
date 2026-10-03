@@ -70,16 +70,7 @@
 
 ### 2.6 Agent 联动与 DSH（#73/#76/#80/#82/#64 等）
 
-- **DSH 桥接富事件归约**：thinking（思考）/working（干活，带工具名）/attention（需确认）/error/idle 多态，多会话聚合优先级 attention>error>working>thinking>idle，子代理不抢状态；agent/status 始终作为聚合基线被采纳（不存在"见过富事件后自动停用"机制）。
-- **opencode reason 分流**：`step-finish` reason=tool-calls（模型停笔等工具结果）不再误报完成——治好长跑 task 子代理/慢工具（长 bash/dev server）的**假完成音/气泡**与回注后的假开始音。
-- **启动 Harness 复用本机已有实例**：探测顺序改为配置端口优先、其次官方默认 3080——用户已自己跑着 dsh web 时直接复用打开，不再重复拉起第二个实例（关联 issue #10 双开浏览器）；菜单点击启动新实例时冒泡提示「正在后台启动」（首次 npx 拉包可能几分钟）。
-- **「随桌宠启动 dsh 服务」开关**：配置键 `harness_autostart`（默认关）——开机自启场景下主窗就绪即后台拉起 dsh web（只起服务、不开浏览器、不弹窗口）；设置 → 常规 → 应用启动新增开关，仅主桌宠可设置，slot 落种不继承。
-- **dsh 启动链路静默化（#82）**：所有探测子进程隐藏窗口（`CREATE_NO_WINDOW`，去掉 `cmd /c start /b` 与 `DETACHED_PROCESS` 组合——实测会弹常驻终端）；`--no-open` 能力探测三级缓存（进程内 dict → 落盘 `harness_probe_cache.json`，按 `dsh --version` 匹配 → 慢探测），超时放宽到 30s——修复开机高负载下误判导致 dsh 自弹浏览器（issue #10 根因）。
-- **macOS Node 解析**：新增桌面安全 Node 解析器（`pet/node_runtime.py`），Harness 与 Agent bridge 共用，增强 PATH 传播给 npm/pnpm——修复 Finder 双击启动绕过 Homebrew Node 发现（issue #67）。
-- **Windows Node/pnpm 解析不再写死**（issue：桌宠报「需要 pnpm，自动安装失败」）：
-  - 增强 PATH 补上 Windows 分支：进程 PATH 优先 → 注册表里**最新**的 PATH（GUI 进程继承的是登录时缓存的环境块）→ 各版本管理器真实目录（nvm-windows `%NVM_HOME%\v*` / `%NVM_SYMLINK%`、`%PNPM_HOME%`、`%APPDATA%\npm`、Volta/fnm/scoop/choco/bun/yarn、`%ProgramFiles%\nodejs`）；POSIX 侧补 `PNPM_HOME`、`$NVM_DIR`、fnm/volta/asdf/linuxbrew。
-  - 桥接安装的 pnpm 入口从「只认 `node_modules/pnpm/bin/pnpm.mjs`」改为多布局发现：解析 `.cmd/.ps1`/shell 包装脚本里的真实 JS 入口（`pnpm ≤10` 的 `bin/pnpm.cjs`、`lib/node_modules/...`、nvm 版本目录）、独立安装的 `pnpm.exe` 直接执行、`DSH_PNPM_BIN` 支持指向目录/可执行文件；`npm-cli.js` 同样复用这套根目录。
-  - 一键启动 DSH 的全局包根目录（`@deepseek-ai/dsh/lib/bin.js`）在 Windows 上补上 nvm-windows 等目录，不再只认 `%APPDATA%\npm`。
+
 
 ### 2.7 待办提醒（#72）
 
@@ -135,7 +126,7 @@
 7. **高刷屏流畅度（#70）**：物理/弹跳/拖拽节拍跟随主屏刷新率（165Hz→6ms、120Hz→8ms，≤90Hz 保持 16ms）；QTimer 改 PreciseTimer（Windows 粗定时器 16ms 在 15.6/31.2ms 抖动、8ms 被钳到 ~64Hz）；moveEvent DPR 兜底轮询限频 10Hz；新增 `PET_PERF_STATS` 观测模式（默认零开销）。
 8. **拖拽合帧**：mouseMoveEvent 只记录最新目标、8ms 定时器消费（~120Hz），碰撞提交维持 20Hz；预热让路（拖拽/点击/菜单期间低优预热挂起）。
 9. **碰撞预测限频**：反弹预测每 tick 圆链扫描限 33Hz、状态上报先限流再建状态——多实例碰撞活跃期 CPU 61%→43%。
-10. **隐藏即停**：窗口隐藏后暂停动画解码/定时器；音乐检测 timer 按需启停。
+10. **隐藏即停**：窗口隐藏后暂停动画解码/定时器。
 11. **内存实测汇总（README 口径）**：三开热机 361–402MB/只 →（#76 后）多进程 ~270MB/3只、单进程多窗 181–197MB/3窗且 3.5h 无单调上涨。
 12. **首帧/窗口命中**：Windows mask bounds 用 Qt C++ 路径（0.32ms/帧，Python 扫描 1.11ms 慢 3.5 倍被弃），与绘制逐像素一致。
 
@@ -143,23 +134,7 @@
 
 ## 四、Bug 修复清单（用户可感知）
 
-1. **打字时桌宠频闪（Windows，根治）**：全屏判定排除工具窗口与截图覆盖层（PixPin/Snipaste 等，issue #62 相关）；穿透切换改原生 `WS_EX_TRANSPARENT`，不再触发 Qt flags 变更 → 原生窗口销毁重建（每次重建=消失一瞬）。
-2. **WebMClip 僵尸 reader / ffmpeg 进程泄漏**：PySide6 destroyed 槽不触发自身 bound-method 的根因修复（无 receiver callable + cleanup 显式断开）；stop 主动 terminate + kill 兜底；Popen 生命周期由 reader 线程独占、GUI 零等待/有界 TerminateProcess。
-3. **快速连点/切动画卡顿**：GUI 线程绝不再 join 退役 reader（曾每帧等 0.5s）。
-4. **动画切换静默停滞**：start 失败显式降级 + 有限重试。
-5. **POSIX 协调者被杀后选举死循环（issue #42）**：残留 Unix socket → 探测→removeServer 重试；`_accept_connection` bytesAvailable 兜底。
-6. **dsh 开机自启弹浏览器/空终端窗（issue #10/#82）**：`--no-open` 探测落盘缓存 + 探测窗口隐藏。
-7. **子肥鱼一堆生命周期**（见 2.3）：杀不掉（探活误判）、pid 复用误杀、控制台弹窗、旧 glob 清不到、覆盖用户存档（曾 SPAWN_FRESH 强制重播种顶掉设置）等全部修复。
-8. **边缘探头被撞后会话悬空 / 拖到右下角带探头姿态**：撞击前 cancel 会话；`go_default_corner` 先取消探头。
-9. **打字机/点击音效无声**：播放前显式 stop；预热时机收敛。
-10. **碰撞/联动状态误报**：opencode tool-calls 假完成；DSH 富事件聚合优先级；set_policy 部分字典不再误判开关变更。
-11. **会话数据**：生成期间整会话 save 覆盖其它前端写入；删除当前会话后幻影消息写入新会话；瞬时文件锁 WinError 5；Legacy 时间未本地化。
-12. **macOS Dock 隐藏不彻底（issue #74）** + 恢复提示；Finder 启动找不到 Homebrew node（issue #67）。
-13. **Linux 中文输入法不可用（#71）**；macOS 菜单深色下文字不可读（彩蛋、hover）。
-14. **显示/缩放**：跨 DPI 屏/系统缩放变化画面不重建（Qt 信号驱动重建）；squash 期间命中 mask 重建限频（收势帧强制同步）；素材原地替换后旧帧残留。
-15. **全屏隐藏误判**：工具窗口/输入法候选框不再视为全屏；截图覆盖层进程级排除。
-16. 其它健壮性（三方盲审批次 17 项等）：畸形碰撞消息不抛异常、更新检查线程收口+重入防护、`>7 天 pet-*.log` 启动清理、SSE 空心跳行跳过、设置 Esc 关闭也落盘、图标解码 30s 超时逃生、菜单树释放 3s 总上限、`shiboken6.isValid` 守卫消 RuntimeWarning 等。
-17. **Agent 联动/主动识屏开机不生效**：`PetWindow.__init__` 收尾只调了 `_install_effect_services()`，没有走 `sync_optional_services()`——config.json 里已开启的 Agent 联动（DSH/Claude/Cursor/OpenCode 与 `custom_agents` 通道）和主动识屏要等用户展开「Agent 联动」菜单或开关一次设置对话框才真正启动（日志里看不到「Agent 监视器 [...] 已启动」）。修复：末尾等价替换为 `sync_optional_services()`（其内部以 `_install_effect_services` 收尾，净增 0 行，window.py 行数预算不变），开机即按配置装配。**行为变化**：已开启主动识屏的用户重启后不再需要打开一次设置对话框，识屏按配置直接生效（隐私红线不变：仍受 `proactive_screen.enabled` 与白名单/上限/冷却约束）。回归断言：`tests/test_feature_gating.py::test_petwindow_startup_applies_configured_optional_services`。
+
 
 ---
 
@@ -191,22 +166,7 @@
 
 ## 七、重点测试清单（按功能分组，含观察点）
 
-1. **单进程多开**：设置开启 → 「生小肥鱼」两次 → 任务管理器确认 1 个进程；三窗同角色待机确认 **1 条 ffmpeg**；托盘子菜单逐窗「显示/隐藏/退出这只」；杀主窗后某子窗自动提升；3.5h 内存无单调上涨。
-2. **子肥鱼继承/退出**：子肥鱼改大小/设置后生成第三只 → 继承主设置还是独立按存档；「退出子肥鱼」后数据（设置/会话/待办）保留、下次生成原样恢复；多开时杀子鱼进程无残留、无控制台弹窗。
-3. **边缘探头/黄金回旋/彩蛋**：拖到屏幕边缘探头吸附（露出 0.55）、点击拉直；开 `golden_spin_direct` 后连点看逐圈加速；探头激活时被其它桌宠撞飞 → 头部随速度方向翻转、停稳 5s 后重新吸附；托盘「回到右下角」不带斜姿。
-4. **闲置降帧/省电**：开省电模式停手 30s+ → CPU 回落、动画半帧率；动鼠标/ESC 立即回满；Agent 忙碌不降帧。
-5. **看看屏幕自我识别**：画面里有桌宠形象时，回复应自称化身而非“陌生程序”。
-6. **Harness/dsh**：已手动跑着 dsh（3080）时点菜单 → 复用不新起；勾 `harness_autostart` 重启 → 后台起服务不弹浏览器/窗口；开机高负载下不再误弹浏览器。
-7. **待办提醒**：新建带提前量的待办 → 到期前 5min 提醒一次；错过宽限补盖戳不轰炸；关闭系统通知后走气泡。
-8. **菜单编排**：右键 → 桌宠设置 → 菜单 → 编排：勾选显隐/拖入子菜单/新建子菜单后删除（子项回根）/插删分割线/别名（菜单里只显别名）/图标覆盖（内置、本地文件、>5MB 报错、contain/cover）；保存后真实右键菜单与预览一致；深浅主题切换即时生效。
-9. **图片预览抽屉**：自言自语/彩蛋图片目录「预览」→ 3 列瀑布流、空态、tooltip。
-10. **气泡配图大小**：`self_talk_image_scale` 50–300% 生效；关闭自言自语该行隐藏。
-11. **会话并发**：回复生成中点气泡「看看屏幕」或另开前端 → 两端写入都不丢；不开聊天窗识屏问答重启后仍可回看。
-12. **keyring 迁移**：用旧版磁盘明文 key 配置启动 → 升级后 key 在 keyring、聊天/视觉可用；卸载重装不静默丢 key。
-13. **opencode/联动**：长跑 task（>800ms）tool-calls 阶段无假完成音；真正 stop 才一次。
-14. **Fcitx（Linux 包）**：系统输入法切中文在桌宠/设置输入框可上屏。
-15. **高刷屏**：165Hz 显示器拖拽/弹跳丝滑；切换 DPI 屏画面即时重建不模糊。
-16. **性能回归观察点**：长时间循环播放 + 随机动作内存稳定；快速连点无卡顿；多窗共享解码 ffmpeg 进程数=1。
+
 
 ---
 
@@ -232,7 +192,7 @@
 | `spawn_inherit_size` / `spawn_scale` / `spawn_inherit_dynamic_island` | True / – / False | 生小肥鱼继承设置 |
 | `user_customized` | False | 子肥鱼是否自定义过（落种/刷新判定） |
 | `system_notifications_enabled` | （上游） | 系统通知总开关（待办/更新等） |
-| `music_sing_enabled` | False | 音乐检测自动唱歌（timer 按需启停） |
+| `music_sing_enabled` | （已下线） | 音乐功能已全量去除 |
 
 ### 附录 B：关联 issue 映射
 

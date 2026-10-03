@@ -121,38 +121,6 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
-def test_hide_pauses_and_show_resumes_activity(app, tmp_path):
-    lib = FakeLibrary()
-    win = PetWindow(lib, Config(base=tmp_path))
-    win.show()
-    app.processEvents()
-
-    idle = win.movie
-    assert idle is not None
-    assert idle._running is True
-    assert win._hidden_paused is False
-
-    win.hide()
-    app.processEvents()
-    assert win._hidden_paused is True
-    assert idle._running is False
-    assert not win._move_timer.isActive()
-    assert not win._physics_timer.isActive()
-    assert not win._self_talk_timer.isActive()
-    assert not (win._fs_thread is not None and win._fs_thread.is_alive())
-    # 隐藏时不产生任何可见气泡
-    win.show_bubble("隐藏时不应显示")
-    win.set_chat_status("thinking", "隐藏时不应显示")
-    assert not win._speech_bubble.isVisible()
-
-    win.show()
-    app.processEvents()
-    assert win._hidden_paused is False
-    assert win.movie is not None
-    assert win.movie._running is True
-
-    win.close()
-    app.processEvents()
 
 
 def test_auto_hide_keeps_fullscreen_watcher_alive(app, tmp_path, monkeypatch):
@@ -275,58 +243,5 @@ def test_fullscreen_geometry_hit_requires_borderless(app, tmp_path):
     # 置顶但未覆盖整屏（小窗置顶播放器）→ 几何仍是必要条件
     assert win._fullscreen_geometry_hit(100, 100, 1500, 900, geom, has_caption=True, topmost=True) is False
 
-    win.close()
-    app.processEvents()
-
-
-def _lyric_window(app, tmp_path, monkeypatch):
-    """起一个真窗口并把歌词控制器按配置跑起来（timer 活跃）。"""
-    from pet import now_playing
-
-    # 操作系统边界：不真的去调 Windows SMTC（Linux/macOS 本就返回 None）。
-    monkeypatch.setattr(now_playing, "get_now_playing", lambda: None)
-    win = PetWindow(FakeLibrary(), Config(base=tmp_path))
-    win.show()
-    app.processEvents()
-    win.cfg.set("music_lyric_enabled", True)
-    win.sync_music_lyric()
-    controller = win._music_lyric
-    assert controller is not None, "开关打开后必须装上控制器"
-    return win, controller
-
-
-def test_music_lyric_polling_follows_window_visibility(app, tmp_path, monkeypatch):
-    """P1：歌词的 1s 轮询必须随窗口隐藏/显示暂停与恢复。
-
-    回归背景：控制器虽有 ``shutdown()`` 但全仓没有调用方，隐藏/关闭都不会
-    停它的 QTimer——不可见时仍每秒采样一次 SMTC（纯白烧），关闭后残留的
-    单次 timeout 还会对半销毁窗口触发。
-    """
-    win, controller = _lyric_window(app, tmp_path, monkeypatch)
-    assert controller._timer.isActive(), "开关打开后应开始轮询"
-
-    win.hide()
-    app.processEvents()
-    assert win._hidden_paused is True
-    assert controller._timer.isActive() is False, "窗口隐藏必须停掉歌词轮询"
-
-    win.show()
-    app.processEvents()
-    assert win._hidden_paused is False
-    assert controller._timer.isActive() is True, "窗口重新显示后必须按配置恢复轮询"
-
-    win.close()
-    app.processEvents()
-    assert controller._timer.isActive() is False, "closeEvent 后歌词 timer 必须已停"
-
-
-def test_music_lyric_polling_stops_on_session_end(app, tmp_path, monkeypatch):
-    """P1：会话结束（关机/注销）路径同样要停歌词轮询，不等 closeEvent。"""
-    win, controller = _lyric_window(app, tmp_path, monkeypatch)
-    assert controller._timer.isActive()
-
-    win.match_shutdown()
-
-    assert controller._timer.isActive() is False, "会话结束必须停掉歌词轮询"
     win.close()
     app.processEvents()

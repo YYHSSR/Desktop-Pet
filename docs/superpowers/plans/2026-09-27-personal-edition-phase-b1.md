@@ -12,12 +12,7 @@
 
 ## Global Constraints
 
-- Source is `E:\CODE\desktop-pet`; external test/build artifacts go to `E:\CODX\desktop-pet`. The local source has no `.git`; record file hashes and test results instead of claiming commits.
-- Do not edit user config directly. Load old values safely and clean them on a normal save.
-- Retired IDs for this plan: `deepseek_web`, `check_update`, `github_project`, `quark_download`; `harness` remains for batch C.
-- Remove `kind=default_browser` from defaults, loaded lists and editor choices; keep explicit `kind=application` paths and the empty quick-launch editor.
-- Keep `pet.__version__` for local package identity. Do not modify ChatGPT, hooks, chat Provider data, public releases or unrelated network paths.
-- Apply `docs/SETTINGS-CHANGE-GATES.md`, `docs/CONTEXT-MENU-RESEARCH-AND-REFACTOR-2026-08-25.md` and `docs/NETWORK-PROXY-AND-VPN-2026-09-22.md` when editing those paths.
+
 
 ## Review Focus
 

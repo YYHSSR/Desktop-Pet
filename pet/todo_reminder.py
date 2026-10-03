@@ -349,5 +349,4 @@ class TodoReminderService:
         app = self._app
         return (
             getattr(app, "modern_settings_dialog", None) is not None
-            or getattr(app, "chat_settings_dialog", None) is not None
         )

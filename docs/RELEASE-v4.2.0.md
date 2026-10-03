@@ -50,7 +50,6 @@
 - **撞飞彩蛋（被撞飞翻鱼头）**：探头激活状态下被撞，头部跟随速度方向整帧旋转（`90+atan2(vy,vx)`）；低速触碰边界/其它桌宠自动回正；阈值按实机反馈调到 780px/s；撞飞落地停稳 5s 后若静止在边缘会重新吸附（倒计时内拖拽作废）。
 - **点击触发黄金回旋** `golden_spin_on_click` + 子开关 **点击回旋跳过动画** `golden_spin_direct`（设置 → 桌宠行为 → 点击反馈）：点击动画播完自动接回旋；开启直连后点击直接回旋、跳过 Q 弹/点击素材，再点 130ms 内收尾当前圈并立即开下一圈。
 - **省电模式**（原「闲置降帧」升级，设置 → 桌宠行为 → 动画与移动）：闲置 30s+ 动画按半帧率呈现（24fps 素材 → 12fps 观感、时长不变）并停止后台动画预热，任何交互/Agent 忙碌立即回满。
-- **音乐自动唱歌** `music_sing_enabled`：检测到后台播放音乐时自动播唱歌动画，检测 timer 按需启停。
 - **拖拽合帧**：`mouseMoveEvent` 只记录最新目标、8ms 定时器消费（约 120Hz），碰撞提交维持 20Hz；拖拽/点击/菜单期间低优先级预热让路挂起。
 
 ### 💬 台词、气泡与提醒
@@ -78,17 +77,7 @@
 - **灵动岛余额峰谷按系统时间刷新**：按北京时间档位直接显示「当前档位 → 下一档切换时间」，单发 QTimer 排到下一 9:00/12:00/14:00/18:00（或下周一 9:00）边界自动重排；峰谷颜色随档位生效。
 - **灵动岛单击聚合全部窗**（多开时）。
 
-### 🤖 Agent 联动与 DSH 生态
-- **v4.2.0 之后的修复批**（2026-09，PR57 审计跟进）：桥接插件归零外部依赖——根治「打包副本缺依赖导致用户整个 dsh 插件树加载失败、web/headless/desktop 全 profile 无法启动」的事故（PR 门禁新增双层零依赖校验）；cordis 运行审批气泡按真实写盘形状读取（此前从未弹出过）；问题气泡在 mux 断线后可被兜底关闭（升级不再丢失 callId）；点「终止/自动优化」不再伴随「请更新/重装 bridge」假提醒；无 pnpm 时关闭联动改为备份并手改 manifest（不再假成功留悬空链接）；LLM API 错误（`llm_error`）真正进入 error 态；探索看门狗计时改任务级（启动宽限整个任务只送一次、连续运行降阈值真正生效），桌宠隐藏时看门狗暂停（隐藏期提醒恢复后补发而非永久丢失）；控制成功后给看门狗记宽限（不再刚点完又弹）；设置页新增「行为重复检测」组（开关 + 9 阈值）；移除一批引入后从未接线的死机制（事件分发层/Judge/宽限接口等）。
-- **DSH 富事件状态**：thinking（思考）/ working（干活，带工具名）/ attention（需确认）/ error / idle 多态呈现；多会话聚合优先级 attention > error > working > thinking > idle，子代理不抢状态；`agent/status` 始终作为聚合基线被采纳（旧宿主与富事件并存时以最后到达的事件推进状态，并不存在「见过富事件后自动停用」的开关）。
-- **统一事件层 / 事件队列**（PR #57）：bridge → monitor → AgentLinkManager → PetWindow 三层事件契约（`agent-event/v1`），定义审批/问题关联键、交互队列与气泡生命周期（见 `docs/DSH-BRIDGE-PET-EVENT-CONTRACT-2026-09-02.md`）。语义分类的 dataclass 保留，事件分发层（`AgentEventRuntime`）在实现后经评估移除——它自引入起零消费方，实际消费方只有 `AgentLinkManager._on_normalized_event` 直连 `normalized_event`。
-- **审批与提问交互**：审批气泡带「同意 / 拒绝」按钮；提问气泡支持多问题项（section header + 选项多选 + 气泡内提交，全部带选项时在气泡内完成，含自由文本时提示回 DSH 界面）；阻塞交互按 `interaction_id` 独立存储，同一 agent 并发审批/提问互不覆盖；新增 cordis `request-run` 交互。交互/告警气泡（sticky、interactive、alert）主体点击为 no-op，只有普通无按钮气泡点主体才打开快速对话。
-- **探索循环 Watchdog 与控制气泡**：风险分达到控制阈值时发常驻气泡（带「自动优化（replan） / 终止（interrupt） / 忽略」）；控制请求最长阻塞 30s，按钮回调只做“收气泡 + 起后台线程”，结果经 Qt 信号回主线程（GUI 线程不阻塞）；回执按相位/失败原因区分文案（成功 / 超时 / 会话不存在 / 被拒绝）；会话结束联动收起控制气泡；Watchdog 总开关关闭时不建线程、不订阅事件（零常驻开销）。
-- **行为检测器与限流跟踪**：W6/W10 窗口告警可升级 control（升级路径跳过 step/time 门控并统计全量窗口）；429 限流按 session 独立计数并展示连续次数；stuck / pattern / exploration 三个检测器共享 30s 跨模块弹窗节流（同档抑制、越级放行）。
-- **Harness 复用本机已有实例**：探测顺序改为配置端口优先、其次官方默认 3080——用户已自己跑着 dsh web 时直接复用打开，不再重复拉起第二个实例（关联 issue #10 双开浏览器）；菜单点击启动新实例时冒泡提示「正在后台启动」（首次 npx 拉包可能几分钟）。
-- **「随桌宠启动 dsh 服务」** `harness_autostart`（默认关，设置 → 常规 → 应用启动，仅主桌宠可设置）：开机自启场景下主窗就绪即后台拉起 dsh web，只起服务、不开浏览器、不弹窗口。
-- **dsh 启动链路静默化**：所有探测子进程隐藏窗口（`CREATE_NO_WINDOW`，去掉会弹常驻终端的组合）；`--no-open` 能力探测三级缓存（进程内 dict → 落盘 `harness_probe_cache.json` 按 `dsh --version` 匹配 → 慢探测），超时放宽到 30s。
-- **macOS Node 解析**：新增桌面安全 Node 解析器（`pet/node_runtime.py`），Harness 与 Agent bridge 共用并增强 PATH 传播给 npm/pnpm。
+
 
 ### 🖥️ 多开、共享解码与子肥鱼
 - **单进程多开（省内存）** `experimental_single_process_spawn`（设置 → 常规 → 多开，默认关，**重启生效**）：开启后「生小肥鱼」在本进程内创建第二个桌宠实例（独立 slot / 配置 / 会话 / 素材库），不再拉起新进程。
@@ -140,25 +129,7 @@
 - **显示与缩放**：跨 DPI 屏/系统缩放变化后画面即时重建（Qt 信号驱动）；squash 期间命中 mask 重建限频（收势帧强制同步）；素材原地替换后不再残留旧帧。
 - **WebM 播放**：僵尸 reader / ffmpeg 进程泄漏根因修复（`destroyed` 槽不触发自身 bound-method：无 receiver callable + cleanup 显式断开）；stop 主动 terminate + kill 兜底；Popen 生命周期由 reader 线程独占；播放队列满时等待主线程消费保时间轴；cleanup 等待 reader 线程退出；fan-out 圈末自然解散 + abort reason 透传。
 
-### Agent 联动与 DSH
-- **点“终止”没用**：主 agent 派后台子代理并行干活，用户点终止后 bridge 只停了子代理、主 agent 随后重派新子代理继续。现在 interrupt/replan 归一到根 agent 的当前回合；父级不可解析时如实回执「已终止子代理（主代理仍在运行，可能重新派发）」，不谎称整个会话已停。
-- **提问气泡永久占住提醒队列**：`question/resolved` 的 callId 取数只看 `message.callId`，而当前 DSH 版本该字段挂在 `message.source.callId` → resolved 帧永远写不出；已与 `toolResultInfo` 对齐取数路径。
-- **审批被静默吞掉**：审批去重降级键 `ap:tc:<tool>|<command>` 原先无条件加入，同会话 8 秒内两个不同审批（同一命令）会被静默吞掉；改为仅在没有 approvalId/rpcId 时才生成降级键并拼入 sessionId。
-- **提醒队列卡死**：设置窗打开会隐藏当前气泡，恢复时原逻辑只处理“存活的 sticky 项”和“队列空”两种情形，非 sticky 普通提醒被隐藏后既没恢复也没出队，队列就此卡死（后续提醒含审批永久不再展示）；现在恢复时正确结束它并推进下一条。
-- **审批气泡恢复后没有同意/拒绝按钮**：全屏隐藏→恢复路径漏传 `_sticky_buttons`（字段一直在正常存取，唯独这条路径漏了）。
-- **单进程多窗下审批按钮一直丢失**：`MultiWindowProxy`（共享管理器看到的“窗集合替身”）此前没有 `show_alert`/`resolve_alert`，导致 `agent_link` 里所有 `hasattr(win, "show_alert")` 判断都落进降级分支；补上后审批与控制气泡按钮全部恢复。
-- **首次告警必抛 `AttributeError`**：`exploration_watchdog` 的 payload `mode` 字段全仓无赋值、无消费方，首次触发告警必抛异常导致告警永远发不出（该模块此前零测试，本次补齐）——直接删除该字段而非补默认值。
-- **429 与 `execution/failed` 双提醒**：429 气泡展示 15s > 合并冷却 8s，`turn/end` 的 `execution/failed` 常在 8–15 秒窗口到达而绕过旧抑制；收紧为“存在未 dismiss 的活跃 429 即抑制”，dismiss 后新失败仍正常提醒。
-- **`dsh_control` 每次请求必抛 TypeError**：`_log_event` 形参 `directory` 与调用方传入的同名字段撞名（零调用方所以从未暴露），不修则整条控制链点了不生效。
-- **opencode 假完成**：`step-finish` reason=`tool-calls`（模型停笔等工具结果）不再误报完成——治好长跑 task 子代理/慢工具（长 bash、dev server）的假完成音/气泡与回注后的假开始音。
-- **诊断经常失败**：`maxTokens` 700 → 2048（推理型模型先消耗 token 在 reasoning 上，700 预算常被吃光、正文一个字没出），空输出时打印 chunk 类型统计便于定位。
-- **插件无法激活 / 气泡只有 session id**：apiProxy 移出 `inject` 强依赖（当前 dsh 发布版没有此服务，强依赖会导致插件根本无法激活），改为可选读取；缺失时读 `~/.dsh/storages/session_projcache` 本地会话缓存兜底，气泡显示真实会话名。
-- **dsh 开机自启弹浏览器 / 常驻空终端窗口（issue #10 根因）**：`--no-open` 探测落盘缓存 + 探测窗口隐藏 + 超时放宽。
-- **macOS Finder 启动绕过 Homebrew Node 发现（issue #67）**：新增桌面安全 Node 解析器。
-- **联动气泡让位门禁时钟域错误**：`_show_link_bubble` 用 `time.time()`（epoch）比较 `hold_bubble` 写入的 `time.monotonic()`，真实桌宠上恒判“未被占用”——普通气泡会顶掉识屏占位、重要气泡不排队直接覆盖；已统一为 `time.monotonic()`。
-- **检测器连环换弹**：stuck / pattern / exploration 三个检测器此前各自 cooldown 独立，同一 busy 周期可能先后弹窗；现在同 agent/session 30s 窗口内已有任一检测器弹窗即抑制（动画照常），升级档位放行。
-- **`closeEvent` 后的延迟路径抛错**：置空 `_speech_bubble` 后，托盘菜单 `aboutToShow`、`refresh_pet_settings`、`pause/resume` 等延迟路径触碰会抛错，已加 None 守卫。
-- **“表达风格控制所有气泡”属过度承诺**：实际只驱动联动气泡 + 余额气泡（随机自言自语/点击台词单独配置），设置页与模板导出文案已改为准确范围。
+
 
 ### 子肥鱼与多开
 - **子肥鱼杀不掉**：`GetExitCodeProcess == STILL_ACTIVE` 判定真死活（修探活误判）。
@@ -187,7 +158,6 @@
 - **余额线程创建失败遗留 busy 状态**；余额成功/失败结果在有高优先级提醒或气泡抑制期间改走提醒队列，不覆盖当前提醒；余额错误按 HTTP 码 / 超时 / 网络失败 / JSON 无效分别提示。
 
 ### 健壮性批次（17+ 项）
-畸形碰撞消息不抛异常、更新检查线程收口 + 重入防护、`>7 天 pet-*.log` 启动清理、SSE 空心跳行跳过、设置 Esc 关闭也落盘、图标解码 30s 超时逃生、菜单树释放 3s 总上限、`shiboken6.isValid` 守卫消 RuntimeWarning、vision 截图 DWM 调用加平台守卫（避免非 Windows 崩溃）、`dsh_state` 目录变更才重扫（支持 `scan_interval=0` 测试注入）、设置窗抑制恢复推进提醒队列、`_respond_interaction` 交互身份门禁等。
 
 ---
 
@@ -197,7 +167,7 @@
 - **架构红线机器化**：`tests/test_architecture.py`（纯逻辑层不依赖 Qt、解码链单向依赖、`PetWindow` 私有面冻结、行数预算、孤儿簇守卫）。
 - **配置键纪律**：普通顶层键三处登记（默认值 + reload 白名单 + schema 快照），特例键走迁移路径。
 - **CI**：三平台 PR 门禁（pytest offscreen + ruff）；时序 flake 家族隔离（webm 生命周期族、低优预热让路族等）并按需一次重跑；CI 成本纪律写入 `AGENTS.md`；修复 main 上 Windows/macOS 的原生崩溃（`parent=None` 的 manager 被循环 GC 在 worker 线程回收 → 跨线程删除带 QTimer/信号连接的 QObject 腐化 Qt 事件队列；现在 shutdown 过继给 QApplication + 停自带单发定时器 + 控制 worker 可取消，并新增 `TestManagerDeterministicTeardown` 回归）。
-- **构建**：`scripts/fix_bridge_bundle.py`（打包产物的桥接零依赖防线：剥 node_modules 残留 + dist 清单零依赖校验 + hermetic 冒烟；桥接插件已归零外部依赖，pnpm junction 展开与 lockfile 快照校验随依赖清零移除）、`scripts/verify_bundle_qt.py`（Qt DLL 链校验）、中文编码自检、Qt/ICU DLL 冲突自检；onedir 构建 + 便携 zip 一条命令。PR 门禁新增桥接零依赖双层校验（全部 bridge 契约测试 + hermetic 冒烟）。
+- **构建**：`scripts/verify_bundle_qt.py`（Qt DLL 链校验）、中文编码自检、Qt/ICU DLL 冲突自检；onedir 构建 + 便携 zip 一条命令。旧插件桥接打包防线已于 2026-10-03 退役。
 
 ## 🙏 致谢
 

@@ -140,7 +140,7 @@ def test_modern_settings_dialog_disables_autostart_on_sub_slot(tmp_path):
 
     # 主槽（instance_id 为空）
     master_cfg = Config(base=tmp_path)
-    d_master = ModernSettingsDialog(master_cfg, include_ai=False)
+    d_master = ModernSettingsDialog(master_cfg)
     try:
         assert d_master.autostart_check.isEnabled() is True
     finally:
@@ -148,10 +148,9 @@ def test_modern_settings_dialog_disables_autostart_on_sub_slot(tmp_path):
 
     # 副槽（instance_id="slot-1"）
     slot1_cfg = Config(base=tmp_path, instance_id="slot-1")
-    d_slot1 = ModernSettingsDialog(slot1_cfg, include_ai=False)
+    d_slot1 = ModernSettingsDialog(slot1_cfg)
     try:
         assert d_slot1.autostart_check.isEnabled() is False
         assert d_slot1.autostart_check.toolTip() == "仅主桌宠可设置"
     finally:
         d_slot1.close()
-

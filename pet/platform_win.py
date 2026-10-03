@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QPoint, QRect, QTimer
 from PySide6.QtGui import QCursor
 
-from . import vision as vision_mod
+from . import windows_foreground as foreground_mod
 
 if TYPE_CHECKING:
     from .window import PetWindow
@@ -193,7 +193,7 @@ def _fg_fullscreen_probe() -> tuple[bool, str]:
     """前台窗口全屏探测，返回 (是否全屏, 诊断描述)。
 
     可在任意线程调用——不触碰 Qt 对象。判定链：
-    1. foreground_window_info()（vision.py）：排除不可见/最小化/cloaked
+    1. foreground_window_info()（windows_foreground.py）：排除不可见/最小化/cloaked
        窗口，取 DWM 框架边界（物理像素，与本进程 DPI awareness 一致）；
     2. 排除本进程、已知覆盖层工具进程（_FS_SKIP_PROCS）与 shell 窗口；
     3. 排除 WS_EX_TOOLWINDOW 工具窗口（截图覆盖层/输入法候选框/悬浮面板）；
@@ -208,7 +208,7 @@ def _fg_fullscreen_probe() -> tuple[bool, str]:
     u32.MonitorFromWindow.argtypes = [wintypes.HWND, wintypes.DWORD]
     u32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
     u32.GetClassNameW.argtypes = [wintypes.HWND, ctypes.c_wchar_p, ctypes.c_int]
-    info = vision_mod.foreground_window_info()
+    info = foreground_mod.foreground_window_info()
     if not info:
         return False, "无可判定前台窗口(不可见/最小化/cloaked)"
     hwnd = info['hwnd']

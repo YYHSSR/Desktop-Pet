@@ -29,7 +29,7 @@ settings window
             └── setting row
 ```
 
-Keep the sidebar domains stable: 常规、桌宠、互动、菜单、桌面组件、AI 与对话、自动化与联动. A platform changes availability inside a domain, not the domain list.
+Keep the sidebar domains stable: 常规、桌宠、互动、菜单、自动化与联动. A platform changes availability inside a domain, not the domain list.
 
 ## Typography
 
@@ -114,4 +114,6 @@ Capture every affected settings domain at the top of its scroll view:
   docs/screenshots/settings-redesign/<iteration> --width 1100 --height 760
 ```
 
-Also capture 720 px for layout changes and `--dark` for color/surface changes. Use `--expanded-ai` when disclosure behavior changes. Inspect the images; file existence alone is not acceptance.
+Also capture 720 px for layout changes and `--dark` for color/surface changes. Use `--expanded-toggles` when dependency visibility changes. Inspect the images; file existence alone is not acceptance.
+
+桌宠页内任务标签：外观与气泡、动画与拖拽、多宠与碰撞。

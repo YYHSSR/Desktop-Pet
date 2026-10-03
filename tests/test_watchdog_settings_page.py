@@ -109,7 +109,7 @@ def test_pattern_rows_grouped_under_own_section(app, tmp_path):
     from pet.modern_settings_dialog import ModernSettingsDialog
     from pet.settings_widgets import SettingsSection
 
-    dlg = ModernSettingsDialog(Config(base=tmp_path), include_ai=False)
+    dlg = ModernSettingsDialog(Config(base=tmp_path),)
     try:
         page = None
         for index in range(dlg.sidebar.count()):

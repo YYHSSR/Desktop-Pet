@@ -38,7 +38,6 @@ VARIABLES = {
     "failureType": "失败类型（failure.*：model_retry_exhausted=模型重试耗尽 / tool_failed=工具最终失败；上游记录提供时可用）",
 }
 
-# 上游记录字段——以桥接插件源码（integrations/dsh-pet-bridge/index.js）逐事件
 # writeRecord/writeRecordDedup 实际写出的字段为准（2026-09-06 核实）：
 #   公共: ts/agent/event 恒有；sessionId 存在时补 projectName/sessionName（session/meta）
 #   Pet 侧注入: agent_key（_remember_dialogue_record）
@@ -74,12 +73,6 @@ DISPLAY_HINTS = {
     "approval.command": "{name} 请求执行：{command}",
     "approval.generic": "{name} 有审批等你决定。",
     "approval.tool": "{name} 在请求审批：{label}",
-    "bridge.install.failed": "{name} 的通信桥没有装好：{detail}",
-    "bridge.install.pending": "正在给 {name} 接上通信桥…",
-    "bridge.install.success": "{name} 的联动插件安装完成。",
-    "bridge.uninstall.failed": "{name} 的通信桥没有完全卸载，需要手动检查。",
-    "bridge.unknown": "检测到未知的桥接事件（{event}），bridge 可能需要更新或重装。",
-    "dsh.writeback.failed": "agent 写回失败，请到 DSH 界面处理。",
     "done.attention": "{name} 停下来了，结果请主人确认。",
     "done.success": "{name} 这一轮完成啦。",
     "failure.generic": "{name} 本轮运行失败，请检查后再运行。",
@@ -107,10 +100,6 @@ EVENT_SOURCES = {
     "agent.attention": ("状态机 attention（Stop / SubagentStop / state=attention）",),
     "agent.error": ("状态机 error（PostToolUseFailure / StopFailure / state=error）",),
     "agent.missing": ("Agent 监视器本地检测",),
-    "bridge.install.pending": ("Pet 桥接安装流程",), "bridge.install.success": ("Pet 桥接安装流程",),
-    "bridge.install.failed": ("Pet 桥接安装流程",), "bridge.uninstall.failed": ("Pet 桥接卸载流程",),
-    "bridge.unknown": ("DSH 桥接未知事件（Monitor 本地识别）",),
-    "dsh.writeback.failed": ("Pet 回写 DSH 响应",),
     "approval.command": ("approval/request（兼容旧名 approval/requested）",),
     "approval.tool": ("approval/request（兼容旧名 approval/requested）",),
     "approval.generic": ("approval/request（兼容旧名 approval/requested）",),
@@ -143,12 +132,6 @@ EVENT_DESCRIPTIONS: dict[str, str] = {
     "agent.attention": "Agent 需要用户处理/注意（状态提示）",
     "agent.error": "Agent 出错或异常（错误场景）",
     "agent.missing": "本机未检测到该 Agent 安装",
-    "bridge.install.pending": "正在安装联动通信桥（Pet 公共事件，应写 global）",
-    "bridge.install.success": "联动通信桥安装完成（Pet 公共事件，应写 global）",
-    "bridge.install.failed": "联动通信桥安装失败（Pet 公共事件，应写 global）",
-    "bridge.uninstall.failed": "联动通信桥卸载失败（Pet 公共事件，应写 global）",
-    "bridge.unknown": "bridge 写出的未知事件——当前桌宠不认识它，提示用户更新/重装 bridge（Pet 公共事件，应写 global）",
-    "dsh.writeback.failed": "Agent 写回 DSH 失败（错误场景，按 Agent 路由可配专属层）",
     "approval.command": "Agent 请求审批一条命令（等待用户决策）",
     "approval.tool": "Agent 请求审批一次工具调用（等待用户决策；不是工具已执行）",
     "approval.generic": "通用审批等待用户决定",
@@ -175,7 +158,7 @@ EVENT_DESCRIPTIONS: dict[str, str] = {
 # 上游未提供/为空/为 null 时占位符自动隐藏，不会原样露出）。
 # 改调用点 kwargs 时必须同步改这里（有 AST 回归测试）。
 PARAMETERS: dict[str, tuple[str, ...]] = {
-    "start": ("name",), "thinking": ("name",),
+    "start": ("name",), "thinking": ("name",), "agent.missing": ("name",),
     "activity.read": ("name", "tool", "label", "command", "argsKey", "callId", "step",
                       "sessionName", "projectName"),
     "activity.search": ("name", "tool", "label", "command", "argsKey", "callId", "step",
@@ -187,10 +170,6 @@ PARAMETERS: dict[str, tuple[str, ...]] = {
     "activity.default": ("name", "tool", "label", "command", "argsKey", "callId", "step",
                          "sessionName", "projectName"),
     "agent.attention": ("name",), "agent.error": ("name",),
-    "agent.missing": ("name",), "bridge.install.pending": ("name",),
-    "bridge.install.success": ("name",), "bridge.install.failed": ("name", "detail"),
-    "bridge.uninstall.failed": ("name",), "dsh.writeback.failed": (),
-    "bridge.unknown": ("name", "event"),
     "approval.command": ("name", "command", "toolName", "sessionName", "projectName", "label"),
     "approval.tool": ("name", "label", "toolName", "sessionName", "projectName"),
     "approval.generic": ("name", "toolName", "sessionName", "projectName", "label"),
@@ -274,7 +253,7 @@ EXPORT_GUIDE: dict[str, Any] = {
     ],
     "Agent 专属配置（agents 层）": (
         "custom 模式下运行时会按「正在活动的 Agent」选台词：agents[该Agent][事件] → global(顶层 phrases)[事件] → 内置默认，"
-        "逐级兜底、留空即继承上一层。顶层 agents 的每个键就是一个 Agent（dsh/claude/cursor/opencode/自定义 Agent 等），"
+        "逐级兜底、留空即继承上一层。顶层 agents 的每个键就是一个 Agent（内置联动或自定义 Agent），"
         "值为 {事件key: [候选文案数组]}，键名与顶层 phrases 完全一致、可全部或只挑几个事件配置。"
         "注意：桥接安装/卸载等 Pet 公共事件不随 Agent 路由，请写在顶层 phrases（global），不要在 agents 里写。"
     ),
@@ -309,7 +288,6 @@ EXPORT_GUIDE: dict[str, Any] = {
         "model_access.one / many、llm_error.api": "模型访问失败（单次/连续） / AI 服务出错。",
         "done.success / done.attention": "收尾：任务完成 / 停下等你确认。",
         "failure.retry / tool / generic": "本轮失败：重试后仍失败 / 工具执行失败 / 通用失败。",
-        "bridge.*、dsh.writeback.failed": "联动桥接的安装/卸载/回写提示（bridge.unknown=bridge 写出桌宠不认识的未知事件，提示更新/重装）。",
         "stuck.reminder": "卡住检测的提醒气泡。",
     },
     "用 AI / 角色卡自动改写（推荐）": (
@@ -323,7 +301,7 @@ EXPORT_GUIDE: dict[str, Any] = {
 def build_persona_template(config: dict[str, Any] | None, agent_keys=None) -> dict[str, Any]:
     """Build a complete portable document without leaking runtime settings.
 
-    agent_keys：需要生成「专属配置脚手架」的 Agent 键列表（如内置四件套 +
+    agent_keys：需要生成「专属配置脚手架」的 Agent 键列表（如内置来源 +
     自定义 Agent）。不传则导出纯 global 模板（不含 agents 层），保持向后兼容。
     """
     config = config if isinstance(config, dict) else {}

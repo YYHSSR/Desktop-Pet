@@ -1369,15 +1369,19 @@ class WebMClip(QObject):
                                      daemon=True, name='pet-warm-meta').start()
                 return
 
-            # 同资源在飞探测去重（第二轮审查 §5）：如果另一个线程正在探测同素材，等其完成并复用
+            # 同资源在飞探测去重（第二轮审查 §5 / F06）：如果另一个线程正在探测同素材，等其完成并复用
             wait_ev = None
+            is_owner = False
             with _IN_FLIGHT_META_LOCK:
                 if cache_key in _IN_FLIGHT_META_EVENTS:
                     wait_ev = _IN_FLIGHT_META_EVENTS[cache_key]
                 else:
-                    _IN_FLIGHT_META_EVENTS[cache_key] = threading.Event()
+                    wait_ev = threading.Event()
+                    _IN_FLIGHT_META_EVENTS[cache_key] = wait_ev
+                    is_owner = True
 
-            if wait_ev is not None:
+            if not is_owner:
+                # 等待方只被动等待 owner 完成，超时后绝不擅自越权执行探测或清理 owner 的 Event（F06）
                 wait_ev.wait(timeout=10.0)
                 cached = _META_CACHE.get(cache_key)
                 if cached is not None:
@@ -1385,10 +1389,13 @@ class WebMClip(QObject):
                     if self._frame_count > 0 and self._duration > 0:
                         self._fps = self._frame_count / self._duration
                         self._frame_count_exact = True
-                    return
+                return
 
             try:
-                frames, secs = imageio_ffmpeg.count_frames_and_secs(key)
+                # 安装并受控捕获 ffprobe 子进程（F07）
+                _PopenCapture._install()
+                with _PopenCapture():
+                    frames, secs = imageio_ffmpeg.count_frames_and_secs(key)
                 if frames and frames > 0:
                     self._frame_count = int(frames)
                 if secs and secs > 0 and math.isfinite(float(secs)):
@@ -1400,9 +1407,8 @@ class WebMClip(QObject):
                 _save_meta_file_cache_entry(cache_key, self._frame_count, self._duration)
             finally:
                 with _IN_FLIGHT_META_LOCK:
-                    done_ev = _IN_FLIGHT_META_EVENTS.pop(cache_key, None)
-                    if done_ev is not None:
-                        done_ev.set()
+                    _IN_FLIGHT_META_EVENTS.pop(cache_key, None)
+                    wait_ev.set()
         except Exception as exc:
             logger.warning('webm 元数据读取失败 %s: %s', self.path, exc)
             # 保留默认值，后续 reader 会尝试从 read_frames 的 meta 补充

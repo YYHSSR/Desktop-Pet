@@ -511,37 +511,21 @@ class _Win:
         return True
 
 
-class _Channel:
-    """假音频通道（即语音报时服务）：只记录被要求播报的文本。"""
-
-    def __init__(self, *, fail: bool = False) -> None:
-        self.spoken: list[str] = []
-        self.fail = fail
-
-    def speak(self, text: str, log_tag: str = "") -> bool:
-        if self.fail:
-            raise RuntimeError("通道故障")
-        self.spoken.append(text)
-        return True
 
 
 class _App:
-    def __init__(self, config, channel) -> None:
+    def __init__(self, config) -> None:
         self.config = config
         self.win = _Win()
-        self._channel = channel
-
-    def ensure_audio_channel(self):
-        return self._channel
 
 
-def _service(config, channel=None):
+def _service(config):
     from PySide6.QtWidgets import QApplication
 
     from pet.festival_service import FestivalReminderService
 
     QApplication.instance() or QApplication([])
-    app = _App(config, channel if channel is not None else _Channel())
+    app = _App(config)
     return FestivalReminderService(app), app
 
 
@@ -555,49 +539,18 @@ def _cfg_with(tmp_path, **overrides):
     return cfg
 
 
-def test_should_speak_at_true_only_when_speak_on_and_festival_due(tmp_path):
-    service, _app = _service(_cfg_with(tmp_path, festival_reminder_speak=True))
-    service.apply_config()
-
-    # 报时槽位带调度后缀，判定须只看前 16 位
-    assert service.should_speak_at("2026-02-17T09:00#hourly") is True
-    # 非提醒时间
-    assert service.should_speak_at("2026-02-17T10:00#hourly") is False
-    # 提醒时间但当天无节日
-    assert service.should_speak_at("2026-01-02T09:00#hourly") is False
-    # 脏输入不得抛异常
-    assert service.should_speak_at("垃圾数据") is False
 
 
-def test_should_speak_at_false_when_speak_disabled(tmp_path):
-    """节日语音没开时不能让报时让位——否则报时会被静默吞掉。"""
-    service, _app = _service(_cfg_with(tmp_path, festival_reminder_speak=False))
-    service.apply_config()
-
-    assert service.should_speak_at("2026-02-17T09:00#hourly") is False
 
 
-def test_service_speaks_festival_text_when_enabled(tmp_path):
-    channel = _Channel()
-    service, app = _service(_cfg_with(tmp_path, festival_reminder_speak=True), channel)
-    service.apply_config()
-
-    service._on_tick(dt.datetime(2026, 2, 17, 9, 0, 5))
-
-    assert len(channel.spoken) == 1
-    assert channel.spoken[0].startswith("今天是春节。")
-    # 气泡与语音内容一致（都走同一次组装的文案）
-    assert app.win.bubbles == channel.spoken
 
 
 def test_service_stays_silent_when_speak_disabled(tmp_path):
-    channel = _Channel()
-    service, app = _service(_cfg_with(tmp_path, festival_reminder_speak=False), channel)
+    service, app = _service(_cfg_with(tmp_path, ))
     service.apply_config()
 
     service._on_tick(dt.datetime(2026, 2, 17, 9, 0, 5))
 
-    assert channel.spoken == []
     assert len(app.win.bubbles) == 1, "不出声也必须有气泡"
 
 
@@ -609,23 +562,19 @@ def test_startup_catch_up_suppresses_same_minute_scheduled_slot(tmp_path):
     紧接着同一分钟的 tick 再播一次（两次气泡 + 两段 TTS），与 ``reminder_slot``
     承诺的"同一天同一提醒时间只播报一次"矛盾。
     """
-    channel = _Channel()
-    service, app = _service(_cfg_with(tmp_path, festival_reminder_speak=True), channel)
+    service, app = _service(_cfg_with(tmp_path, ))
     service.apply_config()
 
     service._catch_up(dt.datetime(2026, 2, 17, 9, 0, 5))
     assert len(app.win.bubbles) == 1, "启动补提醒应播报一次"
-    assert len(channel.spoken) == 1
 
     # 同一分钟内的 tick（30s 间隔的那一拍）不得再播
     service._on_tick(dt.datetime(2026, 2, 17, 9, 0, 35))
     assert len(app.win.bubbles) == 1, "同一分钟不得重复播报"
-    assert len(channel.spoken) == 1, "同一分钟不得重复出声"
 
     # 当天晚些时候的正式提醒点照常播报：补提醒只压当前这一分钟
     service._on_tick(dt.datetime(2026, 2, 17, 21, 0, 30))
     assert len(app.win.bubbles) == 2
-    assert len(channel.spoken) == 2
 
 
 def test_roll_day_resets_fired_slots_across_days(tmp_path):
@@ -634,9 +583,8 @@ def test_roll_day_resets_fired_slots_across_days(tmp_path):
     回归背景：``_roll_day`` 是"提醒次数 → 文案索引"与"当天去重"的共同前提，
     此前零覆盖；它一旦失效，第二天的提醒会被前一天的槽位永久压掉。
     """
-    config = _cfg_with(tmp_path, festival_reminder_speak=True)
-    channel = _Channel()
-    service, app = _service(config, channel)
+    config = _cfg_with(tmp_path, )
+    service, app = _service(config)
     service.apply_config()
 
     # 2026-02-16 除夕 09:00
@@ -659,36 +607,18 @@ def test_roll_day_resets_fired_slots_across_days(tmp_path):
 
 
 def test_remind_now_speaks_and_bubbles(tmp_path):
-    channel = _Channel()
-    service, app = _service(_cfg_with(tmp_path, festival_reminder_speak=True), channel)
+    service, app = _service(_cfg_with(tmp_path, ))
     service.apply_config()
 
     service.remind_now()
 
-    assert app.win.bubbles and channel.spoken == app.win.bubbles
 
 
-def test_speak_failure_degrades_to_bubble_only(tmp_path):
-    """音频通道故障不得影响提醒本身——有气泡就算成功。"""
-    service, app = _service(_cfg_with(tmp_path, festival_reminder_speak=True), _Channel(fail=True))
-    service.apply_config()
-
-    service._on_tick(dt.datetime(2026, 2, 17, 9, 0, 5))
-
-    assert len(app.win.bubbles) == 1
 
 
-def test_missing_audio_channel_degrades_to_bubble_only(tmp_path):
-    service, app = _service(_cfg_with(tmp_path, festival_reminder_speak=True), None)
-    app._channel = None
-    service.apply_config()
-
-    service._on_tick(dt.datetime(2026, 2, 17, 9, 0, 5))
-
-    assert len(app.win.bubbles) == 1
 
 
-# ---------------------------------------------------------------- 设置页「立即试听」
+# ---------------------------------------------------------------- 设置页「立即预览」
 def _page(tmp_path):
     from PySide6.QtWidgets import QApplication
 
@@ -705,19 +635,19 @@ def test_settings_page_has_preview_row_with_button(tmp_path):
     page = _page(tmp_path)
     rows = {r.objectName() for r in page.findChildren(SettingRow)}
     assert "settingRow_festival_preview" in rows
-    assert page.preview_btn.text() == "立即试听"
+    assert page.preview_btn.text() == "立即预览"
 
 
 def test_preview_click_emits_signal_and_writes_config(tmp_path):
     page = _page(tmp_path)
     seen: list[int] = []
+    page.enabled_check.setChecked(True)
     page.preview_requested.connect(lambda: seen.append(1))
-    page.speak_check.setChecked(True)
 
     page.preview_btn.click()
 
     assert seen == [1], "试听应发出信号（供宿主/测试观察）"
-    assert page.config.get("festival_reminder_speak") is True, "试听前必须先落盘当前控件值"
+    assert page.config.get("festival_reminder_enabled") is True, "试听前必须先落盘当前控件值"
 
 
 def test_preview_click_is_safe_without_any_host(tmp_path):
@@ -732,12 +662,10 @@ def test_preview_click_reaches_host_callback_end_to_end(tmp_path):
     from PySide6.QtWidgets import QWidget
 
     page = _page(tmp_path)
-    channel = _Channel()
     # 必须改**控件**而不是 config：点击会先 apply_to_config()，用控件值覆盖 config
     # （这正是"先落盘再触发"的语义，直接改 config 会被冲掉）。
     page.enabled_check.setChecked(True)
-    page.speak_check.setChecked(True)
-    service, app = _service(page.config, channel)
+    service, app = _service(page.config)
     service.apply_config()
 
     host = QWidget()
@@ -747,7 +675,6 @@ def test_preview_click_reaches_host_callback_end_to_end(tmp_path):
     page.preview_btn.click()
 
     assert app.win.bubbles, "试听必须产生气泡"
-    assert channel.spoken == app.win.bubbles, "开启语音播报时试听应同时出声"
 
 
 def test_preview_resolution_survives_an_extra_parent_layer(tmp_path):
@@ -780,8 +707,7 @@ def test_appshell_trigger_festival_now_reaches_service(tmp_path):
     QApplication.instance() or QApplication([])
     cfg = Config(base=tmp_path)
     cfg.set("festival_reminder_enabled", False)   # 总开关关闭
-    cfg.set("festival_reminder_speak", False)
-    shell = AppShell(QApplication.instance(), cfg, enable_chat=False)
+    shell = AppShell(QApplication.instance(), cfg)
     assert shell.festival_service is None
 
     shell.trigger_festival_now()                  # 不得抛
@@ -795,7 +721,7 @@ def test_preview_rows_are_collected_into_domain_sections(tmp_path):
 
     历史事故：设置页里**没包在 SettingRow 内**的控件（含页面根布局里的按钮）不会
     被 `_rebuild_domain_navigation` 收集，页面被移出 pages 后按钮直接消失——当时
-    的表现是"打包版看不到立即试听"。这里用**真实对话框**断言试听行确实落进了域卡片，
+    的表现是"打包版看不到立即预览"。这里用**真实对话框**断言试听行确实落进了域卡片，
     同时覆盖语音报时与节日提醒两个按钮（后者是本次新增）。
     """
     from PySide6.QtWidgets import QApplication
@@ -805,10 +731,10 @@ def test_preview_rows_are_collected_into_domain_sections(tmp_path):
     from pet.settings_widgets import SettingsSection
 
     QApplication.instance() or QApplication([])
-    dialog = ModernSettingsDialog(Config(base=tmp_path), include_ai=False)
+    dialog = ModernSettingsDialog(Config(base=tmp_path))
     try:
         sections = dialog.findChildren(SettingsSection)
-        for target in ("settingRow_festival_preview", "settingRow_voice_chime_preview"):
+        for target in ("settingRow_festival_preview",):
             holders = [
                 s for s in sections if any(r.objectName() == target for r in s.rows)
             ]

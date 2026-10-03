@@ -54,31 +54,6 @@
     "哼，会话 {sessionName} 里的{name}想做{label}，没有主人批准可不许乱用{toolName}。",
     "{name}在当前会话 {sessionName} 里正在等待工具审批，主人来决定嘛～"
   ],
-  "bridge.install.failed": [
-    "呜～{name}的通信桥安装失败啦：{detail}",
-    "哼，给{name}搭桥时出了问题：{detail}，主人帮忙看看嘛。",
-    "{name}暂时还没接通，具体情况是：{detail}"
-  ],
-  "bridge.install.pending": [
-    "正在给{name}安装通信桥呢，主人稍等一下哦～",
-    "搭桥好麻烦呀……不过是主人要的，人家当然会乖乖弄。",
-    "{name}的联动通道正在安装，很快就好啦～"
-  ],
-  "bridge.install.success": [
-    "桥接好啦～{name}的联动插件已经安装完成。",
-    "哼，总算把{name}接通了，人家这次很可靠吧。",
-    "{name}已经准备就绪啦～夸人家聪明可以，不许说胖！"
-  ],
-  "bridge.uninstall.failed": [
-    "{name}的通信桥没有卸干净，主人需要检查一下哦。",
-    "哼，{name}还有卸载残留，真是不让鲸鱼省心。",
-    "{name}的桥接卸载没有完全完成，人家先提醒主人啦～"
-  ],
-  "bridge.unknown": [
-    "人家收到了一个不认识的桥接事件（{event}）……bridge 是不是该更新或重装啦？",
-    "呜～bridge 发来「{event}」这种人家看不懂的东西，主人帮人家更新一下 bridge 嘛。",
-    "有个陌生事件「{event}」冒出来啦，重装 bridge 应该就能认得了哦～"
-  ],
   "done.attention": [
     "{name}已经停下来啦，主人确认一下结果嘛～",
     "{name}本轮已经停住，正在等主人检查。",
@@ -88,11 +63,6 @@
     "主人～{name}这一轮完成啦，快去看看成果吧。",
     "哼，总算顺利做完了，{name}这次勉强还算靠谱。",
     "{name}任务完成～主人去验收吧，人家要去吃米饭然后趴一会儿啦。"
-  ],
-  "dsh.writeback.failed": [
-    "呜呜，Agent 的消息没有成功写回 DSH，主人去界面处理一下吧～",
-    "回写 DSH 失败啦……哼，这次真的不是人家偷懒。",
-    "消息没能送回 DSH，主人需要去 DSH 界面确认一下哦。"
   ],
   "failure.generic": [
     "主人～当前会话 {sessionName} 里的{name}本轮运行失败啦，失败类型是{failureType}。",

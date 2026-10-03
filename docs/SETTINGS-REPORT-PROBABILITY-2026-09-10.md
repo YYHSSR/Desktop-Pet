@@ -141,7 +141,6 @@ python ptmp-ui-entry-drive.py    # 60 通过 / 0 失败
 | 标识符 | 位置 | 保持不变的理由 |
 |---|---|---|
 | `model_access.one` / `model_access.many` | 人格文案词表键（`pet/persona_template.py`、`pet/persona_presets/*.json`） | **已改名**（原 `rate_limit.*`）。名字按语义走，不留状态码痕迹；用户已保存的自定义文案由加载期迁移兜底（`Config._migrate_dialogue_phrase_fields`）。 |
-| 线协议事件名 `model_access` | 桥接写出 → pet 消费 | **已改名**（原 `rate_limit`）。桥接与 pet 同仓同版本发布（`integrations/dsh-pet-bridge/index.js` 写出、`pet/agent_event_normalizer.py` 归一），两端一起改；上游真实状态码（`429`/`RATE_LIMIT` 等）**作为数据字面量保留**，否则识别不出真实错误。 |
 | `alert_id` 前缀 `429-rate-limit:` | 运行期内部标识 | 不落盘、不对用户展示，改名无收益 |
 | 旧键 `notify_*` / `report_probability` | 历史配置字段 | **已删除**：一次性迁移到 `report_gates` 后不再写出，也不做双写（见 `docs/SETTINGS-CHANGE-GATES.md` 的迁移纪律）。 |
 

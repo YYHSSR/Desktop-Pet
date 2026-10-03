@@ -1,72 +1,13 @@
 # -*- coding: utf-8 -*-
-"""pytest 全局夹具。
-
-1) 全局测试静音：跑测试时不许真实发声。
-   play_sound 的取证日志照常记录（测试仍可断言"调用了播放"），但
-   QSoundEffect/QMediaPlayer 的 play 被替换为空操作——测试套件在任何
-   机器上跑都不应该让喇叭出声。
-
-2) 无人值守环境（CI/自动化）下，模态 QMessageBox 弹窗会永久阻塞或直接崩溃
-   （Fatal: Aborted）。设置对话框（如 modern_settings_dialog）保存开机自启失败时会弹模态
-   QMessageBox.warning，所有调用 _save() 的测试在 CI 上都会因此卡死
-   （定位手段：pytest -o timeout_method=thread --timeout=90 可 dump 出
-   卡住的线程堆栈）。这里用 autouse fixture 全局把 QMessageBox 的静态弹窗
-   方法替换为 no-op——任何测试都不会因模态弹窗卡死。需要断言弹窗行为的
-   测试可自行 monkeypatch.setattr 覆盖。
-
-   收窄（批 6-8a）：warning/information/critical/about 的返回值在产品代码中
-   无分支用途，保持 no-op 即可；question() 是分支型 API，返回 None 不是合法
-   StandardButton、会改变调用方分支语义，因此默认返回 StandardButton.No
-   （安全拒绝，等同用户点“否”）。需要 Yes/No 特定答案的测试必须局部
-   monkeypatch（test_agent_link / test_proactive 已如此）。
-"""
+"""Shared Qt lifecycle cleanup and nonblocking modal-dialog fixtures."""
 
 import sys
 
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def _mute_qt_audio(monkeypatch):
-    try:
-        from PySide6.QtMultimedia import QMediaPlayer, QSoundEffect
-    except Exception:
-        return
-    monkeypatch.setattr(QSoundEffect, "play", lambda self: None)
-    monkeypatch.setattr(QMediaPlayer, "play", lambda self: None)
-    # 阻止 QSoundEffect 真正异步加载音频源：headless CI 上即使不 play，
-    # setSource 后的异步加载与 processEvents 也可能在 QtMultimedia 后端触发
-    # 原生 access violation。把 status 直接置 Ready 也让预热等待循环零泵事件。
-    monkeypatch.setattr(QSoundEffect, "setSource", lambda self, source: None)
-    monkeypatch.setattr(QSoundEffect, "status", lambda self: QSoundEffect.Status.Ready)
-    # Windows headless 上 WAV 之外的音效预热会启动真实 QAudioDecoder 异步解码，
-    # 其 processEvents 等待循环可能原生崩溃（macOS/Linux 无此现象）。此全局
-    # 打桩只作用于 Windows，避免影响其它平台 QtMultimedia 退出时的析构顺序。
-    if sys.platform == "win32":
-        # 测试如需验证音效逻辑，应像 test_click_sound 一样局部替换
-        # click_sound._pool.qt_multimedia_classes 为假类。
-        try:
-            from pet import click_sound as _click_sound_mod
-        except Exception:
-            return
-        monkeypatch.setattr(_click_sound_mod._pool, "qt_multimedia_classes", lambda: None)
 
 
-@pytest.fixture(autouse=True)
-def _mute_winmm_audio(monkeypatch):
-    """winmm 直放后端在测试里必须"不可用"（对齐 _mute_qt_audio 的口径）。
-
-    pet/sound_winmm.py 是真实触碰声卡的路径：不拦的话，"设置里点试听"这类
-    用例会在跑测试时真的把 wav 交给 waveOut 发声，还会在无人值守 runner 上
-    打开真实音频设备。默认把默认后端置为不可用，产品代码因此走与改动前
-    逐位一致的 Qt 路径；要验证 winmm 语义的用例自行注入替身后端
-    （tests/test_winmm_sound.py 用 _new_winmm_pool / WinmmSoundPool(api=...)）。
-    """
-    try:
-        from pet import sound_winmm
-    except Exception:
-        return
-    monkeypatch.setattr(sound_winmm, "default_api", lambda: None)
 
 
 @pytest.fixture(autouse=True)
@@ -87,77 +28,10 @@ def _no_modal_message_boxes(monkeypatch):
     )
 
 
-@pytest.fixture(autouse=True)
-def _no_real_dsh_profile_write(monkeypatch):
-    """禁止测试触发对**真实** ~/.dsh/profiles 的桥接 link 自检。
-
-    产品在启动路径会自检桥接 link（陈旧则跑 `pnpm add` 刷成当前构建，见
-    DshMonitor.schedule_link_refresh_check）；测试若启用 dsh 联动又没打桩，
-    那个后台线程会读到开发者/CI 机器上的真实 profile 并真的执行 pnpm，
-    改写用户配置——测试绝对不许有这种副作用。这里只拦"起真线程"这一步，
-    自检逻辑本身仍可测（用例自行注入 spawn，或直接调 refresh_stale_bridge_links）。
-    """
-    try:
-        from pet.agent_link import DshMonitor
-    except Exception:
-        return
-    monkeypatch.setattr(
-        DshMonitor, "_spawn_link_check", staticmethod(lambda target: None),
-    )
 
 
-@pytest.fixture(autouse=True)
-def _close_session_writers():
-    """会话异步写盘（B8）：每个测试结束后关闭所有后台 writer，
-    避免守护线程在 tmp_path 已清理后继续写盘（WinError 145 之类的 teardown 竞态）。"""
-    yield
-    try:
-        from pet.chat import session_store
-        session_store.reset_writers_for_tests()
-    except Exception:
-        pass
 
 
-@pytest.fixture(autouse=True)
-def _clear_click_sound_pool():
-    """每测后清空点击音效池（测试债防线）。
-
-    conftest 只静音了 play()，但设置保存等路径的 warm_click_sound_effects
-    会真实创建 QSoundEffect/QMediaPlayer/QAudioOutput。这些 QtMultimedia
-    原生对象跨测试累积后，在共享 QApplication 下随机 access violation /
-    Fatal abort（全量套件崩溃点会漂移：click_sound 预热循环、气泡图片
-    processEvents 均观测到）。每测后 clear() 复位原生对象缓存。
-    """
-    yield
-    try:
-        from pet import click_sound
-        click_sound._pool.clear()
-        click_sound._reset_caches_for_tests()
-    except Exception:
-        pass
-    # 用例可能自建 winmm 池（替身后端也持句柄/可选 timer）：一并收口。
-    try:
-        from pet import sound_winmm
-        sound_winmm._clear_live_pools_for_tests()
-    except Exception:
-        pass
-
-
-@pytest.fixture(autouse=True)
-def _no_filesystem_player_scan(monkeypatch):
-    """音乐播放器路径扫描（#140 的启动/菜单预热）绝不允许在测试里真实发生。
-
-    ``_search`` 会对 C:/、D:/ 等盘根做三层浅扫（每 root 最多 200 目录）；
-    测试进程里 netease/qqmusic 两条预热线程并发扫盘曾在 Windows CI 上触发
-    C 级 access violation（GC 与 scandir 交叠，PR #147 取证 dump：一线程
-    Garbage-collecting、一线程 _shallow_scan，exit -1073741819），且崩溃点
-    随套件进度漂移。需要真实扫描语义的用例自行 monkeypatch
-    （test_music_player_cache.py 全部用例自带打桩，不受影响）。
-    """
-    from pet import music_players
-
-    monkeypatch.setattr(music_players, "_search", lambda key: None)
-    yield
 
 
 @pytest.fixture(autouse=True)
@@ -213,15 +87,10 @@ def _close_qt_top_level_widgets():
         MovieLibrary._shutdown_live_for_tests()
     except Exception:
         pass
-    # dsh_state：QTimer 只停了不算完——在途在线探测线程（daemon + 阻塞 socket）
+
     # 回来后仍会跨线程 emit；先 stop() 换代作废其结果，再销毁顶层窗口，
     # 否则 deleteLater + processEvents 收尾时 worker 向已销毁 QObject emit
     # （macOS 全量套件 segfault：conftest._close_qt_top_level_widgets + socket 线程）。
-    try:
-        from pet import dsh_state
-        dsh_state._shutdown_live_for_tests()
-    except Exception:
-        pass
     # 销毁残留顶层窗口（QDialog/QWidget）：只用 deleteLater，绝不用 close()。
     # close() 会触发 closeEvent → _write_config → warm_click_sound_effects 的
     # 副作用（t4 曾因此崩溃）；deleteLater 走 DeferredDelete，Qt 安全销毁且不

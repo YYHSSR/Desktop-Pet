@@ -80,10 +80,7 @@ jobs:
               echo "::error::$APP pet 模块未被 PyInstaller 收集"; cat "$WARN"; exit 1
             fi
             echo "$APP pet 模块已收集"
-            if ! find dist -path "*integrations/dsh-pet-bridge/package.json" | grep -q .; then
-              echo "::error::$APP 未打包 integrations/dsh-pet-bridge，DSH 桥接一键安装必然失败"; exit 1
-            fi
-            echo "$APP 桥接插件资源已打包"
+
             # Fcitx 插件必须与 PySide6 Qt 一起分发，Linux Fcitx 用户才能输入中文。
             IME_PLUGIN="dist/$APP/_internal/PySide6/Qt/plugins/platforminputcontexts/libfcitx5platforminputcontextplugin.so"
             if [ ! -f "$IME_PLUGIN" ]; then

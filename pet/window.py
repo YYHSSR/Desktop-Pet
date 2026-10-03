@@ -64,7 +64,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import autostart as autostart_mod
 from . import catalog
 from . import gui_stall_sampler
 from . import perfstats
@@ -73,7 +72,6 @@ from .config import (
     DEFAULT_SELF_TALK_DURATION_SECONDS,
     DEFAULT_SELF_TALK_MAX_INTERVAL,
     DEFAULT_SELF_TALK_MIN_INTERVAL,
-    DEFAULT_SELF_TALK_TEXTS,
     Config,
     _float_or_default,
 )
@@ -91,11 +89,6 @@ from .context_menu import normalize_template_id, populate_context_menu as _popul
 from .context_menus.shared import take_deferred_menu_callbacks
 from . import physics as physics_mod
 from .collision_client import CollisionClient
-from .click_sound import (
-    choose_sound, play_sound, resolve_click_sound_candidates, resolve_click_sound_pair,
-    play_press_sound, play_release_sound,
-)
-from .proactive import effective_proactive_config
 from .window_optional_services import WindowFeatureGateMixin
 
 from . import platform_win
@@ -111,8 +104,6 @@ from .platform_win import (
     _fg_fullscreen_win32 as _fg_fullscreen_win32,
 )
 
-# 后台播放音乐时自动播放的唱歌/哼歌动画
-SING_ANIM = '悠闲哼歌'
 
 # 动画启动被拒（movie.start() 返回 False，如 imageio_ffmpeg 被杀毒软件隔离/clip 已 cleanup）时的降级策略：
 # 回退到上一个可播放动画/待机，并安排稍后重试被拒动画（B7 审查 P1-1）。
@@ -317,7 +308,7 @@ def _set_speech_bubble_interactive(pet) -> None:
     """按当前是否可打开快速对话，切换气泡鼠标穿透/可点击。"""
     setter = getattr(pet._speech_bubble, "set_interactive", None)
     if callable(setter):
-        setter(callable(getattr(pet, "on_open_quick_chat", None)))
+        setter(False)
 
 
 def _content_frame_rect(pet) -> QRect:
@@ -339,7 +330,6 @@ def _content_frame_rect(pet) -> QRect:
 class PetWindow(QWidget, WindowFeatureGateMixin):
     """桌宠窗口本体。"""
 
-    look_done = Signal(str, str, bool)
     fullscreen_changed = Signal(bool)  # 全屏 watcher 线程 → 主线程（隐藏/恢复桌宠）
     cursor_visibility_changed = Signal(str)
 
@@ -354,7 +344,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
     _draw_delta = QPoint(0, 0)
 
     def __init__(self, lib: MovieLibrary, config: Config, collision_session=None,
-                 broker_facade=None, *, clock=None, single_process_spawn: bool = False, agent_link_manager=None, proactive_watcher=None) -> None:
+                 broker_facade=None, *, clock=None, single_process_spawn: bool = False, agent_link_manager=None) -> None:
         super().__init__()
         self.lib = lib
         self.cfg = config
@@ -381,12 +371,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
                                               IDLE_LOW_FPS_DEFAULT_THRESHOLD)))
         )
         self.on_switch_character = None  # 由 app 注入，用于运行时切换角色
-        self.on_open_chat = None
-        self.on_open_quick_chat = None
-        self.on_open_modern_chat = None
-        self.on_open_chat_settings = None
-        self.on_look_synced = None
-        self.on_look_screen = None
         self.on_open_legacy_settings = None
         self.on_open_modern_settings = None
         self.on_restore_fun_windows = None
@@ -449,10 +433,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         self._speech_bubble = PetSpeechBubble(
             style_id=str(config.get('self_talk_bubble_style', DEFAULT_SELF_TALK_BUBBLE_STYLE))
         )
-        self._speech_bubble.clicked.connect(self._on_speech_bubble_clicked)
-        self._look_busy = False
-        self._last_look_ts = 0.0
-        self.look_done.connect(self._on_look_done)
         self._self_talk_enabled = bool(config.get('self_talk_enabled', False))
         self._self_talk_texts = self._read_self_talk_texts(config.get('self_talk_texts'))
         self._self_talk_duration_seconds = max(
@@ -476,13 +456,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         self._self_talk_timer = QTimer(self)
         self._self_talk_timer.setSingleShot(True)
         self._self_talk_timer.timeout.connect(self._on_self_talk_timeout)
-        # 后台音乐检测：默认关闭，开启后检测到系统正在输出音频就播放唱歌动画
-        self._music_sing_enabled = bool(config.get('music_sing_enabled', False))
-        self._music_sing_active = False
-        self._music_sing_timer = QTimer(self)
-        # 1s 轮询：兼顾 COM 开销与“识别到音频后尽快触发”的体验。
-        self._music_sing_timer.setInterval(1000)
-        self._music_sing_timer.timeout.connect(self._check_music_sing)
         # 重要气泡（主动识屏先兆/答复、Agent 联动提醒等）占用期间，自言自语让路，
         # 避免"让我看看……"刚出来就被自言自语顶掉、答复又顶掉自言自语的连环抢占。
         self._bubble_busy_until = 0.0
@@ -511,7 +484,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         # 打开后进入运行期）。
         # 批5.2a：单进程多窗 flag 开时，AppShell 在构造期注入进程级共享实例
         # ——共享语义必须构造期注入，不能等懒创建（懒创建会各窗自建、断共享）。
-        self.proactive_watcher = proactive_watcher
         self.agent_link_manager = agent_link_manager
 
         # ---- 全屏应用自动隐藏（Windows）----
@@ -661,8 +633,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         self._squash_active = False
         self._squash_duration_ms = 220
         self._squash_progress = 1.0
-        self._last_collision_sound_at = float('-inf')
-        self._press_sound_pair = None
         self._slingshot_rebound_progress = 0.0
 
         # ---- 拖动物理 ----
@@ -739,8 +709,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
 
         self._restore_position()
         self._switch(self.idle)
-        if self._music_sing_enabled:
-            self._start_music_sing_polling()
+        # 音乐功能已去除
         self._schedule_self_talk()
         if self._watch_required():
             self._start_fs_watch()
@@ -756,29 +725,24 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         # sync_optional_services() 自身以 _install_effect_services() 收尾。
         self.sync_optional_services()
 
-    @property
-    def click_sound_enabled(self) -> bool:
-        return bool(self.cfg.get('click_sound_enabled', True))
 
-    @click_sound_enabled.setter
-    def click_sound_enabled(self, value: bool) -> None:
-        self.cfg.set('click_sound_enabled', bool(value))
 
     @property
-    def collision_sound_enabled(self) -> bool:
-        return bool(self.cfg.get('collision_sound_enabled', True))
+    def click_show_self_talk(self) -> bool:
+        cfg = getattr(self, "cfg", None)
+        if cfg is None:
+            return False
+        return bool(cfg.get('click_show_self_talk', False))
 
-    @collision_sound_enabled.setter
-    def collision_sound_enabled(self, value: bool) -> None:
-        self.cfg.set('collision_sound_enabled', bool(value))
+    @click_show_self_talk.setter
+    def click_show_self_talk(self, value: bool) -> None:
+        cfg = getattr(self, "cfg", None)
+        if cfg is not None:
+            cfg.set('click_show_self_talk', bool(value))
 
-    @property
-    def collision_sound_volume(self) -> float:
-        return float(self.cfg.get('collision_sound_volume', 0.70))
 
-    @collision_sound_volume.setter
-    def collision_sound_volume(self, value: float) -> None:
-        self.cfg.set('collision_sound_volume', float(value))
+
+
 
     # ================================================================ 闲置降帧（性能调研 §4.3）
     def mark_activity(self) -> None:
@@ -808,7 +772,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         self._sync_movie_throttle(False)
 
     def _agent_busy(self) -> bool:
-        """Agent 联动忙碌（dsh 等正在干活）视为活跃，不降帧。"""
+        """Agent 联动忙碌（Agent 正在干活）视为活跃，不降帧。"""
         mgr = getattr(self, 'agent_link_manager', None)
         if mgr is None:
             return False
@@ -1142,9 +1106,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
             # 恢复显示 = 用户重新看着桌宠：重置闲置计时，重新以全帧率呈现
             # （只有再闲置 idle_low_fps_threshold 秒才进入降帧）
             self.mark_activity()
-        music_timer = getattr(self, "_music_sing_timer", None)
-        if getattr(self, "_music_sing_enabled", False) and music_timer is not None and music_timer.isActive():
-            QTimer.singleShot(0, self, self._check_music_sing)
         self._effects_on_shown()
 
     def hide(self, *, notify: bool = True) -> None:
@@ -1171,7 +1132,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         """停止全部活动定时器并清空关联状态（隐藏/关闭共用的收口）。
 
         closeEvent 与 _pause_activity 此前各自收口、已出现分叉：closeEvent
-        漏停 _move_timer/_squash_timer/_physics_timer/_music_sing_timer。这些
+        漏停 _move_timer/_squash_timer/_physics_timer。这些
         QTimer(self) 子对象虽随窗口 C++ 销毁而销毁，但 win.close() 只隐藏不
         销毁窗口，Python 包装存活期内残留的单次 timeout 仍可对已停播/半销毁
         窗口触发（全量套件崩溃点漂移、Linux exit 139 的来源之一）。统一在此
@@ -1182,7 +1143,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         self._clear_drag_move()
         self._cancel_move()
         self._self_talk_timer.stop()
-        self._music_sing_timer.stop()
         self._squash_timer.stop()
         self._squash_active = False
         self._physics_timer.stop()
@@ -1208,10 +1168,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         # 只有手动隐藏（托盘/右键，_auto_hidden 为 False）才停它。
         if not self._auto_hidden:
             self._stop_fs_watch()
-        if hasattr(self, 'proactive_watcher') and self.proactive_watcher is not None:
-            self.proactive_watcher.pause()
-        if hasattr(self, 'agent_link_manager') and self.agent_link_manager is not None:
-            self.pause_agent_link_for_hide()
         if hasattr(self, 'lib') and self.lib is not None and hasattr(self.lib, 'pause_warm'):
             self.lib.pause_warm()
         # 交互让路闸门随隐藏对称释放（库侧 pause_warm 已换代清零时 end 是
@@ -1239,10 +1195,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         if self._watch_required():
             self._start_fs_watch()
         self._schedule_self_talk()
-        if self._music_sing_enabled:
-            self._start_music_sing_polling()
-        if hasattr(self, 'proactive_watcher') and self.proactive_watcher is not None:
-            self.proactive_watcher.resume()
+        # 音乐功能已去除
         if hasattr(self, 'agent_link_manager') and self.agent_link_manager is not None:
             self.agent_link_manager.resume()
         if hasattr(self, 'lib') and self.lib is not None and hasattr(self.lib, 'resume_warm'):
@@ -1540,9 +1493,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
     def set_stream_capture_mode(self, *args, **kwargs):
         """Compatibility delegation (window_screen.set_stream_capture_mode)."""
         return window_screen.set_stream_capture_mode(self, *args, **kwargs)
-    def set_quick_chat_capture_widget(self, widget) -> None:
-        """Compatibility delegation (window_screen.set_quick_chat_capture_widget)."""
-        return window_screen.set_quick_chat_capture_widget(self, widget)
 
 
     def _arm_dock_reactivate_restore(self) -> None:
@@ -2327,9 +2277,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         ):
             # 直播捕获子模式下，可点击气泡必须作为非透明命中区，否则逐像素穿透会把它当透明。
             return False
-        quick = getattr(self, "_quick_chat_capture_widget", None)
-        if quick is not None and shiboken6.isValid(quick) and quick.isVisible() and quick.geometry().contains(local):
-            return False
         if self._frame_pixmap is None or self._frame_pixmap.isNull():
             return False
         rect = self._frame_draw_rect()
@@ -2574,14 +2521,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
 
     # ================================================================ 动画链
     def _on_anim_ended(self, name: str) -> None:
-        if name == SING_ANIM:
-            # 音乐自动唱歌开启且当前仍处于“唱歌中”时，直接无缝续播；
-            # 不再每次播完都查一次音频 COM，降低长时间运行的崩溃风险。
-            # 音乐停止由 _check_music_sing 定时检测后清掉 _music_sing_active。
-            if self._music_sing_enabled and self._music_sing_active:
-                self._switch(SING_ANIM)
-                return
-            self._music_sing_active = False
+        # 音乐自动唱歌已去除
         if name == self.drag and self._dragging:
             if not self._restart_current_clip(name):
                 # 拖拽动画也被拒（退役池卡死）：回退可播放动画并安排重试，
@@ -3223,11 +3163,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         if event.button() == Qt.MouseButton.LeftButton:
             if not self._is_in_interactive_area(event.position().toPoint()):
                 return  # 左右留白区域不参与点击/拖拽
-            if self.click_sound_enabled:
-                pair = resolve_click_sound_pair(self.cfg.get("click_sound_pack"), data_dir=self.cfg.dir)
-                # 每次按下都重置：解析失败/切换音效包时不能复用上一次的旧 pair
-                self._press_sound_pair = pair
-                # 拖动不应触发点击音效：按下阶段不发声，确认是点击后再播放完整 press+release
             if self.lock_position:
                 # 锁定位置：不记录按下（拖拽不会开始），但按住期间仍持有
                 # 低优先级预热让路闸门，避免锁定点击瞬间预热抢 CPU/IO；
@@ -3384,16 +3319,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
                 # 避免松手帧现场掷骰切到冷首帧动画造成 GUI 同步解码卡顿。
                 self._switch(self._pick(self.idles))
         elif dist < catalog.DRAG_THRESHOLD * self.scale:
-            # 边缘探头激活时，点击是“拉直/重置倒计时”的探头操作，不是普通点击反馈，
-            # 不播点击音效。
-            probe_active = getattr(self, '_effects_probe_active', None)
-            probe_click = bool(probe_active()) if callable(probe_active) else False
-            if self._press_sound_pair is not None and self.click_sound_enabled and not probe_click:
-                volume = float(self.cfg.get("click_sound_volume", 0.70))
-                play_press_sound(self._press_sound_pair, volume)
-                play_release_sound(self._press_sound_pair, volume)
-            if not self._try_open_quick_chat_from_bubble(g):
-                self._on_click()
+            self._on_click()
         self._dragging = False
         self._interaction_state = "IDLE"
         self._press_global = None
@@ -3413,35 +3339,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
     def _clear_just_dragged(self) -> None:
         self._just_dragged = False
 
-    def _on_speech_bubble_clicked(self) -> None:
-        # 交互/告警气泡的主体点击必须是 no-op；只有普通无按钮气泡可打开对话栏。
-        # 以实际展示状态判断，不依赖气泡文案关键词。按钮自身仍由气泡控件处理。
-        bubble = getattr(self, "_speech_bubble", None)
-        if (getattr(self, "_sticky_bubble_active", False)
-                or getattr(bubble, "_interactive_active", False)
-                or getattr(self, "_alert_current", None) is not None):
-            return
-        if callable(getattr(self, "on_open_quick_chat", None)):
-            self.on_open_quick_chat()
 
-    def _try_open_quick_chat_from_bubble(self, global_pos) -> bool:
-        """点击桌宠头顶的气泡时打开快速对话（而不是触发 Q 弹）。"""
-        callback = getattr(self, "on_open_quick_chat", None)
-        if not callable(callback):
-            return False
-        bubble = getattr(self, "_speech_bubble", None)
-        if bubble is None or not bubble.isVisible():
-            return False
-        bubble_origin = bubble.mapToGlobal(QPoint(0, 0))
-        bubble_global = QRect(bubble_origin, bubble.size())
-        if not bubble_global.contains(global_pos):
-            return False
-        if (getattr(self, "_sticky_bubble_active", False)
-                or getattr(bubble, "_interactive_active", False)
-                or getattr(self, "_alert_current", None) is not None):
-            return False
-        callback()
-        return True
 
     def _on_click(self) -> None:
         """真点击 → 随机一个点击回应动画，并重置当前动画（可连续点击打断）。
@@ -3463,14 +3361,11 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         if not self.clicks:
             return
         # 点击可以打断当前动画（包括正在播放的点击回应），实现连续 Q 弹。
-        # 先让 Q 弹/动画立刻开始，音效放到下一轮事件循环，避免任何音频
         # 初始化/文件扫描阻塞点击瞬间的画面更新。
         click_name = self._pick(self.clicks)
         self._cancel_move()
         self._start_squash()
         self._switch(click_name)
-        if resolve_click_sound_pair(self.cfg.get("click_sound_pack"), data_dir=self.cfg.dir) is None:
-            self._schedule_click_sound()
         if self.click_show_self_talk:
             # 点击自言自语是**独立开关**：只认 ``click_show_self_talk``，不再搭
             # 「气泡自言自语」总开关（那是周期气泡的开关；两者绑在一起会让"只想
@@ -3478,107 +3373,13 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
             if self._show_click_self_talk(click_name):
                 self._schedule_self_talk(after_display=True)
 
-    def _schedule_click_sound(self) -> None:
-        if not self.click_sound_enabled:
-            return
 
-        def play() -> None:
-            if shiboken6.isValid(self):
-                self._play_click_sound()
 
-        QTimer.singleShot(0, play)
-
-    def _play_click_sound(self) -> None:
-        if not self.click_sound_enabled:
-            return
-        pack = self.cfg.get("click_sound_pack")
-        candidates = resolve_click_sound_candidates(pack, data_dir=self.cfg.dir)
-        path = choose_sound(candidates)
-        if path is None:
-            return
-        volume = float(self.cfg.get("click_sound_volume", 0.70))
-        play_sound(path, volume=volume)
-
-    def _play_collision_sound(self) -> None:
-        if not self.collision_sound_enabled:
-            return
-        now = time.monotonic()
-        if now - self._last_collision_sound_at < 0.25:
-            return
-        self._last_collision_sound_at = now
-        volume = self.collision_sound_volume
-        pair = resolve_click_sound_pair(self.cfg.get("click_sound_pack"), data_dir=self.cfg.dir)
-        if pair is not None:
-            play_press_sound(pair, volume)
-        else:
-            candidates = resolve_click_sound_candidates(self.cfg.get("click_sound_pack"), data_dir=self.cfg.dir)
-            path = choose_sound(candidates)
-            if path is not None:
-                play_sound(path, volume=volume)
 
     # ================================================================ 看看屏幕
-    def _on_look_screen(self) -> None:
-        """Capture and analyse the screen outside the GUI thread."""
-        if self._look_busy:
-            self.show_bubble("上一张还没看完呢…")
-            return
-        now = time.monotonic()
-        if now - self._last_look_ts < 4.0:
-            self.show_bubble("喘口气嘛，刚看过啦…")
-            return
-        self._last_look_ts = now
-        self._look_busy = True
-        self.show_bubble("让我看看…", 6000)
 
-        # 在主线程解析好快照，避免后台 worker 线程改写共享配置对象
-        import copy
-        settings = self.cfg.chat_settings()
-        provider = copy.copy(settings.active_config)
-        provider.api_key = self.cfg.resolve_api_key(provider)
-        system_prompt = settings.default_system_prompt
-        # 自我识别提示用的角色显示名（截图里的桌宠就是它自己）；别名优先
-        pet_name = self.cfg.character_display_name(
-            str(self.cfg.get('character', catalog.DEFAULT_CHARACTER))
-        )
 
-        threading.Thread(
-            target=self._look_worker,
-            args=(provider, system_prompt, pet_name),
-            daemon=True,
-            name="pet-look-screen",
-        ).start()
 
-    def look_at_screen(self) -> None:
-        """公开转发：触发一次"看看屏幕"识别（等价 _on_look_screen）。"""
-        self._on_look_screen()
-
-    def _look_worker(self, provider: Any, system_prompt: str, pet_name: str = "") -> None:
-        # 延迟导入：无 Chat / 不使用「看看屏幕」的实例启动时不加载 PIL
-        from . import vision as vision_mod
-        try:
-            shot = vision_mod.capture_screen_bytes()
-            app_info = vision_mod.foreground_app_info()
-            reply = vision_mod.ask_about_screen(
-                shot, app_info, system_prompt, provider, pet_name=pet_name
-            )
-            if shiboken6.isValid(self) is False:
-                return  # 窗口已销毁（退出/切角色），不再触碰信号
-            user_text = f"[看看屏幕] 前台窗口：{app_info}" if app_info else "[看看屏幕]"
-            self.look_done.emit(reply, user_text, False)
-        except Exception as exc:
-            logging.exception("看看屏幕失败")
-            if shiboken6.isValid(self) is False:
-                return
-            self.look_done.emit(str(exc), "", True)
-
-    def _on_look_done(self, text: str, user_text: str, is_error: bool) -> None:
-        self._look_busy = False
-        if is_error:
-            self.show_bubble(f"看不清啊…{text[:60]}", 5000)
-            return
-        self.show_bubble(text, max(4000, min(12000, len(text) * 150)))
-        if callable(self.on_look_synced):
-            self.on_look_synced(user_text, text)
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802
         if self._context_menu_suppressed:
@@ -3822,13 +3623,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         """Compatibility delegation (window_alerts.set_bubble_suppressed)."""
         return window_alerts.set_bubble_suppressed(self, *args, **kwargs)
 
-    def _start_music_sing_polling(self, *args, **kwargs):
-        """Compatibility delegation (window_alerts.start_music_sing_polling)."""
-        return window_alerts.start_music_sing_polling(self, *args, **kwargs)
-
-    def _check_music_sing(self, *args, **kwargs):
-        """Compatibility delegation (window_alerts.check_music_sing)."""
-        return window_alerts.check_music_sing(self, *args, **kwargs)
 
     def show_alert(self, *args, **kwargs):
         """Compatibility delegation (window_alerts.show_alert)."""
@@ -3852,7 +3646,7 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         直到调用 :meth:`hide_bubble` 收尾。
 
         ``buttons=[(label, callback), ...]`` 进入「交互气泡」模式（审批同意/拒绝、
-        问题 A/B/C）：按钮内嵌在气泡里，点击即回调（上层据此回写 DSH），
+        问题 A/B/C）：按钮内嵌在气泡里，点击即回调（上层据此处理用户操作），
         且自动 sticky（点选前一直挂着）。
 
         提醒消息队列激活期间（有审批/问题/硬失败/卡住提醒在展示），普通气泡
@@ -3975,14 +3769,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
             self._animation_gap_timer.start(
                 max(1, int(round(self.animation_gap_seconds * 1000)))
             )
-        self._music_sing_enabled = bool(self.cfg.get('music_sing_enabled', False))
-        if self._music_sing_enabled:
-            # 隐藏期间保持停止，恢复显示时由 _resume_activity 按开关状态启动
-            if self.isVisible():
-                self._start_music_sing_polling()
-        else:
-            self._music_sing_active = False
-            self._music_sing_timer.stop()
         self._self_talk_enabled = bool(self.cfg.get('self_talk_enabled', False))
         bubble = getattr(self, "_speech_bubble", None)
         if bubble is not None:
@@ -4017,57 +3803,11 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         self.cfg.set('context_menu_template', template_id)
         self.cfg.save()
 
-    def set_chat_status(self, state: str, text: str = '') -> None:
-        if not text:
-            return
-        if not self.isVisible():
-            return
-        _set_speech_bubble_interactive(self)
-        self._speech_bubble.show_text(
-            text, window_placement.bubble_anchor_rect(self), duration_ms=2200,
-            pet_scale=self.scale,
-        )
 
 
-    def _toggle_proactive_enabled(self, on: bool) -> None:
-        """右键菜单切换主动识屏总开关。"""
-        pro_data = dict(self.cfg.get('proactive_screen', {}))
-        pro_data['enabled'] = bool(on)
-        self.cfg.set('proactive_screen', pro_data)
-        self.cfg.save()
-        # Phase 1：开启时懒创建观察器；关闭时仅同步已存在实例。
-        if on:
-            self._ensure_proactive_watcher().apply_config()
-        elif self.proactive_watcher is not None:
-            self.proactive_watcher.apply_config()
-        if on:
-            eff = effective_proactive_config(self.cfg.get('proactive_screen', {}))
-            if eff['whitelist']:
-                self.show_bubble("主动识屏已开启～我会偶尔看看你正在用的软件", duration_ms=4000)
-            else:
-                self.show_bubble(
-                    "主动识屏已开启～但白名单还是空的，在 右键→主动识屏→打开设置 里添加要观察的应用后我才会开始工作",
-                    duration_ms=6000,
-                )
 
-    def toggle_proactive_enabled(self, on: bool) -> None:
-        """公开转发：切换主动识屏总开关（等价 _toggle_proactive_enabled）。"""
-        self._toggle_proactive_enabled(on)
 
-    def _set_proactive_option(self, key: str, value: Any) -> None:
-        """右键菜单修改主动识屏子项选项。"""
-        pro_data = dict(self.cfg.get('proactive_screen', {}))
-        pro_data[key] = value
-        self.cfg.set('proactive_screen', pro_data)
-        self.cfg.save()
-        if self._proactive_wanted():
-            self._ensure_proactive_watcher().apply_config()
-        elif self.proactive_watcher is not None:
-            self.proactive_watcher.apply_config()
 
-    def set_proactive_option(self, key: str, value: Any) -> None:
-        """公开转发：修改主动识屏子项选项（等价 _set_proactive_option）。"""
-        self._set_proactive_option(key, value)
 
     def _toggle_agent_link(self, agent_key: str, on: bool, action=None) -> None:
         """右键菜单切换 Agent 状态联动子项。
@@ -4596,8 +4336,6 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
         # 不主动停会让旧窗口在 deleteLater 之后仍被轮询线程保活（B9）
         if getattr(self, 'agent_link_manager', None) is not None:
             self.agent_link_manager.shutdown()
-        # 歌词控制器同持轮询 timer，关闭路径一并收口（close 只隐藏不销毁窗口）
-        self.shutdown_music_lyric()
         if getattr(self, "_interaction_state", IDLE) == SLINGSHOT_AIMING:
             self._cancel_slingshot_to_anchor()
         self._disarm_screen_restore_retry()  # 窗口销毁前摘掉 screenAdded 监听/超时回调

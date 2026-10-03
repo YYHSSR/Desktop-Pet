@@ -99,8 +99,7 @@ QT_QPA_PLATFORM=offscreen python -m pytest -q --basetemp=C:/ptt
 ```
 
 回归面：既有硬编码用例全绿（`test_menu_layout` 的组名/顺序、`test_desktop_pet_features`
-的依赖显隐与 section 标题集合、`test_requested_regressions` 的点击音效行位置、
-`test_music_player_settings` 的新行归属）。
+的依赖显隐与 section 标题集合、`test_requested_regressions` 的位置校验）。
 
 ## 四、风险与回滚
 

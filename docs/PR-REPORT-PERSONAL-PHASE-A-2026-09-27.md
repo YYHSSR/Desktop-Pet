@@ -33,10 +33,7 @@
 
 ## 五、实机运行记录
 
-- 备份工具先看到缺少实现的失败用例，再实现并复跑；独立复核发现根目录链接和枚举错误边界后，补失败用例并修正：6 项通过，符号链接因 Windows 缺少创建权限跳过 1 项；junction 回归实际通过。独立复核结果为 `zip_count=710`、`source_bad=0`、`config_bad=0`、`zip_sha_match=True`。原始备份仍有效，工具的新增保护适用于未来重跑。
-- PowerShell 探针自检通过，合成私密标签未进入 JSONL。首次浅层探针只见 13–15 个控件；扩大深度后见 387 个控件，说明原深度遗漏大量控件，但控件数量本身不证明到达对话正文区域。后来增加屏幕外按钮过滤；复核后又将节点/深度截断和不可用元素标为 `partial`，将缺失信号设为未知，自检通过。旧观察文件仍按旧探针解释。
-- 操作者确认普通 Chat 完成一轮消息，并提供 `C:\Users\zf\Pictures\Screenshots\屏幕截图 2026-09-27 143518.png`（SHA-256 `64bb8d040b4cb62fa0b8bf4e38585fb1f786d9211503e48bf83f665aae378286`）。同轮探针 `observations-20260927-143404-0f1da4d6.jsonl` 记录 Stop 信号多次消失又出现；截图显示回复完成后，信号又于 UTC 06:35:19 变 true。故本轮算 1 次执行、0 次可靠终态识别。外部 `E:\CODX\desktop-pet\experiments\chatgpt-windows-state-probe\capability-matrix.json` 保留 `unknown/not_run`，没有误报通过。
-- 当前客户端是否有可附着既有 Chat/Work 会话的正式状态订阅接口仍未证实。[OpenAI 插件迁移指南](https://developers.openai.com/plugins/guides/submit-claude-plugin)说明普通 Chat 不能依赖 Codex hooks；[Agents API 概览](https://developers.openai.com/api/docs/guides/agents-api/overview)描述的是通过该 API 创建和管理的会话。这些文档不能证明本机既有客户端会话可供第三方订阅。
+
 
 ## 六、测试与验证
 

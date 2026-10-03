@@ -7,7 +7,7 @@
 帧间钻进→被弹→速度不足离场→再判定的鬼畜循环，velocity 反弹修不干净）。
 
 业务反应是原有业务，从 30Hz 检测整体迁移到墙事件驱动，不删：
-- 真撞（相对接近速度足够）：复用 _apply_hit 业务链——冲量 → 限速 → 音效 →
+- 真撞（相对接近速度足够）：复用 _apply_hit 业务链——冲量 → 限速 →
   挤压 → 岛弹跳 → 进抛掷物理（撞岛像撞弹床，e=STATIC_RESTITUTION）；
 - 抛掷中撞墙：墙处反射速度（口径同屏幕边缘 throw_step 的 RESTITUTION）并钉住
   物理位置，避免物理空间穿过岛、视觉被钉在墙上；真撞附加命中反馈；
@@ -31,7 +31,7 @@ from . import physics as physics_mod
 log = logging.getLogger(__name__)
 
 _CAPSULE_HEIGHT = 44            # 胶囊视觉高度（与 dynamic_island._CAPSULE_HEIGHT 同步）
-_HIT_COOLDOWN_S = 0.15          # 每只桌宠的命中冷却（防一帧多弹/音效连发）
+_HIT_COOLDOWN_S = 0.15          # 每只桌宠的命中冷却（防一帧多弹）
 _SQUASH_INTERVAL_S = 0.25       # 每只桌宠的挤压动画错峰
 _CONTACT_VELOCITY_MAX_DT = 0.5  # 接触跟踪的有效间隔（超此按首次接触，无速度）
 _MAX_ISLAND_SPEED = 1500.0      # 岛速估计上限（px/s）：异常大的估计不进拍鱼结算
@@ -506,7 +506,7 @@ class IslandCollisionBody(QObject):
         30Hz 采样间隙，从根上杜绝"钻进→被弹→再钻回"的抽搐。
 
         撞岛反应（原有业务）也在这里事件驱动结算：按相对接近速度区分真撞与
-        轻贴——真撞走 _apply_hit 业务链（冲量/音效/挤压/岛弹跳/进抛掷物理）；
+        轻贴——真撞走 _apply_hit 业务链（冲量/挤压/岛弹跳/进抛掷物理）；
         抛掷中撞墙反射速度（口径同屏幕边缘 RESTITUTION）并钉住物理位置。
         """
         if not self._wall_active():
@@ -547,7 +547,6 @@ class IslandCollisionBody(QObject):
         cooldown_ok = now - self._hit_cooldown.get(key, 0.0) >= _HIT_COOLDOWN_S
         if in_throw:
             # 抛掷中撞墙：反射速度（避免物理空间穿过岛、视觉钉在墙上）并钉住
-            # 物理位置；真撞附加命中反馈（音效/挤压/岛弹跳，冷却内不重复）。
             vel = getattr(host, "_phys_vel", None)
             if isinstance(vel, list) and len(vel) >= 2:
                 vn_pet = vel[0] * nx + vel[1] * ny
@@ -586,10 +585,7 @@ class IslandCollisionBody(QObject):
 
     def _apply_feedback(self, win, key, now, strength: float,
                         dir_x: float, dir_y: float) -> None:
-        """命中反馈（音效/挤压/岛弹跳）——抛掷撞墙与 _apply_hit 共用。"""
-        play_sound = getattr(win, "_play_collision_sound", None)
-        if callable(play_sound):
-            play_sound()
+        """命中反馈（挤压/岛弹跳）——抛掷撞墙与 _apply_hit 共用。"""
         if not getattr(win, "_squash_active", False) \
                 and now - self._pet_squash.get(key, 0.0) >= _SQUASH_INTERVAL_S:
             self._pet_squash[key] = now
@@ -601,7 +597,7 @@ class IslandCollisionBody(QObject):
             bump(min(3.0, strength / 400.0), dir_x, dir_y)
 
     def _apply_hit(self, win, dvx: float, dvy: float, now: float, key: int) -> None:
-        """复用桌宠侧真实撞击反应（原有业务）：加冲量 → 限速 → 音效 → 挤压 →
+        """复用桌宠侧真实撞击反应（原有业务）：加冲量 → 限速 → 挤压 →
         进抛掷物理。与 collision_client 权威冲量路径保持一致的手感，但不走 IPC。
         """
         cancel_move = getattr(win, "_cancel_move", None)

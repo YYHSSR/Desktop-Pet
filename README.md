@@ -30,6 +30,7 @@
 - ⚡ **底层物理碰撞与弹射互动**：
   - 支持鼠标抓取、拖拽弹射甩飞、撞墙弹性反弹；
   - 基于 C++ 核心 (`pet_core.dll`) 与共享内存原子锁物理模拟，支持多开桌宠之间真实弹性碰撞。
+- 🔗 **ChatGPT Work/Codex 联动**：只读本机工作会话状态，切换工作、等待与完成动作并提示；ChatGPT 桌面端由玩家自行打开。参见 [联动说明](docs/AGENT_LINK_PROTOCOL.md)。
 - 🎯 **纯净专注（Pure Pet）**：零多余 AI 依赖，不拉起庞大臃肿的模型调用，开箱即用，资源极简。
 - ⚙️ **现代化独立设置面板**：
   - 独立进程隔离设计，设置调节与桌宠渲染互不干扰；
@@ -78,9 +79,20 @@ python -m pet --settings
 
 ## 🎮 操作指南
 
+### ChatGPT 桌面端工作联动
+
+右键桌宠 → **Agent 联动 → ChatGPT 工作状态（Work / Codex）**，即可开启
+工作动作、思考动作、工具执行气泡和完成提醒；默认关闭。
+请先自行打开 ChatGPT 桌面端，再启动 Work/Codex 工作会话。
+
+联动只读本地 Work/Codex 会话文件，不需要 API Key。普通 Chat 和云端会话不在
+监听范围内。默认读取 `~/.codex/sessions`，也支持 `CODEX_HOME`。
+本机日志格式可能随桌面端版本变化；详细范围与协议见
+[桌面联动协议](docs/AGENT_LINK_PROTOCOL.md)。
+
 | 操作手势 | 触发交互 | 说明 |
 | :--- | :--- | :--- |
-| **鼠标左键单击** | 角色互动动作 | 随机播放点击动作并触发互动气泡与音效 |
+| **鼠标左键单击** | 角色互动动作 | 随机播放点击动作并触发互动气泡 |
 | **鼠标左键长按拖拽** | 移动桌宠位置 | 拖拽至屏幕任意位置 |
 | **快速甩拽并松开** | 物理弹射 | 具有动量与阻尼加速度的甩飞弹射效果 |
 | **鼠标右键单击** | 上下文主菜单 | 打开功能菜单（角色切换、动作播放、设置等） |
@@ -94,7 +106,7 @@ python -m pet --settings
 
 ```powershell
 # 在 Windows PowerShell 下执行
-powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm-chat -SkipZip
+powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm-chat
 ```
 
 构建完成后产物位于：
@@ -107,7 +119,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm-
 
 ```text
 desktop-pet/
-├── assets/                 # 桌宠人物动画素材 (WebM/音效/预设)
+├── assets/                 # 桌宠人物动画素材 (WebM/预设)
 ├── pet/                    # Python 核心业务逻辑
 │   ├── app.py             # 应用程序宿主与生命周期调度
 │   ├── window.py          # 桌宠透明窗口与手势交互

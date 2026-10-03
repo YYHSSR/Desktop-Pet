@@ -9,14 +9,14 @@ AIGC:
     ReservedCode2: 5WS8ZIlf31sY8kOZGi3OuLj7wtTR4orlRD+uQa4vpN/zbG9icu3IcPiWHfrwX3FNAnkDwfOlDoaC6pO5on6QU9u6BhQY8Zvk9FgkMQ7xBy5xT9qvgmVNFq1i/Rd205JLy3QoCQjQoilIbKr0n59e8Zxm5NeUzvEkLeDmjfwJRUMj8DxzCVnfPdOP0Hs=
 ---
 
-# onedir 打包流水线（绿色版 zip + Inno Setup 安装包）
+# onedir 打包流水线（onedir 目录与 Inno Setup 安装包）
 
 目标：**运行期零解压**——不再产生 `C:\...\Temp\_MEIxxxxxx` 缓存。
 
 - onefile：每次启动把全部素材解压到系统临时目录；崩溃/强杀/断电残留；启动慢（GIF 版 800MB 每次全解压）
 - onedir：直接从安装目录加载，任何盘都不产生 `_MEI`，启动快，卸载即净
 
-## 一、构建 onedir + zip 绿色版
+## 一、构建 onedir 目录与可执行文件
 
 应用图标由待机封面帧生成（`python scripts/make_icon.py` → `assets/icon.ico`），
 exe 与安装包共用；换形象后重新生成即可。
@@ -30,11 +30,11 @@ powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm-
 产物：
 
 ```
-dist-onedir\dsh-pet-standalone-webm-chat\          ← onedir 目录（绿色版 = 整个文件夹）
-dist-onedir\dsh-pet-standalone-webm-chat-portable.zip
+dist-onedir\dsh-pet-standalone-webm-chat\          ← onedir 目录（包含可执行文件与依赖库）
+└── dsh-pet-standalone-webm-chat.exe               ← 直接运行的目标 exe
 ```
 
-绿色版用法：解压 zip 到任意盘（E:\、D:\、U 盘均可），双击 exe 即用；无安装、无缓存。
+用法：构建完成后直接进入 `dist-onedir\<variant>\` 目录，双击 `<variant>.exe` 即可直接使用；无需解压、无需安装、运行期零缓存。
 
 ### 包体瘦身（默认开启，`-SkipSlim` 可关闭）
 
@@ -42,9 +42,8 @@ dist-onedir\dsh-pet-standalone-webm-chat-portable.zip
 
 - **移除白名单**：Qt Quick/QML 栈（`Qt6Quick` / `Qt6Qml*`）、`Qt6VirtualKeyboard` + 平台输入法插件、`Qt6OpenGL`、`Qt6Pdf` + `qpdf.dll` 图像插件、`opengl32sw.dll`、非中英 `*.qm` 翻译（保留 12 个中英）、PIL `_avif` 扩展 —— 合计 124 文件 / 53 MB；
 - **安全校验**：移除前做依赖闭包校验（pefile 反向 import 检测，保留的二进制若仍引用待删文件即中止）与必需清单校验（核心运行文件齐全），任一失败即中止构建；
-- **效果**：onedir 目录 309 MB → 256 MB，portable zip 176.2 MB → 146.5 MB（−12.8%）；
+- **效果**：onedir 目录 309 MB → 256 MB（体积削减约 53 MB）；
 - 后续需要完整 Qt 栈（例如启用 QML 界面）时加 `-SkipSlim`；
-- 冒烟建议：把配置切到 `voice_chime_schedule=every_minute` 启动 exe，确认 `%APPDATA%\dsh-pet-standalone-<variant>\voice_chime_cache` 新增 mp3（edge-tts 合成落盘），验证完恢复配置。
 
 ## 二、Inno Setup 安装包（正式分发）
 
@@ -81,25 +80,20 @@ E:\tools\InnoSetup6\ISCC.exe /DMyAppShortName=dsh-pet-standalone-gif /DMyAppExeN
 3. exe 同目录无 `_MEI*` 残留
 4. 退出后进程全部结束
 
-## 四、无 Chat 变体兼容性
+## 四、纯桌宠与 ChatGPT 联动
 
-无 Chat 入口使用 `packaging/pet_entry_no_chat.py`，构建规格明确排除 `pet.chat`
-和 `keyring`。配置仍可能来自曾经启用 Chat 的用户目录，因此运行时
-`Config._migrate_plaintext_keys_to_keyring()` 对缺失的 `pet.chat` 只跳过迁移，
-不能让配置加载失败；除该明确缺失模块外的导入错误仍应抛出。
-
-打包验收至少包含：
-
-```powershell
-$env:QT_QPA_PLATFORM = "offscreen"
-python -m pytest -q tests/test_chat_subsystem.py::test_no_chat_packaging_uses_isolated_entrypoint
-python -m pytest -q tests/test_config_key_migration.py
-```
+自 2026-10-03 起所有变体统一使用 `packaging/pet_entry.py`，仅素材格式不同。
+`webm-chat` / `gif-chat` 是兼容旧配置目录和自启项的历史标识；包内没有聊天、识屏、文件解读模块。
+删除 keyring 和所有声音依赖；构建排除 QtMultimedia、edge_tts、aiofiles、aiohttp、certifi。
+配置加载及保存会清除退役字段，不删除用户历史会话目录。
+打包验收运行 `python -m pytest -q tests/test_pure_pet.py tests/test_chatgpt_desktop.py`，
+并使用构建脚本的 Qt、编码、依赖闭包和 GUI 冒烟验证。
+详见 [本轮清理与重新打包报告](PR-REPORT-PURE-PET-REPACK-2026-10-03.md)。
 
 ## 五、注意事项
 
 - **开机自启**：onedir 不需要 `start /D` 切目录（无解压），`pet/autostart.py` 现有命令无害可保留
 - **旧 onefile 遗留清理**：`pet/app.py` 启动时的 `_cleanup_stale_runtime_dirs` 保留，会顺带清掉旧 onefile 版本在系统 Temp 留下的 `_MEI` 目录
 - **本机遗留旧自启项**：注册表 `HKCU\...\Run` 里的 `DesktopPet = E:\software\AI\AI的有用工具\打字统计\dist\DesktopPet.exe` 是 7 月的旧 onefile 构建（无 `start /D`、解压在 C 盘 Temp），建议删除或替换，避免开机双桌宠 + 继续污染 C 盘
-- GIF 变体体积大（800MB+），zip/安装包较慢；WebM 变体约 124MB
+- GIF 变体体积大（800MB+），打包/安装包较慢；WebM 变体约 124MB
 *（内容由AI生成，仅供参考）*

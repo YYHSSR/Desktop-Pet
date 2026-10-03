@@ -108,4 +108,3 @@ class ByteBudgetLru:
 
     def max_bytes(self) -> int:
         return self._max_bytes
-

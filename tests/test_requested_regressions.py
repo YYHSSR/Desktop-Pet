@@ -5,60 +5,8 @@ import pytest
 from datetime import datetime, timezone
 
 
-def test_modern_message_card_opacity_is_configurable_and_persisted(tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QApplication
-
-    import pet.modern_settings_dialog as settings_mod
-    from pet.chat.themes import build_modern_custom_overlay_qss
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    config = Config(tmp_path)
-    assert config.get("modern_chat_card_opacity") == 84
-
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
-    row = dialog.findChild(
-        settings_mod.SettingRow, "settingRow_modern_chat_card_opacity"
-    )
-    assert row is not None and not row.isHidden()
-    dialog.ai_page.chat_ui_style.setCurrentData("classic")
-    assert row.isHidden()
-    dialog.ai_page.chat_ui_style.setCurrentData("modern")
-    assert not row.isHidden()
-    dialog.ai_page.message_card_opacity.setValue(65)
-    dialog._save()
-
-    assert config.get("modern_chat_card_opacity") == 65
-    assert "rgba(255, 255, 255, 166)" in build_modern_custom_overlay_qss(
-        "#3994ff", 65
-    )
-    dialog.close()
-    app.processEvents()
 
 
-def test_modern_chat_header_uses_current_pet_image(tmp_path):
-    from PySide6.QtCore import Qt
-    from PySide6.QtGui import QPixmap
-    from PySide6.QtWidgets import QApplication
-
-    from pet.chat.widgets import ChatWindow
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    avatar = QPixmap(24, 24)
-    avatar.fill(Qt.GlobalColor.red)
-
-    class Pet:
-        def icon_pixmap(self, size):
-            assert size == 34
-            return avatar
-
-    window = ChatWindow(Config(tmp_path), "shenshen", pet_window=Pet())
-    assert window.avatar_label.text() == ""
-    assert not window.avatar_label.pixmap().isNull()
-    window.close()
-    app.processEvents()
 
 
 def test_bubble_text_scale_row_persists(tmp_path, monkeypatch):
@@ -73,7 +21,7 @@ def test_bubble_text_scale_row_persists(tmp_path, monkeypatch):
     config = Config(tmp_path)
     assert config.get("bubble_text_scale") == 100
 
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     try:
         assert dialog.bubble_text_scale_spin.value() == 100
         assert dialog.bubble_text_scale_spin.minimum() == 50
@@ -97,89 +45,6 @@ def test_harness_autostart_toggle_retired(tmp_path):
     assert "harness_autostart" not in config.data
 
 
-def test_click_sound_path_is_linked_to_enable_toggle_and_persisted(tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QApplication
-
-    import pet.modern_settings_dialog as settings_mod
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
-    row = dialog.findChild(
-        settings_mod.SettingRow, "settingRow_click_sound_pack"
-    )
-    assert row is not None
-    # 默认开启 → 音效包行可见
-    assert dialog.click_sound_check.isChecked()
-    assert not row.isHidden()
-    dialog.click_sound_check.setChecked(False)
-    assert row.isHidden()
-    dialog.click_sound_check.setChecked(True)
-    assert not row.isHidden()
-    dialog.click_sound_picker.set_pack({"kind": "file", "id": "custom", "path": "/tmp/my-click.wav"})
-    dialog._save()
-
-    assert config.get("click_sound_pack") == {"kind": "file", "id": "custom", "path": "/tmp/my-click.wav"}
-    dialog.close()
-    app.processEvents()
-
-
-def test_click_sound_path_row_hidden_initially_when_toggle_disabled(tmp_path, monkeypatch):
-    """点击音效未启用时，音效包行初始就应隐藏（此前初始同步在 UI 构建前，
-    findChild 找不到行导致初始状态错误显示）。"""
-    import pet.modern_settings_dialog as settings_mod
-    from PySide6.QtWidgets import QApplication
-
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    # 本用例只验证音效包行初始隐藏，不验证音频预热；Windows headless CI 上
-    # QSoundEffect 异步加载的 processEvents 可能 access violation，因此跳过预热。
-    monkeypatch.setattr(
-        settings_mod,
-        "warm_click_sound_effects",
-        lambda *args, **kwargs: None,
-    )
-    config = Config(tmp_path)
-    config.set("click_sound_enabled", False)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
-    row = dialog.findChild(
-        settings_mod.SettingRow, "settingRow_click_sound_pack"
-    )
-    assert row is not None
-    assert not dialog.click_sound_check.isChecked()
-    assert row.isHidden()
-    dialog.close()
-    app.processEvents()
-
-
-def test_click_sound_path_row_sits_directly_below_toggle(tmp_path, monkeypatch):
-    """音效包行必须紧贴点击音效行下方（此前 click_balance 插入 index 1 把
-    音效包行挤到第三位）；2026-09-17 定稿口径下这两行仍在「互动 · 点击反馈」。"""
-    import pet.modern_settings_dialog as settings_mod
-    from PySide6.QtWidgets import QApplication, QLabel
-
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
-    section = next(
-        s for s in dialog.findChildren(settings_mod.SettingsSection)
-        if s.findChild(QLabel, "sectionTitle") is not None
-        and s.findChild(QLabel, "sectionTitle").text() == "点击反馈"
-    )
-    card = section.findChild(settings_mod.SettingsCard)
-    assert card is not None
-    names = [row.objectName() for row in card.rows]
-    assert names[0] == "settingRow_click_sound"
-    assert names[1] == "settingRow_click_sound_pack"
-    dialog.close()
-    app.processEvents()
 
 
 def test_settings_dialog_position_avoids_pet_window(tmp_path, monkeypatch):
@@ -197,13 +62,15 @@ def test_settings_dialog_position_avoids_pet_window(tmp_path, monkeypatch):
     pet.show()
     app.processEvents()
     config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config, pet, include_ai=True)
+    dialog = settings_mod.ModernSettingsDialog(config, pet,)
     # 真实最小尺寸 720x500 在 offscreen 800x600 屏幕上无处可避，放宽以测试避让逻辑
     dialog.setMinimumSize(360, 260)
     dialog.resize(420, 320)
     dialog.show()
     app.processEvents()
     try:
+        assert dialog._move_away_from(pet.geometry())
+        app.processEvents()
         assert not dialog.geometry().intersects(pet.geometry())
     finally:
         dialog.close()
@@ -222,7 +89,7 @@ def test_menu_font_select_lists_system_fonts(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
     config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     select = dialog.menu_font_select
     # 字体枚举延迟到事件循环空闲时填充（避免阻塞窗口打开）。
     # 测试直接同步触发填充，不等待 QTimer：QTest.qWait 的嵌套事件循环
@@ -259,7 +126,7 @@ def test_settings_first_paint_does_not_enumerate_system_fonts(tmp_path, monkeypa
         lambda: calls.append("enumerated") or ("Regression Test Font",),
     )
 
-    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path),)
     dialog.show()
     app.processEvents()
     assert calls == [], "首次显示设置窗口时不应枚举全部系统字体"
@@ -284,7 +151,7 @@ def test_settings_save_preserves_custom_font_before_selector_is_opened(tmp_path,
     appearance["ui_font"] = "Regression Custom Font"
     config.set("context_menu_appearance", appearance)
 
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     assert dialog._menu_fonts_populated is False
     assert dialog.menu_font_select.currentData() == "Regression Custom Font"
     dialog._save()
@@ -300,7 +167,7 @@ def test_modern_select_reuses_one_popup_without_accumulating_children(tmp_path, 
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path),)
     select = dialog.menu_theme_select
 
     popup_ids = []
@@ -331,171 +198,22 @@ def test_dock_icon_row_platform_gated(tmp_path, monkeypatch):
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
     monkeypatch.setattr(sys, "platform", "win32")
     config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     assert dialog.findChild(settings_mod.SettingRow, "settingRow_dock_icon") is None
     dialog.close()
     monkeypatch.setattr(sys, "platform", "darwin")
-    dialog2 = settings_mod.ModernSettingsDialog(config, include_ai=True)
+    dialog2 = settings_mod.ModernSettingsDialog(config,)
     assert dialog2.findChild(settings_mod.SettingRow, "settingRow_dock_icon") is not None
     dialog2.close()
     app.processEvents()
 
 
-@pytest.mark.skipif(
-    os.name == "nt",
-    reason="Windows 无 time.tzset()，无法在测试进程内切换时区（CI runner 为 UTC）",
-)
-def test_new_session_title_converts_utc_creation_time_to_local(monkeypatch):
-    import os
-    import time
-
-    from pet.chat.models import ChatSession
-    from pet.chat.widgets import _short_title
-
-    previous_tz = os.environ.get("TZ")
-    monkeypatch.setenv("TZ", "Asia/Shanghai")
-    if hasattr(time, "tzset"):
-        time.tzset()
-    try:
-        created = datetime(2026, 8, 27, 1, 5, tzinfo=timezone.utc).isoformat()
-        session = ChatSession("id", "shenshen", "provider", "", created_at=created)
-        assert _short_title(session) == "新会话 · 09:05"
-    finally:
-        if previous_tz is None:
-            monkeypatch.delenv("TZ", raising=False)
-        else:
-            monkeypatch.setenv("TZ", previous_tz)
-        if hasattr(time, "tzset"):
-            time.tzset()
 
 
-def test_chat_window_left_edge_drag_resizes(tmp_path):
-    """无边框聊天窗口应支持按住边缘拖拽缩放（此前无任何边缘 resize 处理）。"""
-    from PySide6.QtCore import QEvent, QPointF, Qt
-    from PySide6.QtGui import QMouseEvent
-    from PySide6.QtWidgets import QApplication
-
-    from pet.chat.widgets import ChatWindow
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    win = ChatWindow(Config(tmp_path), "shenshen")
-    win.resize(960, 700)
-    before_w = win.width()
-
-    def mouse(kind, x, y, button):
-        # 旧 5 参构造不写 globalPosition（遗留默认值），必须显式传全局坐标
-        return QMouseEvent(
-            kind, QPointF(x, y), QPointF(x, y), button, button,
-            Qt.KeyboardModifier.NoModifier,
-        )
-
-    before_x = win.x()
-    win.mousePressEvent(mouse(
-        QEvent.Type.MouseButtonPress, 2, 350, Qt.MouseButton.LeftButton
-    ))
-    win.mouseMoveEvent(mouse(
-        QEvent.Type.MouseMove, 140, 350, Qt.MouseButton.LeftButton
-    ))
-    # 左边缘跟随鼠标右移：窗口变窄（右边缘锚定），x 坐标右移
-    assert win.x() > before_x, "按住左边缘右拖时左边缘应跟随鼠标右移"
-    assert win.width() < before_w, "按住左边缘右拖应使窗口变窄（右边缘锚定）"
-    win.mouseReleaseEvent(mouse(
-        QEvent.Type.MouseButtonRelease, 140, 350, Qt.MouseButton.LeftButton
-    ))
-    win.close()
-    app.processEvents()
 
 
-def test_chat_window_edge_resize_clamps_position_with_size(tmp_path):
-    """边缘拖拽触达最小尺寸时，位置应随尺寸回退（锚定对侧边缘），
-    窗口不能被推出屏幕（此前 setGeometry 仅 clamp 尺寸不回退位置）。"""
-    from PySide6.QtCore import QEvent, QPointF, Qt
-    from PySide6.QtGui import QMouseEvent
-    from PySide6.QtWidgets import QApplication
-
-    from pet.chat.widgets import ChatWindow
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    win = ChatWindow(Config(tmp_path), "shenshen")
-    win.resize(960, 700)
-    min_w, min_h = win.minimumWidth(), win.minimumHeight()
-    start_right = win.x() + win.width()
-    start_bottom = win.y() + win.height()
-
-    def mouse(kind, x, y, button):
-        return QMouseEvent(
-            kind, QPointF(x, y), QPointF(x, y), button, button,
-            Qt.KeyboardModifier.NoModifier,
-        )
-
-    # 左边缘右拖 1000px（远超最小宽度）→ 右边缘锚定，x = 原右边缘 - 最小宽度
-    win.mousePressEvent(mouse(
-        QEvent.Type.MouseButtonPress, 2, 350, Qt.MouseButton.LeftButton
-    ))
-    win.mouseMoveEvent(mouse(
-        QEvent.Type.MouseMove, 1002, 350, Qt.MouseButton.LeftButton
-    ))
-    assert win.width() == min_w
-    # offscreen 平台对窗口几何有 1px 微调，右边缘不得超出原位置（此前会偏出 600px）
-    assert abs((win.x() + win.width()) - start_right) <= 1, (
-        f"拖到最小宽度时右边缘应锚定在 {start_right}，实际 {win.x() + win.width()}"
-    )
-    win.mouseReleaseEvent(mouse(
-        QEvent.Type.MouseButtonRelease, 1002, 350, Qt.MouseButton.LeftButton
-    ))
-
-    # 顶部上拖 2000px → 高度触达最大尺寸上限，底边缘锚定（此前窗口整体移出屏幕顶部）
-    max_h = win.maximumHeight()
-    win.resize(960, 700)
-    win.mousePressEvent(mouse(
-        QEvent.Type.MouseButtonPress, 480, 2, Qt.MouseButton.LeftButton
-    ))
-    win.mouseMoveEvent(mouse(
-        QEvent.Type.MouseMove, 480, -1998, Qt.MouseButton.LeftButton
-    ))
-    assert win.height() == max_h
-    assert abs((win.y() + win.height()) - start_bottom) <= 1, (
-        f"拖到最大高度时底边缘应锚定在 {start_bottom}，实际 {win.y() + win.height()}"
-    )
-    win.mouseReleaseEvent(mouse(
-        QEvent.Type.MouseButtonRelease, 480, -1998, Qt.MouseButton.LeftButton
-    ))
-    win.close()
-    app.processEvents()
 
 
-def test_chat_window_edge_hover_shows_resize_cursor(tmp_path):
-    from PySide6.QtCore import QEvent, QPointF, Qt
-    from PySide6.QtGui import QHoverEvent
-    from PySide6.QtWidgets import QApplication
-
-    from pet.chat.widgets import ChatWindow
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    win = ChatWindow(Config(tmp_path), "shenshen")
-    win.resize(960, 700)
-
-    def hover(x: float, y: float) -> None:
-        win.event(QHoverEvent(QEvent.Type.HoverMove, QPointF(x, y), QPointF(x, y)))
-
-    # 悬停在窗口右边缘时应显示水平缩放光标
-    hover(win.width() - 2, 350)
-    assert win.cursor().shape() == Qt.CursorShape.SizeHorCursor, (
-        "悬停在窗口右边缘时应显示水平缩放光标"
-    )
-    # 移入窗口内部应立即恢复箭头（回归：从窗口外进入后光标卡在缩放双箭头）
-    hover(win.width() // 2, 350)
-    assert win.cursor().shape() == Qt.CursorShape.ArrowCursor, (
-        "离开边缘进入窗口内部应恢复箭头光标"
-    )
-    # 离开窗口恢复箭头
-    win.event(QHoverEvent(QEvent.Type.HoverLeave, QPointF(1, 1), QPointF(1, 1)))
-    assert win.cursor().shape() == Qt.CursorShape.ArrowCursor
-    win.close()
-    app.processEvents()
 
 
 def test_ojingjing_entry_hover_survives_widget_children(monkeypatch):
@@ -613,7 +331,7 @@ def test_windows_settings_has_no_orphan_macos_dock_toggle(tmp_path, monkeypatch)
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
     config = Config(tmp_path)
     config.set("show_dock_icon", False)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(config,)
 
     assert dialog.dock_icon_check is None
     assert not any(
@@ -642,7 +360,7 @@ def test_linux_settings_has_no_orphan_windows_cursor_passthrough_toggle(tmp_path
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.sys, "platform", "linux")
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path),)
 
     assert dialog.cursor_hidden_passthrough_check is None
     assert not any(
@@ -767,7 +485,7 @@ def test_animation_icon_applier_updates_action_and_cleans_worker():
     app.processEvents()
 
 
-def test_build_scripts_bundle_menu_templates_and_chat_styles():
+def test_build_scripts_bundle_menu_templates_without_retired_ai_resources():
     """三平台打包脚本必须包含菜单模板与聊天样式资源（防漏打包回归）。
 
     回归背景：Linux workflow 曾漏掉 pet/menu_templates（右键菜单在冻结版
@@ -785,8 +503,8 @@ def test_build_scripts_bundle_menu_templates_and_chat_styles():
 
     for name, text in (("build_linux.sh", linux), ("build_macos.sh", macos), ("build_onedir.ps1", windows)):
         assert "menu_templates" in text, f"{name} 必须打包 pet/menu_templates"
-        assert "legacy_styles.qss" in text, f"{name} 必须打包 legacy_styles.qss"
-        assert "modern_styles.qss" in text, f"{name} 必须打包 modern_styles.qss"
+        assert "legacy_styles.qss" not in text, f"{name} 必须打包 legacy_styles.qss"
+        assert "modern_styles.qss" not in text, f"{name} 必须打包 modern_styles.qss"
     # 兜底：模板 JSON 缺失时 load_menu_template 必须回退内置模板而非抛异常
     import pet.context_menu as context_menu_mod
     assert context_menu_mod.load_menu_template("modern")["id"] == "modern"
@@ -902,7 +620,7 @@ def test_modern_settings_save_writes_autostart_wanted(tmp_path, monkeypatch):
     monkeypatch.setattr(settings_mod.autostart_mod, "set_enabled", lambda enabled: True)
     config = Config(tmp_path)
     assert config.get("autostart_wanted") is False
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     dialog.autostart_check.setChecked(True)
     dialog._save()
     assert config.get("autostart_wanted") is True
@@ -910,26 +628,6 @@ def test_modern_settings_save_writes_autostart_wanted(tmp_path, monkeypatch):
     app.processEvents()
 
 
-def test_modern_provisional_config_falls_back_to_keyring(tmp_path, monkeypatch):
-    """测试连接未填 Key 时必须回退系统钥匙串，否则默认场景误报 401。"""
-    from PySide6.QtWidgets import QApplication
-
-    import pet.modern_settings_dialog as settings_mod
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-
-    class FakeStore:
-        def get(self, _ref):
-            return "keyring-secret"
-
-    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    monkeypatch.setattr(dialog.ai_page, "_secret_store_type", FakeStore)
-    provisional = dialog.ai_page.provisional_config()
-    assert provisional.api_key == "keyring-secret"
-    dialog.close()
-    app.processEvents()
 
 
 def test_spawned_children_are_reaped_after_exit():
@@ -973,7 +671,7 @@ def test_modern_settings_close_autosaves(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
     config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     dialog.bubble_style_select.setCurrentData("breath_bubble")
     dialog.light_background_picker.edit.setText("#123456")
     dialog.close()  # 不点「保存并退出」
@@ -1014,7 +712,7 @@ def test_settings_window_uses_the_explicit_dark_appearance_on_a_light_system(
     config = Config(tmp_path)
     config.set("context_menu_appearance", {"theme": "dark"})
 
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     assert "QDialog { background: #202024" in dialog.styleSheet()
 
     dialog.close()
@@ -1032,7 +730,7 @@ def test_settings_window_rethemes_immediately_with_the_appearance_selector(
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr("pet.settings_theme_qss._system_dark", lambda: False)
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path),)
     assert "QDialog { background: #202024" not in dialog.styleSheet()
 
     dialog.menu_theme_select.setCurrentData("dark")
@@ -1077,7 +775,6 @@ def test_modern_settings_finished_refreshes_even_on_rejected(tmp_path, monkeypat
     owner.shell._sync_dynamic_island = lambda: None
     # Phase 1 门控后 todo 服务走 _sync_todo_service（懒启停）；测试只测桌宠刷新
     owner.shell._sync_todo_service = lambda: None
-    owner.shell._sync_chime_service = lambda: None  # 语音报时同样懒启停，本用例只测桌宠刷新
     owner.shell._sync_festival_service = lambda: None  # 节日提醒同样懒启停（其内部会连带同步报时通道）
     owner._refresh_chat_windows = lambda: None
     owner._sync_animation_prewarm = lambda: None
@@ -1086,34 +783,6 @@ def test_modern_settings_finished_refreshes_even_on_rejected(tmp_path, monkeypat
     assert refreshed == [1], "Rejected 关闭也必须刷新桌宠"
 
 
-def test_ai_page_warns_when_keyring_unavailable(tmp_path, monkeypatch):
-    """keyring 不可用时保存必须提示，且 key 仅保留内存（不落盘明文）。"""
-    from PySide6.QtWidgets import QApplication
-
-    import pet.modern_settings_dialog as settings_mod
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-
-    class FakeStore:
-        def get(self, _ref):
-            return ""
-
-        def set(self, _ref, _value):
-            return False
-
-    warnings = []
-    monkeypatch.setattr(settings_mod.QMessageBox, "warning", lambda *a, **k: warnings.append(a))
-    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    monkeypatch.setattr(dialog.ai_page, "_secret_store_type", FakeStore)
-    dialog.ai_page.key.setText("sk-new")
-    dialog.ai_page.save()
-    assert len(warnings) == 1
-    assert "系统安全存储" in str(warnings[0][2])
-    assert dialog.ai_page.settings.active_config.api_key == "sk-new"
-    dialog.close()
-    app.processEvents()
 
 
 def test_modern_settings_save_warns_on_failure(tmp_path, monkeypatch):
@@ -1129,7 +798,7 @@ def test_modern_settings_save_warns_on_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(settings_mod.QMessageBox, "warning", lambda *a, **k: warnings.append(a))
     config = Config(tmp_path)
     config.path.mkdir(parents=True, exist_ok=True)  # 目标为目录，os.replace 必失败
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     dialog._save()
     assert any("保存失败" in str(x[1]) for x in warnings)
     assert any(str(config.path) in str(x[2]) for x in warnings)
@@ -1153,7 +822,7 @@ def test_modern_settings_close_applies_autostart(tmp_path, monkeypatch):
         lambda enabled: applied.append(enabled) or True,
     )
     config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     dialog.autostart_check.setChecked(True)
     dialog.close()  # X 关闭，不点「保存并退出」
     app.processEvents()
@@ -1178,7 +847,7 @@ def test_modern_autostart_write_failure_warns(tmp_path, monkeypatch):
         settings_mod.QMessageBox, "warning", lambda *a, **k: warnings.append(a)
     )
     config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config, include_ai=True)
+    dialog = settings_mod.ModernSettingsDialog(config,)
     # 与初始状态不同（初始 = is_enabled() = False）→ 触发写入
     dialog.autostart_check.setChecked(True)
     dialog._apply_autostart()
@@ -1188,32 +857,3 @@ def test_modern_autostart_write_failure_warns(tmp_path, monkeypatch):
     dialog.close()
     app.processEvents()
 # --- macOS Dock recovery menu regression (2026-09-03) ---
-
-
-def test_macos_dock_menu_keeps_settings_reachable_when_pet_is_mouse_through(monkeypatch):
-    from unittest import mock
-
-    from PySide6.QtWidgets import QApplication
-
-    import pet.app as app_mod
-
-    app = QApplication.instance() or QApplication([])
-    controller = app_mod.AppShell.__new__(app_mod.AppShell)
-    controller.app = app
-    controller.enable_chat = True
-    controller.instance = app_mod.PetInstance.__new__(app_mod.PetInstance)
-    controller.instance.win = mock.Mock()
-    controller.instance.open_modern_settings = mock.Mock()
-    controller.instance.open_chat = mock.Mock()
-    monkeypatch.setattr(app_mod.sys, "platform", "darwin")
-
-    menu = controller._install_macos_dock_menu()
-
-    assert menu is controller.dock_menu
-    assert menu.property("dockMenuInstalled") is callable(getattr(menu, "setAsDockMenu", None))
-    labels = [action.text() for action in menu.actions() if not action.isSeparator()]
-    assert labels[:3] == ["显示桌宠", "桌宠设置", "AI 对话"]
-    next(action for action in menu.actions() if action.text() == "桌宠设置").trigger()
-    controller.instance.open_modern_settings.assert_called_once_with()
-    menu.close()
-    app.processEvents()

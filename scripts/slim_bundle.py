@@ -5,21 +5,19 @@
 
 1. 依赖闭包校验（pefile）：若某个「保留二进制」（dll/pyd/exe）静态 import 了
    待移除文件，立即中止——说明该模块仍在运行链上，不能删；
-2. 必需清单校验：瘦身前/后核心运行文件（Qt 核心、平台插件、ffmpeg 多媒体
-   插件、Python 绑定、shiboken6、exe）必须齐全，缺一个即中止。
+2. 必需清单校验：瘦身前/后核心运行文件（Qt 核心、平台插件、Python 绑定、shiboken6、exe）必须齐全，缺一个即中止。
 
 白名单依据（2026-09-15 逐项核对：pefile 依赖图 + 全仓代码引用检索）：
 
 - Qt Quick / QML / VirtualKeyboard 栈（Qt6Quick*/Qt6Qml*/Qt6VirtualKeyboard*/
   Qt6OpenGL.dll + plugins/platforminputcontexts + qml/ 目录）：
-  桌宠为纯 QtWidgets + QtMultimedia 应用，全仓无 QtQuick/QtQml/QVirtualKeyboard
+  桌宠为纯 QtWidgets 应用，全仓无 QtQuick/QtQml/QVirtualKeyboard
   使用；依赖图上 Qt6Quick 仅被 Qt6VirtualKeyboard 引用，Qt6VirtualKeyboard 仅被
   qtvirtualkeyboardplugin 引用，而该插件只在 QT_IM_MODULE=qtvirtualkeyboard 时
   由 Qt 加载（本项目从不设置）。
 - QtPdf（Qt6Pdf*.dll + plugins/imageformats/qpdf.dll）：无任何 PDF 代码路径。
 - opengl32sw.dll（Mesa 软件 OpenGL 后备）：全 bundle 零静态引用；本项目无
-  QOpenGLWidget/QtQuick，Windows 上 Qt Widgets 走 raster、QVideoSink 走
-  D3D11（含 WARP 软件后备），运行时不加载该 DLL。可用 --keep-opengl-sw 保留。
+  QOpenGLWidget/QtQuick，Windows 上 Qt Widgets 使用 raster 绘制，运行时不加载该 DLL。可用 --keep-opengl-sw 保留。
 - Qt 翻译：仅保留 zh_CN / zh_TW / en（界面为中文，其余 100+ 语言包无引用）。
 - PIL AVIF 插件（_internal/PIL/*avif*）：全仓无 AVIF 图片使用。
 
@@ -61,16 +59,12 @@ REQUIRED_GLOBS = (
     f"{PYSIDE}/Qt6Gui.dll",
     f"{PYSIDE}/Qt6Widgets.dll",
     f"{PYSIDE}/Qt6Network.dll",
-    f"{PYSIDE}/Qt6Multimedia.dll",
     f"{PYSIDE}/Qt6Svg.dll",
     f"{PYSIDE}/QtCore.pyd",
     f"{PYSIDE}/QtGui.pyd",
     f"{PYSIDE}/QtWidgets.pyd",
-    f"{PYSIDE}/QtMultimedia.pyd",
     f"{PYSIDE}/pyside6.abi3.dll",
-    f"{PYSIDE}/avcodec-*.dll",
     f"{PYSIDE}/plugins/platforms/qwindows.dll",
-    f"{PYSIDE}/plugins/multimedia/ffmpegmediaplugin.dll",
     "_internal/shiboken6/*.dll",
 )
 

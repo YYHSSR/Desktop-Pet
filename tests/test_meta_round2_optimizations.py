@@ -169,3 +169,57 @@ def test_popen_capture_intercepts_check_output(monkeypatch):
         assert b"hello_from_capture" in out
         assert cap.process is not None
         assert len(cap._procs) >= 1
+
+
+def test_ensure_meta_waiter_timeout_does_not_steal_ownership(tmp_path, monkeypatch):
+    """F06 回归：等待方超时后不得执行探测，亦不得注销原持有者的在飞 Event。"""
+    owner_started = threading.Event()
+    owner_finish = threading.Event()
+    probe_calls = []
+
+    def blocking_probe(path):
+        probe_calls.append("owner")
+        owner_started.set()
+        owner_finish.wait(timeout=2.0)
+        return (60, 2.0)
+
+    fake = types.SimpleNamespace(count_frames_and_secs=blocking_probe)
+    monkeypatch.setattr(webm_clip, "imageio_ffmpeg", fake)
+    monkeypatch.setattr(webm_clip, "_META_CACHE", frame_cache.ByteBudgetLru(10000))
+    monkeypatch.setattr(webm_clip, "_get_meta_file_cache", lambda: {})
+
+    video = tmp_path / "test_timeout.webm"
+    video.write_bytes(b"content")
+
+    clip_owner = webm_clip.WebMClip(video)
+    clip_waiter = webm_clip.WebMClip(video)
+
+    owner_thread = threading.Thread(target=clip_owner.warm_meta)
+    owner_thread.start()
+    assert owner_started.wait(timeout=1.0) is True
+
+    # 模拟等待方：通过 monkeypatch 把 Event.wait 的超时拦截或快速返回
+    orig_wait = threading.Event.wait
+    def short_wait(self, timeout=None):
+        return orig_wait(self, timeout=0.01)
+
+    monkeypatch.setattr(threading.Event, "wait", short_wait)
+
+    # 等待方调用 warm_meta，超时后立即退出，绝不产生二次探测
+    clip_waiter.warm_meta()
+    assert len(probe_calls) == 1
+
+    st = video.stat()
+    cache_key = f"{str(video)}|{st.st_mtime_ns}|{st.st_size}"
+
+    # 确认在飞事件仍归原 owner 所有（未被 waiter 误删）
+    with webm_clip._IN_FLIGHT_META_LOCK:
+        assert cache_key in webm_clip._IN_FLIGHT_META_EVENTS
+
+    # 释放 owner 结束探测
+    owner_finish.set()
+    owner_thread.join(timeout=2.0)
+
+    # 此时 owner 正常清理
+    with webm_clip._IN_FLIGHT_META_LOCK:
+        assert cache_key not in webm_clip._IN_FLIGHT_META_EVENTS

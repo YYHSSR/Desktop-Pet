@@ -37,13 +37,13 @@ class _ProbeClip(WebMClip):
         return (241, 10.042)
 
 
-def test_ensure_meta_never_probes_on_gui_thread(app, monkeypatch):
+def test_ensure_meta_never_probes_on_gui_thread(app, monkeypatch, tmp_path):
     """硬不变量：GUI 线程冷 meta 不跑 ffprobe——踢后台、吃默认值。
 
     时序纪律：探测桩在事件闸门前阻塞，保证「踢出瞬间」的断言是确定性的；
     探测放行后必须落在后台线程（事件同步，不赌线程启动速度）。
     """
-    clip = _ProbeClip("dummy.webm")
+    clip = _ProbeClip(tmp_path / "metadata-probe.webm")
     calls = clip.probe_calls
     gate = threading.Event()
 
@@ -68,9 +68,9 @@ def test_ensure_meta_never_probes_on_gui_thread(app, monkeypatch):
     app.processEvents()
 
 
-def test_ensure_meta_kicks_background_warm_only_once(app, monkeypatch):
+def test_ensure_meta_kicks_background_warm_only_once(app, monkeypatch, tmp_path):
     """主线程重复冷调用只踢一次后台预热（防线程洪峰）。"""
-    clip = _ProbeClip("dummy.webm")
+    clip = _ProbeClip(tmp_path / "metadata-probe.webm")
     monkeypatch.setattr(webm_clip_mod.imageio_ffmpeg, 'count_frames_and_secs',
                         lambda key: clip._probe())
     webm_clip_mod._META_CACHE.clear()
@@ -87,9 +87,9 @@ def test_ensure_meta_kicks_background_warm_only_once(app, monkeypatch):
     app.processEvents()
 
 
-def test_ensure_meta_probes_normally_on_worker_thread(app, monkeypatch):
+def test_ensure_meta_probes_normally_on_worker_thread(app, monkeypatch, tmp_path):
     """后台线程：探测/写缓存正常（预热链语义不变）。"""
-    clip = _ProbeClip("dummy.webm")
+    clip = _ProbeClip(tmp_path / "metadata-probe.webm")
     monkeypatch.setattr(webm_clip_mod.imageio_ffmpeg, 'count_frames_and_secs',
                         lambda key: clip._probe())
     webm_clip_mod._META_CACHE.clear()

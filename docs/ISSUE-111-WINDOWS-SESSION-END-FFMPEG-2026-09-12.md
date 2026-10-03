@@ -108,7 +108,6 @@ issue 里的日志证据正好对上：`webm 圈边界宽限期满未续圈，re
 - **已在飞的 Popen**：门禁通过与 `CreateProcess` 之间仍有极窄窗口，已经越过门禁
   的派生无法撤回（这是 `WM_QUERYENDSESSION` 到达时机决定的物理下限）；
 - **第三方派生**：本修复只覆盖 ffmpeg 系 spawn。`pet/agent_link.py`、
-  `pet/harness_launcher.py`、`pet/instance_launcher.py`、`pet/child_pet_cleanup.py`
   等处也会派生 `node`/`pnpm`/自身，理论上同样可能触发 `0xc0000142`；本轮未纳入
   （issue 现象与父进程证据都指向 ffmpeg），如后续出现同类报告再按同一闸门收编；
 - **多实例**：每个实例各自安装探测器、各自持有闸门；系统关机时每个实例都会收到

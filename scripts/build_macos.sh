@@ -3,8 +3,6 @@
 #
 # CI（.github/workflows/build-macos.yml）与本脚本必须保持一致——构建逻辑
 # 只有这一份，CI 通过调用本脚本复用，不在 workflow 内联 PyInstaller 命令，
-# 避免两处漂移（曾因本地脚本漏 --collect-all PySide6.QtMultimedia 而可能
-# 打出缺 QtMultimedia 的坏包）。
 #
 # 用法：
 #   ./scripts/build_macos.sh                          # 本地默认输出 build/macos
@@ -49,16 +47,22 @@ mkdir -p "$DIST_DIR" "$WORK_DIR"
 IFS=',' read -ra variant_list <<< "$VARIANTS"
 for variant in "${variant_list[@]}"; do
     case "$variant" in
-        webm-chat)  entry="packaging/pet_entry.py";            assets="assets/characters";       excludes="" ;;
-        webm)       entry="packaging/pet_entry_no_chat.py";    assets="assets/characters";       excludes="pet.chat,keyring" ;;
-        gif-chat)   entry="packaging/pet_entry.py";            assets="assets/characters_gif";   excludes="" ;;
-        gif)        entry="packaging/pet_entry_no_chat.py";    assets="assets/characters_gif";   excludes="pet.chat,keyring" ;;
+        webm-chat)  entry="packaging/pet_entry.py";            assets="assets/characters";       excludes="keyring" ;;
+        webm)       entry="packaging/pet_entry.py";    assets="assets/characters";       excludes="keyring" ;;
+        gif-chat)   entry="packaging/pet_entry.py";            assets="assets/characters_gif";   excludes="keyring" ;;
+        gif)        entry="packaging/pet_entry.py";    assets="assets/characters_gif";   excludes="keyring" ;;
         *) echo "未知变体: $variant" >&2; exit 1 ;;
     esac
     name="dsh-pet-standalone-$variant"
     printf "VARIANT = '%s'\n" "$variant" > packaging/build_variant.py
 
     args=(
+        --exclude-module PySide6.QtMultimedia
+        --exclude-module PySide6.QtMultimediaWidgets
+        --exclude-module edge_tts
+        --exclude-module aiofiles
+        --exclude-module aiohttp
+        --exclude-module certifi
         --noconfirm
         --clean
         --onedir
@@ -69,24 +73,13 @@ for variant in "${variant_list[@]}"; do
         --name "$name"
         --icon assets/icon.icns
         --collect-all imageio_ffmpeg
-        --collect-all certifi
-        --collect-all PySide6.QtMultimedia
-        --collect-all edge_tts
         --collect-all psutil
         --add-data "$assets:$assets"
         --add-data "assets/big_blue_fat_fish:assets/big_blue_fat_fish"
-        --add-data "assets/chat:assets/chat"
-        --add-data "assets/sounds:assets/sounds"
         --add-data "pet/menu_templates:pet/menu_templates"
         --add-data "pet/persona_presets:pet/persona_presets"
-        --add-data "integrations:integrations"
     )
     # 设置页样式表：已在 modern_settings_dialog.py 内联（_settings_stylesheet）
-    if [[ "$name" == *-chat ]]; then
-        args+=(--collect-all keyring)
-        args+=(--add-data "pet/chat/legacy_styles.qss:pet/chat")
-        args+=(--add-data "pet/chat/modern_styles.qss:pet/chat")
-    fi
     if [[ -n "$excludes" ]]; then
         IFS=',' read -ra exclude_modules <<< "$excludes"
         for module in "${exclude_modules[@]}"; do
@@ -96,12 +89,10 @@ for variant in "${variant_list[@]}"; do
 
     echo "==> 构建 $name.app"
     "$PYTHON_BIN" -m PyInstaller "${args[@]}" "$entry"
+    cp LICENSE THIRD_PARTY_NOTICES.md "$DIST_DIR/$name.app/Contents/Resources/"
     # 中文编码自检（issue #26）：字节码/资源/文件名被编码污染即中止。
     "$PYTHON_BIN" scripts/check_bundle_encoding.py --dir "$DIST_DIR/$name.app"
-    # Bridge 零依赖防线（2026-09 事故：缺 @deepseek-ai/dsh-llm 导致用户整个
-    # dsh 插件树加载失败）：剥掉 --add-data 可能带入的 node_modules 残留，
-    # 校验 dist 副本清单零依赖并跑 hermetic 冒烟（见 fix_bridge_bundle.py）。
-    "$PYTHON_BIN" scripts/fix_bridge_bundle.py --app-dir "$DIST_DIR/$name.app"
+
     codesign --force --deep --sign - "$DIST_DIR/$name.app"
 done
 

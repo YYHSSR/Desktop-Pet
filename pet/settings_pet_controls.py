@@ -22,11 +22,6 @@ from PySide6.QtWidgets import (
 from . import autostart as autostart_mod
 from . import catalog
 from .agent_link import AgentLinkManager
-from .music_lyric_controller import (
-    LEAD_MAX_SECONDS,
-    LEAD_MIN_SECONDS,
-    LYRIC_LEAD_SECONDS,
-)
 from .config import (
     DEFAULT_CONTEXT_MENU_APPEARANCE,
     DEFAULT_MENU_EASTER_EGG,
@@ -38,21 +33,17 @@ from .config import (
     DEFAULT_SELF_TALK_TEXTS,
     _float_or_default,
 )
-from .context_menus.icons import vector_widget_icon
 from .fun_image_popup import oijingjing_image_path, resolve_fun_asset
 from .persona_phrases import PUBLIC_DIALOGUE_EVENTS, phrase_keys
 from .persona_template import build_persona_template
 from .report_gates import REPORT_GATE_DEFAULTS, REPORT_GATE_KEYS
 from .settings_widgets import (
-    AUDIO_NAME_FILTER,
     BrowserDoubleSpinBox,
     BrowserSpinBox,
-    ClickSoundPackPicker,
     ColorPicker,
     ModernSelect,
     ProbabilitySlider,
     ResourcePathPicker,
-    ResponsiveToggleActionRow,
     SettingRow,
     ToggleSwitch,
     _line_edit,
@@ -63,13 +54,10 @@ def build_pet_controls(host) -> None:
     from .modern_settings_dialog import dialogue_params_hint
     host.scale_combo = ModernSelect(host, width=132)
     current_scale = float(host.config.get("scale", catalog.DEFAULT_SCALE))
-    scales = list(catalog.SCALE_STEPS)
-    if not any(abs(current_scale - value) < 0.001 for value in scales):
-        scales.append(current_scale)
-        scales.sort()
-    for scale in scales:
-        host.scale_combo.addItem(f"{int(round(catalog.CANVAS_W * scale))} px", scale)
-    host.scale_combo.setCurrentIndex(host.scale_combo.findData(current_scale))
+    scales = sorted(set([*catalog.SCALE_STEPS, current_scale]))
+    for value in scales:
+        host.scale_combo.addItem(f"{int(round(catalog.CANVAS_W * value))} px", value)
+    host.scale_combo.setCurrentData(current_scale)
 
     # 生小肥鱼尺寸策略：默认继承主肥鱼大小；关闭后使用 spawn_scale 独立选择。
     host.spawn_inherit_size_check = ToggleSwitch(host)
@@ -87,13 +75,6 @@ def build_pet_controls(host) -> None:
     host.spawn_inherit_dynamic_island_check.setChecked(
         bool(host.config.get("spawn_inherit_dynamic_island", False))
     )
-    host.clear_spawned_pets_btn = QPushButton("一键退出…", None)
-    host.clear_spawned_pets_btn.clicked.connect(host._on_clear_spawned_pets)
-    if host.config.instance_id:
-        # 子肥鱼不能关闭主肥鱼进程，只允许主肥鱼执行退出操作。
-        host.clear_spawned_pets_btn.setEnabled(False)
-        host.clear_spawned_pets_btn.setToolTip("请在主肥鱼的设置里操作")
-
     host.on_top_check = ToggleSwitch(None)
     host.on_top_check.setChecked(bool(host.config.get("on_top", True)))
     host.no_move_check = ToggleSwitch(None)
@@ -146,13 +127,6 @@ def build_pet_controls(host) -> None:
     host.collision_impulse_cap_spin.setSingleStep(500.0)
     host.collision_impulse_cap_spin.setDecimals(0)
     host.collision_impulse_cap_spin.setValue(float(_float_or_default(host.config.get("collision_impulse_cap", 9000.0), 9000.0, 1000.0, 12000.0)))
-    host.collision_sound_check = ToggleSwitch(host)
-    host.collision_sound_check.setChecked(bool(host.config.get("collision_sound_enabled", True)))
-    host.collision_sound_volume_spin = BrowserSpinBox(host)
-    host.collision_sound_volume_spin.setRange(0, 100)
-    host.collision_sound_volume_spin.setSuffix(" %")
-    collision_sound_vol = float(host.config.get("collision_sound_volume", 0.70))
-    host.collision_sound_volume_spin.setValue(int(round(collision_sound_vol * 100)))
 
     host.lock_position_check = ToggleSwitch(host)
     host.lock_position_check.setChecked(bool(host.config.get("lock_position", False)))
@@ -173,56 +147,11 @@ def build_pet_controls(host) -> None:
         host.dock_icon_check = ToggleSwitch(host)
         host.dock_icon_check.setChecked(bool(host.config.get("show_dock_icon", True)))
 
-    # 点击音效控件群
-    host.click_sound_check = ToggleSwitch(host)
-    host.click_sound_check.setChecked(bool(host.config.get("click_sound_enabled", True)))
-    host.click_sound_picker = ClickSoundPackPicker(
-        host.config.get("click_sound_pack"),
-        parent=host,
-    )
-    host.click_sound_volume_spin = BrowserSpinBox(host)
-    host.click_sound_volume_spin.setRange(0, 100)
-    host.click_sound_volume_spin.setSuffix(" %")
-    click_vol = float(host.config.get("click_sound_volume", 0.70))
-    host.click_sound_volume_spin.setValue(int(round(click_vol * 100)))
-
-    host.click_sound_preview_btn = QPushButton("试听", host)
-    host.click_sound_preview_btn.setIcon(vector_widget_icon(host, "sound", 14))
-    host.click_sound_preview_btn.setFixedWidth(72)
-    host.click_sound_preview_btn.clicked.connect(host._preview_click_sound)
-
-    host.click_sound_check.toggled.connect(host._update_click_sound_controls)
-    # 音效开关即时生效：对话框的批量写回发生在关闭时，但声音开关是即时
-    # 听觉反馈——用户关掉后期望立刻静音，而不是等关对话框。
-    host.click_sound_check.toggled.connect(host._apply_click_sound_enabled_now)
     host.click_self_talk_check = ToggleSwitch(host)
     host.click_self_talk_check.setChecked(bool(host.config.get("click_show_self_talk", False)))
-    host.click_self_talk_speak_check = ToggleSwitch(host)
-    host.click_self_talk_speak_check.setChecked(bool(host.config.get("self_talk_speak_enabled", True)))
-    host.self_talk_voice_precache_check = ToggleSwitch(host)
-    host.self_talk_voice_precache_check.setChecked(
-        bool(host.config.get("self_talk_voice_precache_enabled", False))
-    )
-    host.music_sing_check = ToggleSwitch(None)
-    host.music_sing_check.setChecked(bool(host.config.get("music_sing_enabled", False)))
-    host.music_lyric_check = ToggleSwitch(None)
-    host.music_lyric_check.setChecked(bool(host.config.get("music_lyric_enabled", False)))
-    host.music_lyric_lead_spin = BrowserDoubleSpinBox(None)
-    host.music_lyric_lead_spin.setRange(LEAD_MIN_SECONDS, LEAD_MAX_SECONDS)
-    host.music_lyric_lead_spin.setSingleStep(0.1)
-    host.music_lyric_lead_spin.setDecimals(1)
-    host.music_lyric_lead_spin.setSuffix(" 秒")
-    host.music_lyric_lead_spin.setValue(
-        float(host.config.get("music_lyric_lead_seconds", LYRIC_LEAD_SECONDS))
-    )
-    host.golden_spin_click_check = ToggleSwitch(host)
-    host.golden_spin_click_check.setChecked(bool(host.config.get("golden_spin_on_click", False)))
-    host.golden_spin_direct_check = ToggleSwitch(host)
-    host.golden_spin_direct_check.setChecked(bool(host.config.get("golden_spin_direct", False)))
     host.edge_probe_check = ToggleSwitch(None)
     host.edge_probe_check.setChecked(bool(host.config.get("edge_probe_enabled", False)))
     host.auto_hide_fullscreen_check = None
-    host.stream_capture_check = None
     if sys.platform == "win32":
         host.auto_hide_fullscreen_check = ToggleSwitch(host)
         host.auto_hide_fullscreen_check.setChecked(bool(host.config.get("auto_hide_fullscreen", True)))
@@ -297,12 +226,10 @@ def build_pet_controls(host) -> None:
     host.bubble_text_scale_spin.setRange(50, 300)
     host.bubble_text_scale_spin.setSuffix(" %")
     host.bubble_text_scale_spin.setValue(int(host.config.get("bubble_text_scale", 100)))
-    host.click_talk_bindings_btn = QPushButton("编辑…", host)
-    host.click_talk_bindings_btn.setObjectName("clickTalkBindingsButton")
-    host.click_talk_bindings_btn.clicked.connect(host._open_click_talk_bindings)
 
-    # Agent 联动：agent_link 配置（思考文案编辑已移除；后续音效/专属层共用此引用）
     agent_link_cfg = host.config.get("agent_link", {})
+    host.codex_link_check = ToggleSwitch(host)
+    host.codex_link_check.setChecked(bool(agent_link_cfg.get("codex", False)))
 
     host.dialogue_mode_select = ModernSelect(host, width=190)
     for label, value in (("默认模式", "legacy"), ("鲸鱼娘女仆模式", "whale_maid"), ("自定义台词", "custom")):
@@ -396,44 +323,6 @@ def build_pet_controls(host) -> None:
     dialogue_template_buttons.addWidget(host.dialogue_template_export_btn)
     dialogue_template_buttons.addWidget(host.dialogue_template_import_btn)
     dialogue_template_actions_layout.addLayout(dialogue_template_buttons)
-    host.agent_sound_check = ToggleSwitch(host)
-    host.agent_sound_check.setChecked(bool(agent_link_cfg.get("sound_enabled", False)))
-
-    # 辅助构建包含“开关+路径选择+试听”的组合控件
-    def _build_agent_event_row(evt_key: str, default_builtin: str) -> tuple[QWidget, ToggleSwitch, ResourcePathPicker, QPushButton]:
-        toggle = ToggleSwitch(host)
-        toggle.setChecked(bool(agent_link_cfg.get(f"sound_{evt_key}_enabled", True)))
-        path_val = str(agent_link_cfg.get(f"sound_{evt_key}_path") or default_builtin)
-        picker = ResourcePathPicker(path_val, name_filter=AUDIO_NAME_FILTER, parent=host)
-        preview_btn = QPushButton("试听", host)
-        preview_btn.setIcon(vector_widget_icon(host, "sound", 14))
-        preview_btn.setFixedWidth(72)
-        preview_btn.clicked.connect(lambda _, k=evt_key: host._preview_agent_sound(k))
-        container = ResponsiveToggleActionRow(toggle, picker, preview_btn, host)
-        return container, toggle, picker, preview_btn
-
-    (host.agent_sound_start_widget, host.agent_sound_start_check,
-     host.agent_sound_start_picker, host.agent_sound_start_preview) = _build_agent_event_row("start", "builtin:agent-start")
-
-    (host.agent_sound_done_widget, host.agent_sound_done_check,
-     host.agent_sound_done_picker, host.agent_sound_done_preview) = _build_agent_event_row("done", "builtin:agent-done")
-
-    (host.agent_sound_error_widget, host.agent_sound_error_check,
-     host.agent_sound_error_picker, host.agent_sound_error_preview) = _build_agent_event_row("error", "builtin:agent-error")
-
-    host.agent_sound_volume_spin = BrowserSpinBox(host)
-    host.agent_sound_volume_spin.setRange(0, 100)
-    host.agent_sound_volume_spin.setSuffix(" %")
-    agent_vol = float(agent_link_cfg.get("sound_volume", 0.65))
-    host.agent_sound_volume_spin.setValue(int(round(agent_vol * 100)))
-
-    host.agent_sound_cooldown_spin = BrowserDoubleSpinBox(host)
-    host.agent_sound_cooldown_spin.setRange(0.0, 30.0)
-    host.agent_sound_cooldown_spin.setSingleStep(0.5)
-    host.agent_sound_cooldown_spin.setDecimals(1)
-    host.agent_sound_cooldown_spin.setSuffix(" 秒")
-    host.agent_sound_cooldown_spin.setValue(float(agent_link_cfg.get("sound_cooldown_seconds", 2.0)))
-
     # 事件气泡触发概率（0.00–1.00 滑块，无开关）：按事件聚合类别逐类调通过概率。
     # 0.00 = 该类完全不汇报（等同关闭），1.00 = 全部汇报。滑块是唯一控制项，
     # 右键菜单只给 0/1 两端快捷入口；键名即门名（见 pet/report_gates.py）。
@@ -448,11 +337,6 @@ def build_pet_controls(host) -> None:
         slider.setObjectName(f"reportGateSlider_{gate}")
         host.report_gate_sliders[gate] = slider
 
-    host.agent_sound_check.toggled.connect(host._update_agent_sound_controls)
-    host.agent_sound_check.toggled.connect(host._apply_agent_sound_enabled_now)
-    host.agent_sound_start_check.toggled.connect(lambda: host._update_agent_sound_subcontrols())
-    host.agent_sound_done_check.toggled.connect(lambda: host._update_agent_sound_subcontrols())
-    host.agent_sound_error_check.toggled.connect(lambda: host._update_agent_sound_subcontrols())
 
     # 待办提醒：偏好两键（条目在右键菜单「待办提醒」面板中管理）
     host.todo_reminder_check = ToggleSwitch(host)
@@ -522,8 +406,6 @@ def build_pet_controls(host) -> None:
     )
 
 # ------------------------------------------------------------ 主动识屏
-    if sys.platform == "win32" and host.include_ai:
-        host._build_proactive_controls()
 
 
 # ------------------------------------------------------------ 灵动岛联动控制器
@@ -537,7 +419,7 @@ def _update_island_controls(host, enabled: bool) -> None:
         "dynamic_island_icon_value",
         "dynamic_island_custom_text", "dynamic_island_click_action",
         "dynamic_island_event_effects", "dynamic_island_edge_dock",
-        "dynamic_island_collision", "dynamic_island_hidden_chat",
+        "dynamic_island_collision",
     ), enabled, dependency="island_enabled")
     _update_island_icon_controls(host, host.island_icon_check.isChecked())
     _update_island_info_controls(host, host.island_info_check.isChecked())

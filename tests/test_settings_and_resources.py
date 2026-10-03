@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 from PySide6.QtWidgets import QApplication
 
-from pet.click_sound import resolve_builtin_sound
 from pet.config import Config
 from pet.modern_settings_dialog import ModernSettingsDialog, SettingRow
 
@@ -22,27 +21,6 @@ def qapp():
     return app
 
 
-def test_builtin_agent_sounds_exist_and_valid_wav():
-    """验证三个内置 Agent 音效文件存在，且是合法 16-bit 22050Hz 单声道 WAV。"""
-    for sound_id, key in [
-        ("builtin:agent-start", "agent-start"),
-        ("builtin:agent-done", "agent-done"),
-        ("builtin:agent-error", "agent-error"),
-    ]:
-        sound_path = resolve_builtin_sound(sound_id)
-        assert sound_path is not None, f"无法解析内置音效: {sound_id}"
-        assert sound_path.is_file(), f"音效文件不存在: {sound_path}"
-        assert sound_path.suffix.lower() == ".wav"
-        assert sound_path.stat().st_size > 1000
-
-        with wave.open(str(sound_path), "rb") as wf:
-            assert wf.getnchannels() == 1  # 单声道
-            assert wf.getsampwidth() == 2  # 16-bit = 2 bytes
-            assert wf.getframerate() == 22050
-            num_frames = wf.getnframes()
-            assert num_frames > 0
-            duration = num_frames / wf.getframerate()
-            assert 0.1 <= duration <= 1.0
 
 
 def test_modern_settings_dialog_round_trip(qapp, tmp_path: Path):
@@ -51,34 +29,20 @@ def test_modern_settings_dialog_round_trip(qapp, tmp_path: Path):
     cfg = Config(cfg_root)
 
     # 1. 初始状态断言
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         assert dialog.slingshot_check.isChecked() is True
         assert dialog.throw_strength_select.currentData() == "standard"
-        assert dialog.click_sound_check.isChecked() is True
-        assert dialog.click_sound_volume_spin.value() == 70
-        assert dialog.agent_sound_check.isChecked() is False
-        assert dialog.agent_sound_volume_spin.value() == 65
-        assert dialog.agent_sound_cooldown_spin.value() == 2.0
         assert dialog.spawn_inherit_size_check.isChecked() is True
         assert dialog.spawn_inherit_dynamic_island_check.isChecked() is False
 
         # 2. 模拟用户修改各个设置项
         dialog.slingshot_check.setChecked(False)
         dialog.throw_strength_select.setCurrentData("crazy")
-        dialog.click_sound_volume_spin.setValue(85)
-        dialog.click_sound_picker.set_pack({"kind": "builtin", "id": "duck", "path": ""})
         dialog.spawn_inherit_size_check.setChecked(False)
         dialog.spawn_scale_combo.setCurrentData(0.5)
         dialog.spawn_inherit_dynamic_island_check.setChecked(True)
 
-        dialog.agent_sound_check.setChecked(True)
-        dialog.agent_sound_start_check.setChecked(True)
-        dialog.agent_sound_start_picker.setText("C:/custom/start.wav")
-        dialog.agent_sound_done_check.setChecked(False)
-        dialog.agent_sound_error_check.setChecked(True)
-        dialog.agent_sound_volume_spin.setValue(90)
-        dialog.agent_sound_cooldown_spin.setValue(3.5)
 
         # 3. 触发写入
         ok = dialog._write_config()
@@ -90,20 +54,11 @@ def test_modern_settings_dialog_round_trip(qapp, tmp_path: Path):
     reloaded_cfg = Config(cfg_root)
     assert reloaded_cfg.get("slingshot_enabled") is False
     assert reloaded_cfg.get("throw_strength") == "crazy"
-    assert reloaded_cfg.get("click_sound_volume") == 0.85
-    assert reloaded_cfg.get("click_sound_pack") == {"kind": "builtin", "id": "duck", "path": ""}
     assert reloaded_cfg.get("spawn_inherit_size") is False
     assert abs(reloaded_cfg.get("spawn_scale") - 0.5) < 1e-6
     assert reloaded_cfg.get("spawn_inherit_dynamic_island") is True
 
     agent_cfg = reloaded_cfg.get("agent_link")
-    assert agent_cfg["sound_enabled"] is True
-    assert agent_cfg["sound_start_enabled"] is True
-    assert agent_cfg["sound_start_path"] == "C:/custom/start.wav"
-    assert agent_cfg["sound_done_enabled"] is False
-    assert agent_cfg["sound_error_enabled"] is True
-    assert abs(agent_cfg["sound_volume"] - 0.90) < 1e-4
-    assert abs(agent_cfg["sound_cooldown_seconds"] - 3.5) < 1e-4
 
 
 def test_import_dialogue_template_reads_entries_and_top_level_phrases(tmp_path, monkeypatch):
@@ -115,7 +70,7 @@ def test_import_dialogue_template_reads_entries_and_top_level_phrases(tmp_path, 
     monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: QMessageBox.StandardButton.Ok)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: QMessageBox.StandardButton.Ok)
     cfg = Config(tmp_path / "appdata")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         # 1) 只改了 entries[].phrases（顶层缺失/为空）的模板也要生效
         entries_only = {
@@ -157,7 +112,7 @@ def test_spawn_size_controls_visibility(qapp, tmp_path: Path):
     """生小肥鱼继承大小开启时隐藏自定义大小；关闭后显示。"""
     cfg_root = tmp_path / "appdata"
     cfg = Config(cfg_root)
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         row = dialog.findChild(SettingRow, "settingRow_spawn_scale")
         assert row is not None
@@ -172,35 +127,6 @@ def test_spawn_size_controls_visibility(qapp, tmp_path: Path):
         dialog.deleteLater()
 
 
-def test_agent_sound_controls_visibility_and_subcontrols(qapp, tmp_path: Path):
-    """总开关隐藏子项；单事件开关隐藏路径和试听，但保留自身以便恢复。"""
-    cfg_root = tmp_path / "appdata"
-    cfg = Config(cfg_root)
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
-    try:
-        # 初始 sound_enabled=False
-        dialog._update_agent_sound_controls(False)
-        start_row = dialog.findChild(SettingRow, "settingRow_agent_sound_start")
-        assert start_row is not None
-        assert start_row.isHidden() is True
-
-        # 开启总开关
-        dialog.agent_sound_check.setChecked(True)
-        dialog._update_agent_sound_controls(True)
-        assert start_row.isHidden() is False
-
-        # 单独关闭 start 事件
-        dialog.agent_sound_start_check.setChecked(False)
-        assert dialog.agent_sound_start_picker.isHidden() is True
-        assert dialog.agent_sound_start_preview.isHidden() is True
-        assert dialog.agent_sound_start_check.isHidden() is False
-
-        # 打开 start 事件
-        dialog.agent_sound_start_check.setChecked(True)
-        assert dialog.agent_sound_start_picker.isHidden() is False
-        assert dialog.agent_sound_start_preview.isHidden() is False
-    finally:
-        dialog.deleteLater()
 
 def test_dialogue_key_params_match_runtime_call_sites():
     """设置页每 key 的“可用参数”提示直接派生自 PARAMETERS（单一真相源）。
@@ -221,13 +147,12 @@ def test_dialogue_key_params_match_runtime_call_sites():
     assert "ok" not in DIALOGUE_KEY_PARAMS["activity.read"]
     assert {"errorCode", "errorMessage", "consecutiveRetryCount", "retry"} <= set(
         DIALOGUE_KEY_PARAMS["model_access.one"])
-    assert DIALOGUE_KEY_PARAMS["dsh.writeback.failed"] == ()
 
 
 def test_dialogue_template_export_is_blank_without_current_phrases(qapp, tmp_path):
     """导出 = 纯字段参考模板：不携带当前已配置的台词（phrases 一律留空）。"""
     cfg = Config(tmp_path / "appdata")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         dialog.dialogue_phrase_edits["start"].setPlainText("当前已配置的台词不应出现在导出里")
         data = dialog._current_dialogue_template()
@@ -252,7 +177,7 @@ def test_express_style_rows_move_to_agent_domain(qapp, tmp_path):
     ticket 01：现代设置重排后 dialogue 模式/模板卡片/逐事件编辑所属页面。
     """
     cfg = Config(tmp_path / "appdata")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         nav = _nav_item_indexes(dialog)
         assert "自动化与联动" in nav, f"缺少自动化与联动导航页，现有: {sorted(nav)}"
@@ -298,7 +223,7 @@ def test_automation_domain_name_stays_stable(qapp, tmp_path):
     assert "Agent 联动" not in labels
 
     cfg = Config(tmp_path / "appdata")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         nav = _nav_item_indexes(dialog)
         assert "自动化与联动" in nav
@@ -320,11 +245,11 @@ def test_dialogue_global_edits_read_and_preserve_unified_preset(qapp, tmp_path):
     cfg.set("dialogue_mode", "custom")
     cfg.set("dialogue_phrases", {
         "global": {"start": ["全局默认 start"], "thinking": ["全局默认 thinking"]},
-        "agents": {"dsh": {"thinking": ["DSH thinking"]}},
+        "agents": {"codex": {"thinking": ["DSH thinking"]}},
     })
     cfg.save()
 
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         # 编辑区初始展示 global 层内容
         assert dialog.dialogue_phrase_edits["start"].toPlainText() == "全局默认 start"
@@ -341,7 +266,7 @@ def test_dialogue_global_edits_read_and_preserve_unified_preset(qapp, tmp_path):
     phrases = reloaded.get("dialogue_phrases")
     assert phrases["global"]["start"] == ["新的全局 start"]
     assert phrases["global"]["thinking"] == ["全局默认 thinking"]
-    assert phrases["agents"]["dsh"]["thinking"] == ["DSH thinking"]
+    assert phrases["agents"]["codex"]["thinking"] == ["DSH thinking"]
 
 
 def test_dialogue_scope_switch_edits_agent_delta(qapp, tmp_path):
@@ -357,11 +282,11 @@ def test_dialogue_scope_switch_edits_agent_delta(qapp, tmp_path):
     })
     cfg.save()
 
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         assert dialog.dialogue_scope_select.currentData() == ""
         # 切到 DSH 专属层
-        dialog.dialogue_scope_select.setCurrentData("dsh")
+        dialog.dialogue_scope_select.setCurrentData("codex")
         # flush+load 后编辑区为空（dsh 尚无覆盖）→ 填 start 差异
         assert dialog.dialogue_phrase_edits["start"].toPlainText() == ""
         dialog.dialogue_phrase_edits["start"].setPlainText("DSH 专属 start")
@@ -377,9 +302,9 @@ def test_dialogue_scope_switch_edits_agent_delta(qapp, tmp_path):
     reloaded = Config(tmp_path / "appdata")
     phrases = reloaded.get("dialogue_phrases")
     assert phrases["global"]["start"] == ["全局 start"]
-    assert phrases["agents"]["dsh"]["start"] == ["DSH 专属 start"]
+    assert phrases["agents"]["codex"]["start"] == ["DSH 专属 start"]
     # 未覆盖的 thinking 不进 dsh delta
-    assert "thinking" not in phrases["agents"]["dsh"]
+    assert "thinking" not in phrases["agents"]["codex"]
 
 
 def test_import_dialogue_template_with_agents_populates_scopes(qapp, tmp_path, monkeypatch):
@@ -397,14 +322,14 @@ def test_import_dialogue_template_with_agents_populates_scopes(qapp, tmp_path, m
 
     cfg = Config(tmp_path / "appdata")
     cfg.set("dialogue_mode", "custom")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         template = {
             "template": "persona-phrases/v1",
             "mode": "custom",
             "phrases": {"start": ["全局 start"]},
             "agents": {
-                "dsh": {"start": ["导入的 DSH start"], "thinking": ["导入的 DSH thinking"]},
+                "codex": {"start": ["导入的 ChatGPT start"], "thinking": ["导入的 DSH thinking"]},
             },
         }
         dialog.dialogue_template_import_edit.setPlainText(json.dumps(template, ensure_ascii=False))
@@ -413,8 +338,8 @@ def test_import_dialogue_template_with_agents_populates_scopes(qapp, tmp_path, m
         # 编辑区当前在 global scope → 显示顶层 phrases
         assert dialog.dialogue_phrase_edits["start"].toPlainText() == "全局 start"
         # 切到 dsh scope → 显示导入的 agents delta
-        dialog.dialogue_scope_select.setCurrentData("dsh")
-        assert dialog.dialogue_phrase_edits["start"].toPlainText() == "导入的 DSH start"
+        dialog.dialogue_scope_select.setCurrentData("codex")
+        assert dialog.dialogue_phrase_edits["start"].toPlainText() == "导入的 ChatGPT start"
         assert dialog.dialogue_phrase_edits["thinking"].toPlainText() == "导入的 DSH thinking"
     finally:
         dialog.deleteLater()
@@ -433,23 +358,23 @@ def test_dialogue_agent_scope_restore_and_public_rows_hidden(qapp, tmp_path):
     cfg.set("dialogue_mode", "custom")
     cfg.set("dialogue_phrases", {
         "global": {"start": ["全局 start"]},
-        "agents": {"dsh": {"start": ["DSH start"], "thinking": ["DSH thinking"]}},
+        "agents": {"codex": {"start": ["ChatGPT start"], "thinking": ["DSH thinking"]}},
     })
-    cfg.set("dialogue_last_scope", "dsh")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    cfg.set("dialogue_last_scope", "codex")
+    dialog = ModernSettingsDialog(cfg,)
     try:
         # 恢复上次编辑层：下拉停在 dsh，编辑框载入该层专属文案
-        assert dialog.dialogue_scope_select.currentData() == "dsh"
-        assert dialog.dialogue_phrase_edits["start"].toPlainText() == "DSH start"
+        assert dialog.dialogue_scope_select.currentData() == "codex"
+        assert dialog.dialogue_phrase_edits["start"].toPlainText() == "ChatGPT start"
         # Agent 层隐藏公共事件行；Agent 事件行可见
         public_row = dialog.findChild(SettingRow, "settingRow_dialogue_bridge.install.pending")
         agent_row = dialog.findChild(SettingRow, "settingRow_dialogue_start")
-        assert public_row is not None and public_row.isHidden()
+        assert public_row is None
         assert agent_row is not None and not agent_row.isHidden()
         # 切回全局：载入全局文案且公共事件行恢复显示
         dialog.dialogue_scope_select.setCurrentData("")
         assert dialog.dialogue_phrase_edits["start"].toPlainText() == "全局 start"
-        assert public_row.isHidden() is False
+        assert dialog.findChild(SettingRow, "settingRow_dialogue_bridge.install.pending") is None
     finally:
         dialog.deleteLater()
 
@@ -461,7 +386,7 @@ def test_settings_save_preserves_retired_custom_balance_phrases(qapp, tmp_path):
     original = {"global": {"balance.result": ["我的旧文案 {text}"], "start": ["保留"]},
                 "agents": {"cursor": {"balance.result": ["历史专属文案"]}}}
     cfg.set("dialogue_phrases", original)
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         assert "balance.result" not in dialog.dialogue_phrase_edits
         assert dialog._write_config()
@@ -475,7 +400,7 @@ def test_export_dialogue_template_mentions_agents_separator(qapp, tmp_path):
     import json as json_mod
 
     cfg = Config(tmp_path / "appdata")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         data = dialog._current_dialogue_template()
         # 导出仍是纯字段参考模板：phrases 留空；含 agents 专属配置脚手架
@@ -500,7 +425,7 @@ def test_subfish_settings_save_sets_user_customized(qapp, tmp_path: Path):
     """批 C：子肥鱼自己的设置界面保存会置位 user_customized=True。"""
     cfg_root = tmp_path / "appdata"
     cfg = Config(cfg_root, instance_id="slot-1")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         ok = dialog._write_config()
         assert ok is True
@@ -515,7 +440,7 @@ def test_main_settings_save_does_not_set_user_customized(qapp, tmp_path: Path):
     """批 C：主配置（slot 0/主肥鱼）保存不置位 user_customized（保持默认假）。"""
     cfg_root = tmp_path / "appdata"
     cfg = Config(cfg_root)
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         ok = dialog._write_config()
         assert ok is True
@@ -539,113 +464,3 @@ def test_position_autosave_does_not_set_user_customized(tmp_path):
     assert cfg.get("user_customized") is False
     reloaded = Config(cfg_root, instance_id="slot-2")
     assert reloaded.get("user_customized") is False
-
-
-def test_clear_spawned_pets_button_routes_through_shell_callback(
-        qapp, tmp_path: Path, monkeypatch):
-    """批 E：设置界面「一键清除」优先调 PetWindow 已接线的 on_clear_spawned_pets
-    （= AppShell 路径，自带确认框与进程内子窗前置于关闭）——对话框不再二次确认，
-    也不直接走文件级清理。"""
-    from PySide6.QtWidgets import QMessageBox, QWidget
-
-    import pet.child_pet_cleanup as cleanup_mod
-
-    calls = []
-    parent = QWidget()
-    parent.on_clear_spawned_pets = lambda: calls.append("shell")
-    cfg = Config(tmp_path / "appdata")
-    questions = []
-    cleanup_calls = []
-    monkeypatch.setattr(
-        QMessageBox, "question",
-        lambda *a, **kw: (questions.append(a),
-                          QMessageBox.StandardButton.Cancel)[1])
-    monkeypatch.setattr(
-        cleanup_mod, "clear_spawned_pets",
-        lambda *a, **kw: cleanup_calls.append(a) or
-        {"killed_pids": [], "deleted": []})
-    dialog = ModernSettingsDialog(cfg, parent, include_ai=False)
-    try:
-        dialog.clear_spawned_pets_btn.click()
-        assert calls == ["shell"], "应调用 win.on_clear_spawned_pets 回调"
-        assert questions == [], "走 shell 回调时对话框不应二次确认"
-        assert cleanup_calls == [], "走 shell 回调时不应直接文件级清理"
-    finally:
-        dialog.deleteLater()
-        parent.close()
-        qapp.processEvents()
-
-
-def test_clear_spawned_pets_button_falls_back_without_callback(
-        qapp, tmp_path: Path, monkeypatch):
-    """批 E：拿不到 win.on_clear_spawned_pets（无父窗/旧接线）时回退原有
-    「确认 + 直接文件级清理」路径。"""
-    from PySide6.QtWidgets import QMessageBox
-
-    import pet.child_pet_cleanup as cleanup_mod
-
-    cfg = Config(tmp_path / "appdata")
-    cleaned = []
-    monkeypatch.setattr(
-        cleanup_mod, "clear_spawned_pets",
-        lambda cfg_dir: (cleaned.append(cfg_dir),
-                         {"killed_pids": [1], "deleted": ["a", "b"]})[1])
-    monkeypatch.setattr(
-        QMessageBox, "question",
-        lambda *a, **kw: QMessageBox.StandardButton.Yes)
-    infos = []
-    monkeypatch.setattr(
-        QMessageBox, "information", lambda *a, **kw: infos.append(a))
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
-    try:
-        dialog._on_clear_spawned_pets()
-        assert cleaned == [cfg.dir]
-        assert infos == [], "批 I：结果弹窗已移除（结果写日志）"
-    finally:
-        dialog.deleteLater()
-        qapp.processEvents()
-
-
-def test_clear_spawned_pets_button_fallback_runs_without_dialogs(
-        qapp, tmp_path: Path, monkeypatch):
-    """批 I：回退路径无确认框无结果框，一键直接静默执行。"""
-    from PySide6.QtWidgets import QMessageBox
-
-    import pet.child_pet_cleanup as cleanup_mod
-
-    cfg = Config(tmp_path / "appdata")
-    cleanup_calls = []
-    monkeypatch.setattr(
-        cleanup_mod, "clear_spawned_pets",
-        lambda *a, **kw: cleanup_calls.append(a) or
-        {"killed_pids": [], "deleted": []})
-    questions = []
-    monkeypatch.setattr(
-        QMessageBox, "question",
-        lambda *a, **kw: (questions.append(1),
-                          QMessageBox.StandardButton.Cancel)[1])
-    infos = []
-    monkeypatch.setattr(
-        QMessageBox, "information", lambda *a, **kw: infos.append(a))
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
-    try:
-        dialog._on_clear_spawned_pets()
-        assert questions == [], "批 I：无确认框"
-        assert cleanup_calls != [], "回退路径直接执行清理"
-        assert infos == [], "批 I：无结果框"
-    finally:
-        dialog.deleteLater()
-        qapp.processEvents()
-
-
-def test_clear_spawned_pets_button_disabled_for_child_config(qapp, tmp_path):
-    """批 G：子肥鱼（slot-N）的设置对话框禁用「一键退出」按钮——该操作只对
-    主肥鱼开放（子鱼进程执行会把主鱼当子鱼杀掉）。"""
-    cfg = Config(tmp_path / "appdata", instance_id="slot-1")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
-    try:
-        assert not dialog.clear_spawned_pets_btn.isEnabled()
-        assert dialog.clear_spawned_pets_btn.toolTip()
-    finally:
-        dialog.deleteLater()
-        qapp.processEvents()

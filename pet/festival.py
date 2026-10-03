@@ -1,28 +1,5 @@
 # -*- coding: utf-8 -*-
-"""节日提醒：纯逻辑层（零 Qt / 零 GUI，可脱离界面直接单测）。
-
-职责：配置清洗、今日节日判定、文案挑选、提醒时间计算、提醒槽位幂等。
-不负责：定时器、线程、播放、气泡落地（那些在 festival_service.py）。
-
-配置键（config.py 顶层平铺，共 11 个）：
-    festival_reminder_enabled / festival_reminder_cn /
-    festival_reminder_solar_terms / festival_reminder_west /
-    festival_reminder_mode / festival_reminder_count /
-    festival_reminder_times / festival_reminder_show_quote /
-    festival_reminder_speak / festival_custom_quotes_cn /
-    festival_custom_quotes_west
-
-语音播报（``festival_reminder_speak``）**不自带音频管线**：它复用语音报时服务的
-``speak()`` 通道（音色/语速/音调/音量同报时），从而在结构上不可能与报时叠音；
-同一分钟两者都到点时，报时经 ``should_speak_at()`` 让位（见 festival_service）。
-
-**总开关默认关闭**：节日提醒是"主动打扰"型功能，升级后不应突然冒出来，
-由用户显式开启。
-
-今日判定采用「日期 -> 节日」方向（见 ``festivals_on``），而不是先算
-「节日 -> 日期」：后者要先解决"农历腊月初八落在哪个公历年"这类跨年归属
-问题，容易出错；前者对给定的一天逐条比对规则，没有归属歧义。
-"""
+"""节日提醒纯逻辑：日期、视觉文案与提醒时刻的归一化。"""
 
 from __future__ import annotations
 
@@ -75,10 +52,9 @@ try:  # pragma: no cover - 剥离合规版本时该模块不存在
 except ImportError:  # pragma: no cover
     QUOTES_WEST_SONG = {}
 
-# 复用语音报时的清洗实现，避免在同一包内写第二份同语义清洗逻辑：
 # clean_flag（布尔真值解析）、clean_custom_times（HH:MM 集合）、
 # clean_custom_quotes（多行文本去控制字符/去重保序/单条截断）。
-from .voice_chime import clean_custom_quotes, clean_custom_times, clean_flag
+from .reminder_values import clean_custom_quotes, clean_custom_times, clean_flag
 
 # —— 提醒方式（二选一）——
 MODE_TIMES = "times"
@@ -150,7 +126,6 @@ def normalize_festival_config(config) -> dict:
         "show_quote": clean_flag(
             get("festival_reminder_show_quote", DEFAULT_SHOW_QUOTE), DEFAULT_SHOW_QUOTE
         ),
-        "speak": clean_flag(get("festival_reminder_speak", False), False),
         "custom_quotes_cn": clean_custom_quotes(get("festival_custom_quotes_cn", "")),
         "custom_quotes_west": clean_custom_quotes(get("festival_custom_quotes_west", "")),
     }

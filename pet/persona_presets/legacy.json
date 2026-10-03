@@ -7,32 +7,62 @@
   "activity.edit": [
     "{name} 正在当前会话 {sessionName} 中编辑 {label}。",
     "当前会话 {sessionName} 中，{name} 正在通过 {tool} 修改内容。",
-    "{name} 在当前会话 {sessionName} 中执行到第 {step} 步，编辑仍在进行。"
+    "{name} 在当前会话 {sessionName} 中执行到第 {step} 步，编辑仍在进行。",
+    "{name} 正在修改内容，细节打磨中。",
+    "{name} 正在编辑，进度一点点落地。",
+    "修改搭子认真营业：{name} 还在编辑。",
+    "{name} 正在调整，成果尚未定稿。",
+    "{name} 正在动手改，稍后看结果。"
   ],
   "activity.read": [
     "{name} 正在当前会话 {sessionName} 中读取 {label}。",
     "当前会话 {sessionName} 中，{name} 正在通过 {tool} 查看相关内容。",
-    "{name} 在当前会话 {sessionName} 中执行到第 {step} 步，正在读取所需信息。"
+    "{name} 在当前会话 {sessionName} 中执行到第 {step} 步，正在读取所需信息。",
+    "{name} 正在读资料，信息补给中。",
+    "{name} 正在查看内容，先把情况摸清。",
+    "资料搭子上线：{name} 正在读取。",
+    "{name} 正在查阅，细节也要照顾到。",
+    "{name} 还在阅读，知识缓存更新中。"
   ],
   "activity.run": [
     "{name} 正在当前会话 {sessionName} 中运行 {label}。",
     "当前会话 {sessionName} 中，{name} 已通过 {tool} 开始执行。",
-    "{name} 在当前会话 {sessionName} 中执行到第 {step} 步，任务仍在运行。"
+    "{name} 在当前会话 {sessionName} 中执行到第 {step} 步，任务仍在运行。",
+    "{name} 正在执行，结果还在路上。",
+    "运行已开始，{name} 继续忙着。",
+    "{name} 的操作执行中，先别急着庆祝。",
+    "执行搭子上线：{name} 还在运行。",
+    "{name} 正在跑这一段，等它交结果。"
   ],
   "activity.search": [
     "{name} 正在当前会话 {sessionName} 中搜索 {label}。",
     "当前会话 {sessionName} 中，{name} 正在使用 {tool} 查找相关信息。",
-    "{name} 在当前会话 {sessionName} 中执行到第 {step} 步，搜索仍在进行。"
+    "{name} 在当前会话 {sessionName} 中执行到第 {step} 步，搜索仍在进行。",
+    "{name} 正在搜索，线索收集中。",
+    "搜索搭子出动，{name} 继续找资料。",
+    "{name} 正在查找，让证据先走一步。",
+    "{name} 还在搜索，答案拼图补充中。",
+    "信息雷达启动，{name} 正在查询。"
   ],
   "agent.attention": [
     "{name} 需要你确认一下。",
     "{name} 已暂停，正在等待你的处理。",
-    "{name} 当前需要人工确认后才能继续。"
+    "{name} 当前需要人工确认后才能继续。",
+    "{name} 需要你处理一下，决策位请就位。",
+    "{name} 正在等你，下一步需要你的回应。",
+    "人工搭子请上线：{name} 有事待处理。",
+    "{name} 需要你的确认，去原界面看看吧。",
+    "轮到你接力了，{name} 正在等待回应。"
   ],
   "agent.error": [
     "{name} 运行时出现了错误，请检查一下。",
     "{name} 遇到了异常，可能需要你处理。",
-    "{name} 当前处于错误状态，无法正常继续执行。"
+    "{name} 当前处于错误状态，无法正常继续执行。",
+    "{name} 遇到异常，先看看具体错误。",
+    "{name} 这一步没顺利走完，需要检查。",
+    "{name} 报错了，我先把消息递给你。",
+    "{name} 遇到问题，咱们按线索排查。",
+    "{name} 当前有异常，请回原界面查看。"
   ],
   "agent.missing": [
     "暂时没有检测到 {name}。",
@@ -54,31 +84,6 @@
     "请确认是否允许当前会话 {sessionName} 中的 {name} 执行 {label}。",
     "{name} 正在当前会话 {sessionName} 中等待工具 {toolName} 的使用批准。"
   ],
-  "bridge.install.failed": [
-    "{name} 的通信桥安装失败：{detail}",
-    "连接 {name} 时出现问题：{detail}",
-    "{name} 的桥接组件未能成功安装，请检查：{detail}"
-  ],
-  "bridge.install.pending": [
-    "正在为 {name} 安装通信桥。",
-    "正在连接 {name}，请稍等。",
-    "{name} 的桥接组件正在安装。"
-  ],
-  "bridge.install.success": [
-    "{name} 的通信桥已安装完成。",
-    "{name} 已成功完成桥接。",
-    "{name} 的桥接组件已准备就绪。"
-  ],
-  "bridge.uninstall.failed": [
-    "{name} 的通信桥未能完全卸载。",
-    "{name} 的桥接组件仍有残留，请检查一下。",
-    "{name} 的卸载过程未完全完成。"
-  ],
-  "bridge.unknown": [
-    "检测到未知的桥接事件（{event}），bridge 可能需要更新或重装。",
-    "桥接发来一个我不认识的事件（{event}），请更新或重装 bridge 插件。",
-    "bridge 写出的事件「{event}」超出当前版本认知，建议更新或重装 bridge。"
-  ],
   "done.attention": [
     "{name} 已停止，请确认当前结果。",
     "{name} 本轮已暂停，正在等待你的检查。",
@@ -87,12 +92,12 @@
   "done.success": [
     "{name} 已完成本轮任务。",
     "{name} 执行完成，可以查看结果了。",
-    "{name} 已顺利完成当前任务。"
-  ],
-  "dsh.writeback.failed": [
-    "结果未能成功回写到 DSH，请到 DSH 界面检查。",
-    "DSH 回写失败，请手动确认当前状态。",
-    "消息没有成功传回 DSH，请检查连接或前往 DSH 处理。"
+    "{name} 已顺利完成当前任务。",
+    "{name} 本轮已结束，可以验收成果啦。",
+    "{name} 的本轮结果到了，请查收。",
+    "{name} 已完成这一轮，轮到你看结果。",
+    "{name} 本轮收工，结果等你过目。",
+    "进度到账：{name} 本轮已完成。"
   ],
   "failure.generic": [
     "当前会话 {sessionName} 中，{name} 本轮执行失败，失败类型：{failureType}。",
@@ -152,17 +157,32 @@
   "start": [
     "{name} 已开始执行任务。",
     "{name} 开始工作了，请稍等。",
-    "{name} 已进入本轮执行流程。"
+    "{name} 已进入本轮执行流程。",
+    "{name} 已开工，电子搭子进入工作状态。",
+    "任务收到，{name} 开始认真营业。",
+    "{name} 已进入本轮处理流程，进度条启动。",
+    "开工搭子已就位：{name} 正在处理。",
+    "{name} 开始忙啦，我来帮你盯着。"
   ],
   "stuck.reminder": [
     "{name} 已经有一段时间没有新的执行进展。",
     "{name} 可能卡在当前思路中，建议检查一下。",
-    "{name} 疑似陷入停滞，可能需要人工介入。"
+    "{name} 疑似陷入停滞，可能需要人工介入。",
+    "{name} 一段时间没有新进展，值得看一眼。",
+    "{name} 可能遇到瓶颈，先确认现场。",
+    "{name} 的进度暂时没更新，原因还不确定。",
+    "{name} 好一会儿没新动静了，要留意一下。",
+    "{name} 可能需要帮助，也可能只是还在忙。"
   ],
   "thinking": [
     "{name} 正在思考。",
     "{name} 正在分析当前任务。",
-    "{name} 仍在处理中，请稍等。"
+    "{name} 仍在处理中，请稍等。",
+    "{name} 还在处理中，脑洞持续加载。",
+    "{name} 正在分析，思路先跑一会儿。",
+    "灵感还在路上，{name} 正在梳理。",
+    "{name} 正在认真琢磨，稍等一下。",
+    "{name} 继续处理中，我陪你等消息。"
   ],
   "watchdog.warning": [
     "{name} 最近可能存在重复探索行为：{reasons}",

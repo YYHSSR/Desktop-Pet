@@ -4,12 +4,9 @@
 import sys
 
 
-def _chat_available() -> bool:
-    """打包变体是否带 AI 聊天（已切换为 Pure Pet 模式，关闭 AI 设置项）。"""
-    return False
 
 
-def _exec_settings(app, config, *, include_ai: bool = False) -> int:
+def _exec_settings(app, config) -> int:
     """独立设置进程主体：锁 + 独立对话框 + 事件循环。
 
     单独拆一层是为了让测试能注入最小 QApplication/临时 Config，不必真的跑
@@ -31,7 +28,7 @@ def _exec_settings(app, config, *, include_ai: bool = False) -> int:
 
     # parent=None + standalone=True：没有桌宠窗口可依附，试听/避让由
     # pet.settings_standalone 提供进程内最小宿主。
-    dialog = ModernSettingsDialog(config, parent=None, include_ai=include_ai, standalone=True)
+    dialog = ModernSettingsDialog(config, parent=None, standalone=True)
     if hasattr(dialog, "move_away_from_pet"):
         dialog.move_away_from_pet()
     dialog.finished.connect(lambda _result: app.quit())
@@ -82,7 +79,7 @@ def _run_settings(config=None) -> int:
         config.dir.mkdir(parents=True, exist_ok=True)
     except OSError:
         pass
-    return _exec_settings(app, config, include_ai=_chat_available())
+    return _exec_settings(app, config)
 
 
 def _main() -> int:

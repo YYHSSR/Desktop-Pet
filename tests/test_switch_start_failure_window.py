@@ -218,7 +218,7 @@ def test_close_stops_all_activity_timers(app, tmp_path):
     win = _make_win(tmp_path, lib)
     # 直接置为活跃以覆盖 closeEvent 的计时器收口面（不依赖真实鼠标/物理事件时序）
     timers = (
-        "_move_timer", "_squash_timer", "_physics_timer", "_music_sing_timer",
+        "_move_timer", "_squash_timer", "_physics_timer",
         "_self_talk_timer", "_animation_gap_timer", "_switch_retry_timer",
         "_drag_move_timer",
     )

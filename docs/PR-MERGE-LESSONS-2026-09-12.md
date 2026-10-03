@@ -8,8 +8,7 @@
 
 ## 教训 1：叠放 PR —— squash 掉父 PR 后，子 PR 一定在冲突边缘
 
-**现象**
-#104（父，桥接插件归零外部依赖）以 squash 合并为 `7f3b896` 后，#105（正文写明"基于 #104 叠放"）从 `clean` 直接变成 **`dirty` 冲突**。冲突文件恰好是 #105 的后续提交又改过的那 3 个：`.github/workflows/pr-test.yml`、`docs/ACCEPTANCE_TESTS.md`、`integrations/dsh-pet-bridge/verify_import.mjs`。
+
 
 **根因**
 squash 合并会在 main 上生成**内容相同但提交不同**的新提交 `A'`。子分支里是「原提交 `A` + 后续微调」。三方合并时 base→ours 与 base→theirs **都修改了同一批行**，git 无法判断 `ours ⊆ theirs`，于是报冲突。
@@ -112,6 +111,5 @@ CI run `34694487069`（macOS 两轮均红于同一用例）→ `f6db3cd` → run
 
 ## 附 B：本轮实证到的有效防线（值得保留）
 
-- **构建期红线真的能拦事故**：`scripts/fix_bridge_bundle.py` 的"dist 清单零依赖"校验，正确地**拒绝**了本机一个仍带 9 个依赖的旧 bundle（退出码 1）——这说明"在构建期把事故型回归判红"是有效手段，而不是形式主义。
 - **PR 门禁新增桥接零依赖双层校验**（`node --test` 7 个契约测试 + `verify_import.mjs` hermetic 冒烟）在引入后首次 CI 即覆盖到 3 平台。
 - **事件同步的用例在引入后未再复现平台差异**：改为轮询的 `test_paged_bubble_flip_fades_and_updates_dots` 在 macOS 上连续 1 次 CI 通过（如需进一步加固，可考虑再跑 3 轮 CI 观察）。

@@ -184,4 +184,3 @@ def test_worker_thread_register_defers_timer_to_gui():
     finally:
         if reg._timer is not None:
             reg._timer.stop()
-

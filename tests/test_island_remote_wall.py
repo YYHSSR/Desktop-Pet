@@ -333,7 +333,6 @@ def test_remote_pet_applies_island_impulse(app):
     win._enter_physics_mode = lambda mode: None
     win._physics_timer = SimpleNamespace(start=lambda: None)
     win._last_physics_tick_time = None
-    win._play_collision_sound = lambda: None
     win._start_squash = lambda: None
     win._squash_active = False
     win._just_dragged = False

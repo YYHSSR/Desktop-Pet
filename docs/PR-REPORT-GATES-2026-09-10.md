@@ -45,14 +45,7 @@
 改名范围（用户可见文案保持「模型访问失败」语义；429 等服务端限流码只作为**数据字面量**参与匹配，
 不体现在命名上）：
 
-- `pet/rate_limit_tracker.py` → `pet/model_access_tracker.py`；
-  `RateLimitTracker` → `ModelAccessTracker`；`_RATE_CODES` → `_MODEL_ACCESS_CODES`；
-  `is_rate_limit()` → `is_model_access()`。
-- 预设键 `rate_limit.one/many` → `model_access.one/many`（`persona_presets/legacy.json`、`whale_maid.json`）。
-- `pet/persona_template.py` 字段名、`pet/agent_event_normalizer.py` 规范名、
-  `integrations/dsh-pet-bridge/index.js` 桥接侧事件名，以及三份相关文档。
-- 对应测试：`test_persona_settings.py`、`test_persona_template.py`、`test_proactive.py`、
-  `test_semantic_event_field_contract.py`、`test_settings_and_resources.py`。
+
 
 > 这条依赖是**提交点自检**发现的：把改名文件排除在提交外时，干净检出 HEAD 会
 > 连 `import pet.agent_link` 都失败（11 个契约用例红）——见 §7「提交点自检」。
@@ -212,8 +205,6 @@ result[key] = min(1.0, max(0.0, number))
 | `pet/persona_presets/legacy.json`、`whale_maid.json` | 预设键 `rate_limit.one/many` → `model_access.one/many` |
 | `pet/persona_template.py` | 字段名改名 |
 | `pet/agent_event_normalizer.py` | 规范名改名 |
-| `integrations/dsh-pet-bridge/index.js` | 桥接侧事件名改名 |
-| `docs/DSH-BRIDGE-PET-EVENT-CONTRACT-2026-09-02.md`、`docs/OPEN-SOURCE-HARNESS-RISK-RESEARCH.md`、`docs/PERSONA-TEMPLATE-FIELD-ALIGNMENT-2026-09-05.md` | 文档同步改名 |
 
 ### 测试
 

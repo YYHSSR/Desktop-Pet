@@ -1,7 +1,6 @@
 """Action registration and tree rendering for the shared Menu Action Model."""
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from typing import Callable
 
@@ -12,6 +11,7 @@ from ..config import DEFAULT_MENU_EASTER_EGG
 from .fun_entry import add_ojingjing_entry
 from .icons import custom_file_menu_icon, vector_menu_icon
 from .quick_launch import add_quick_launch_menu
+from .quick_urls import add_quick_urls_menu
 from .shared import (
     add_action,
     add_agent_link_menu,
@@ -21,18 +21,9 @@ from .shared import (
     add_edge_probe,
     add_golden_spin,
     add_hide_pet,
-    add_look_screen,
-    add_music_lyric_align,
-    add_music_next,
-    add_music_open_netease,
-    add_music_open_qqmusic,
-    add_music_pause,
-    add_music_prev,
-    add_music_quit,
     add_mouse_through,
     add_no_move,
     add_on_top,
-    add_proactive_menu,
     add_quit,
     add_return_corner,
     add_spawn_pet,
@@ -45,21 +36,17 @@ from .shared import (
 
 
 ACTION_LABELS = {
-    "ojingjing": "厉害了我的鲸", "chat": "AI 对话", "look_screen": "看看屏幕",
+    "ojingjing": "厉害了我的鲸",
     "animations_hub": "播放动画", "character": "切换角色", "playback_speed": "播放速率",
     "size": "大小", "drag_physics": "拖动物理", "no_move": "不移动",
     "mouse_through": "鼠标穿透", "on_top": "窗口置顶", "autostart": "开机自启",
     "return_corner": "回到右下角", "hide_pet": "隐藏桌宠",
     "spawn_pet": "生小肥鱼", "clear_spawned_pets": "退出子肥鱼",
     "golden_spin": "黄金回旋", "edge_probe": "边缘探头",
-    "music": "音乐", "music_pause": "暂停 / 播放", "music_next": "切歌",
-    "music_prev": "上一首",
-    "music_quit": "退出音乐模式", "music_open_netease": "打开网易云并播放",
-    "music_open_qqmusic": "打开QQ音乐并播放",
-    "music_lyric_align": "歌词对齐",
-    "quick_launch": "快捷启动",
+    "quick_launch": "快捷应用",
+    "quick_urls": "快捷网址",
     "agent_link": "Agent 联动",
-    "proactive_screen": "主动识屏", "todo_panel": "待办提醒",
+    "todo_panel": "待办提醒",
     "modern_settings": "桌宠设置", "quit": "退出",
 }
 
@@ -70,21 +57,19 @@ Enablement = Callable[[object], bool]
 
 
 ACTION_ICONS = {
-    "ojingjing": "pet", "chat": "chat", "look_screen": "screen",
+    "ojingjing": "pet",
     "animations_hub": "play", "character": "character", "playback_speed": "speed",
     "size": "size", "drag_physics": "physics", "no_move": "pause",
     "mouse_through": "interaction", "on_top": "pin", "autostart": "autostart",
     "return_corner": "corner", "hide_pet": "hide",
     "spawn_pet": "spawn", "clear_spawned_pets": "clear",
     "golden_spin": "play", "edge_probe": "corner",
-    "music_next": "play", "music_prev": "play", "music_quit": "stop",
-    "music": "play", "music_pause": "pause", "music_open_netease": "play",
-    "music_open_qqmusic": "play", "music_lyric_align": "play",
+    "pet_controls": "pet",
     "quick_launch": "application",
-    "agent_link": "automation",
-    "proactive_screen": "screen", "todo_panel": "todo",
+    "quick_urls": "web",
+    "agent_link": "agent",
+    "todo_panel": "todo",
     "modern_settings": "settings", "quit": "quit",
-    "voice_chime_now": "chat", "voice_chime_toggle": "chat",
     "festival_now": "todo", "festival_toggle": "todo",
 }
 
@@ -94,7 +79,8 @@ CUSTOM_ICON_CHOICES = (
     ("角色", "character"), ("速度", "speed"), ("尺寸", "size"),
     ("桌宠", "pet"), ("交互", "interaction"), ("置顶", "pin"),
     ("隐藏", "hide"), ("应用", "application"),
-    ("清除", "clear"), ("网页", "web"), ("下载", "download"), ("更新", "update"),
+    ("清除", "clear"), ("网页", "web"), ("智能体", "agent"),
+    ("下载", "download"), ("更新", "update"),
     ("自动化", "automation"), ("设置", "settings"), ("待办", "todo"),
 )
 
@@ -111,33 +97,6 @@ def _callback_available(name: str) -> Availability:
     return lambda pet: callable(getattr(pet, name, None))
 
 
-def _music_lyric_configured(pet) -> bool:
-    """音乐相关菜单项是否出现：只看设置里有没有开启歌词功能。
-
-    刻意**不**依赖实时播放状态——否则菜单结构会随"此刻有没有在放歌"变来变去
-    （测试也会因此依赖机器状态）。没在播时改为置灰（见 enabled）。
-    """
-    return bool(pet.cfg.get("music_lyric_enabled", False))
-
-
-def _music_align_ready(pet) -> bool:
-    """「歌词对齐」是否可用：只有位置靠本地时钟估算时才有意义。
-
-    播放器报了真实进度（Chrome / QQ 音乐）时位置本来就跟着快进走，手动对齐
-    只会跟真值打架；还没有歌词可对齐时同理。**必须 isinstance 校验**——宿主
-    可能用 ``__getattr__`` 兜底返回任意对象（测试替身就这么干），只判 None 会
-    把无关对象当成控制器（同 ``shared._music_controller`` 的教训）。
-    """
-    from ..music_lyric_controller import MusicLyricController
-
-    controller = getattr(pet, "_music_lyric", None)
-    if not isinstance(controller, MusicLyricController):
-        return False
-    return bool(controller.align_available())
-
-
-def _build_chat(menu, pet):
-    return add_action(menu, "AI 对话", "chat", pet.on_open_chat, close_on_trigger=True)
 
 
 def _build_animations(menu, pet):
@@ -154,15 +113,13 @@ def _build_todo_panel(menu, pet):
     return add_action(menu, "待办提醒", "todo", pet.on_open_todo_panel, close_on_trigger=True)
 
 
-def _build_voice_chime_now(menu, pet):
-    return add_action(menu, "立即报时", "chat", pet.on_voice_chime_now, close_on_trigger=True)
 
 
 def _flag_toggle_spec(key: str, on_label: str, off_label: str, icon: str,
                       callback: str):
     """布尔开关菜单项的规约工厂：按配置当前值翻转标签，点击回回调。
 
-    语音报时开关与节日提醒开关此前逐字同构，这里把「读配置 → 选标签 →
+    节日提醒开关，这里把「读配置 → 选标签 →
     add_action」收成一处；标签翻转、图标、回调与 close_on_trigger 语义逐点
     不变。注意 `enabled` 只影响展示标签，不影响回调可用性（可用性仍由
     `MenuActionSpec.available` 的 `_callback_available` 判定）。
@@ -177,11 +134,6 @@ def _flag_toggle_spec(key: str, on_label: str, off_label: str, icon: str,
 
     return _build
 
-
-_build_voice_chime_toggle = _flag_toggle_spec(
-    "voice_chime_enabled", "关闭语音报时", "启用语音报时", "chat",
-    "on_toggle_voice_chime",
-)
 
 _build_festival_toggle = _flag_toggle_spec(
     "festival_reminder_enabled", "关闭节日提醒", "启用节日提醒", "todo",
@@ -207,8 +159,6 @@ class MenuActionRegistry:
                 ),
                 disabled_reason="彩蛋入口已在设置中停用",
             ),
-            "chat": MenuActionSpec(_build_chat, _callback_available("on_open_chat")),
-            "look_screen": MenuActionSpec(add_look_screen, _callback_available("on_look_screen")),
             "animations_hub": MenuActionSpec(_build_animations),
             "character": MenuActionSpec(lambda menu, pet: build_character_menu(menu, pet)),
             "playback_speed": MenuActionSpec(lambda menu, pet: build_speed_menu(menu, pet)),
@@ -219,24 +169,12 @@ class MenuActionRegistry:
             "on_top": MenuActionSpec(add_on_top),
             "autostart": MenuActionSpec(lambda menu, pet: add_autostart(menu, pet)),
             "return_corner": MenuActionSpec(add_return_corner),
-            "hide_pet": MenuActionSpec(add_hide_pet),
+            "hide_pet": MenuActionSpec(add_hide_pet, available=lambda _pet: False),
             "spawn_pet": MenuActionSpec(add_spawn_pet, _callback_available("on_spawn_pet")),
             "clear_spawned_pets": MenuActionSpec(
                 add_clear_spawned_pets,
                 _callback_available("on_clear_spawned_pets"),
             ),
-            "music_pause": MenuActionSpec(add_music_pause, lambda _pet: False),
-            "music_next": MenuActionSpec(add_music_next, lambda _pet: False),
-            "music_prev": MenuActionSpec(add_music_prev, lambda _pet: False),
-            "music_quit": MenuActionSpec(add_music_quit, lambda _pet: False),
-            "music_lyric_align": MenuActionSpec(
-                add_music_lyric_align,
-                lambda _pet: False,
-                enabled=_music_align_ready,
-                disabled_reason="当前不需要手动对齐（播放器会上报进度，或还没有歌词）",
-            ),
-            "music_open_netease": MenuActionSpec(add_music_open_netease, lambda _pet: False),
-            "music_open_qqmusic": MenuActionSpec(add_music_open_qqmusic, lambda _pet: False),
             "golden_spin": MenuActionSpec(
                 add_golden_spin,
                 _callback_available("trigger_golden_spin"),
@@ -245,22 +183,15 @@ class MenuActionRegistry:
             "quick_launch": MenuActionSpec(
                 lambda menu, pet: add_quick_launch_menu(menu, pet),
             ),
-            "agent_link": MenuActionSpec(add_agent_link_menu),
-            "proactive_screen": MenuActionSpec(
-                add_proactive_menu,
-                lambda pet: sys.platform == "win32" and callable(getattr(pet, "on_open_chat", None)),
+            "quick_urls": MenuActionSpec(
+                lambda menu, pet: add_quick_urls_menu(menu, pet),
             ),
+            "agent_link": MenuActionSpec(add_agent_link_menu),
             "modern_settings": MenuActionSpec(
                 _build_settings, _callback_available("on_open_modern_settings")
             ),
             "todo_panel": MenuActionSpec(
                 _build_todo_panel, _callback_available("on_open_todo_panel")
-            ),
-            "voice_chime_now": MenuActionSpec(
-                _build_voice_chime_now, _callback_available("on_voice_chime_now")
-            ),
-            "voice_chime_toggle": MenuActionSpec(
-                _build_voice_chime_toggle, _callback_available("on_toggle_voice_chime")
             ),
             "festival_now": MenuActionSpec(
                 _build_festival_now, _callback_available("on_festival_now")
@@ -338,10 +269,12 @@ class MenuActionRegistry:
                     submenu, pet, node.get("children", ()), enabled_actions=enabled,
                 )
                 built = submenu
-                if "icon" in node:
-                    submenu.menuAction().setIcon(
-                        self.icon(menu, str(node.get("id") or ""), node.get("icon"))
-                    )
+                node_id = str(node.get("id") or "")
+                icon_choice = node.get("icon") if "icon" in node else self.default_icon(node_id)
+                if icon_choice and icon_choice != "none":
+                    icon = self.icon(menu, node_id, icon_choice)
+                    if not icon.isNull():
+                        submenu.menuAction().setIcon(icon)
             else:
                 action_id = str(node.get("id") or "")
                 spec = self._specs.get(action_id)

@@ -32,8 +32,6 @@ def test_collision_config_defaults_and_normalization(tmp_path: Path):
     assert cfg.get("collision_friction") == pytest.approx(0.08)
     assert cfg.get("collision_mass_scale") == pytest.approx(1.0)
     assert cfg.get("collision_impulse_cap") == pytest.approx(9000.0)
-    assert cfg.get("collision_sound_enabled") is True
-    assert cfg.get("collision_sound_volume") == pytest.approx(0.70)
 
     # 写入越界/非法值，验证 _load 自动归一化
     raw_data = {
@@ -55,16 +53,6 @@ def test_collision_config_defaults_and_normalization(tmp_path: Path):
     assert reloaded.get("collision_impulse_cap") == pytest.approx(1000.0)
 
 
-def test_collision_sound_settings_survive_reload_and_clamp(tmp_path: Path):
-    cfg = Config(tmp_path / "appdata")
-    cfg.set("collision_sound_enabled", False)
-    cfg.set("collision_sound_volume", 2.0)
-    assert cfg.save() is True
-    reloaded = Config(tmp_path / "appdata")
-    assert reloaded.get("collision_sound_enabled") is False
-    assert reloaded.get("collision_sound_volume") == pytest.approx(1.0)
-    cfg.set("collision_sound_volume", -1.0)
-    assert cfg.get("collision_sound_volume") == pytest.approx(0.0)
 
 
 def test_modern_settings_dialog_collision_ui_and_round_trip(qapp, tmp_path: Path):
@@ -72,7 +60,7 @@ def test_modern_settings_dialog_collision_ui_and_round_trip(qapp, tmp_path: Path
     cfg_file = tmp_path / "appdata"
     cfg = Config(cfg_file)
 
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg)
     try:
         # 1. 验证控件初始值
         assert hasattr(dialog, "collision_enabled_check")
@@ -80,16 +68,12 @@ def test_modern_settings_dialog_collision_ui_and_round_trip(qapp, tmp_path: Path
         assert hasattr(dialog, "collision_friction_spin")
         assert hasattr(dialog, "collision_mass_scale_spin")
         assert hasattr(dialog, "collision_impulse_cap_spin")
-        assert hasattr(dialog, "collision_sound_check")
-        assert hasattr(dialog, "collision_sound_volume_spin")
 
         assert dialog.collision_enabled_check.isChecked() is True
         assert dialog.collision_restitution_spin.value() == pytest.approx(0.82)
         assert dialog.collision_friction_spin.value() == pytest.approx(0.08)
         assert dialog.collision_mass_scale_spin.value() == pytest.approx(1.0)
         assert dialog.collision_impulse_cap_spin.value() == pytest.approx(9000.0)
-        assert dialog.collision_sound_check.isChecked() is True
-        assert dialog.collision_sound_volume_spin.value() == 70
 
         # 2. 修改碰撞设置
         dialog.collision_enabled_check.setChecked(False)
@@ -97,8 +81,6 @@ def test_modern_settings_dialog_collision_ui_and_round_trip(qapp, tmp_path: Path
         dialog.collision_friction_spin.setValue(0.15)
         dialog.collision_mass_scale_spin.setValue(1.50)
         dialog.collision_impulse_cap_spin.setValue(6000.0)
-        dialog.collision_sound_check.setChecked(False)
-        dialog.collision_sound_volume_spin.setValue(42)
 
         # 3. 保存落盘
         ok = dialog._write_config()
@@ -113,8 +95,6 @@ def test_modern_settings_dialog_collision_ui_and_round_trip(qapp, tmp_path: Path
     assert reloaded_cfg.get("collision_friction") == pytest.approx(0.15)
     assert reloaded_cfg.get("collision_mass_scale") == pytest.approx(1.50)
     assert reloaded_cfg.get("collision_impulse_cap") == pytest.approx(6000.0)
-    assert reloaded_cfg.get("collision_sound_enabled") is False
-    assert reloaded_cfg.get("collision_sound_volume") == pytest.approx(0.42)
 
 
 def test_refresh_pet_settings_live_applies_collision_switch(qapp, tmp_path: Path):
@@ -140,16 +120,6 @@ def test_refresh_pet_settings_live_applies_collision_switch(qapp, tmp_path: Path
         assert win._collision_session is session
     finally:
         win.close()
-
-
-def test_modern_settings_dialog_collision_policy_note(qapp, tmp_path: Path):
-    """「多开碰撞」区有一行协调者配置优先的说明文案。"""
-    dialog = ModernSettingsDialog(Config(tmp_path / "appdata"), include_ai=False)
-    try:
-        assert hasattr(dialog, "collision_policy_note")
-        assert "碰撞参数由当前协调者桌宠的设置决定" in dialog.collision_policy_note.text()
-    finally:
-        dialog.deleteLater()
 
 
 def test_refresh_pet_settings_syncs_collision_policy(qapp, tmp_path: Path):

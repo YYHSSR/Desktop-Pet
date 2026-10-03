@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 import tempfile
 from pathlib import Path
 
-os.environ.setdefault("PYTHON_KEYRING_BACKEND", "keyring.backends.null.Keyring")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from PySide6.QtCore import QPoint, Qt  # noqa: E402
@@ -20,7 +18,6 @@ from pet.config import Config  # noqa: E402
 from pet.modern_settings_dialog import (  # noqa: E402
     ModernSettingsDialog,
     SettingRow,
-    SettingsDisclosureHeader,
     SettingsTabContainer,
 )
 
@@ -78,9 +75,6 @@ def _expand_toggle_dependencies(dialog: ModernSettingsDialog) -> None:
         dialog.island_info_check,
         dialog.egg_enabled_check,
         dialog.collision_enabled_check,
-        dialog.collision_sound_check,
-        dialog.click_sound_check,
-        dialog.agent_sound_check,
     ):
         toggle.setChecked(True)
     dialog.island_info_mode_select.setCurrentData("custom")
@@ -94,7 +88,7 @@ def capture(args: argparse.Namespace) -> None:
     destination = Path(args.destination).resolve()
     destination.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="desktop-pet-settings-capture-") as data_dir:
-        dialog = ModernSettingsDialog(Config(Path(data_dir)), include_ai=True)
+        dialog = ModernSettingsDialog(Config(Path(data_dir)))
         dialog.resize(args.width, args.height)
         dialog.show()
         app.processEvents()
@@ -121,29 +115,16 @@ def capture(args: argparse.Namespace) -> None:
             if not dialog.grab().save(str(target)):
                 raise RuntimeError(f"failed to save screenshot: {target}")
 
-        if args.expanded_ai:
-            ai_index = next(
-                index
-                for index in range(dialog.sidebar.count())
-                if dialog.sidebar.item(index).text() == "AI 与对话"
-            )
-            dialog.sidebar.setCurrentRow(ai_index)
-            page = dialog.pages.currentWidget()
-            header = next(
-                item
-                for item in dialog.findChildren(SettingsDisclosureHeader)
-                if item.text() == "生成参数（高级）" and page.isAncestorOf(item)
-            )
-            if not header.isChecked():
-                header.click()
-            scroll = page.findChild(QScrollArea, "settingsScroll")
-            if scroll is not None:
-                header_y = header.mapTo(scroll.widget(), QPoint(0, 0)).y()
-                scroll.verticalScrollBar().setValue(max(0, header_y - 48))
+        dialog.sidebar.setCurrentRow(1)
+        pet_page = dialog.pages.widget(1)
+        pet_tabs = pet_page.findChild(SettingsTabContainer, "settingsTaskTabs")
+        for key, label in zip(pet_tabs.keys(), pet_tabs.labels()):
+            pet_tabs.setCurrentKey(key)
             app.processEvents()
-            target = destination / "08-AI 与对话-高级展开.png"
+            target = destination / f"02-桌宠-{_safe_filename(label)}.png"
             if not dialog.grab().save(str(target)):
                 raise RuntimeError(f"failed to save screenshot: {target}")
+
         if args.menu_details:
             menu_index = next(
                 index
@@ -155,8 +136,9 @@ def capture(args: argparse.Namespace) -> None:
             tabs = page.findChild(SettingsTabContainer, "settingsTaskTabs")
             if tabs is None:
                 raise RuntimeError("menu task tabs were not found")
-            for key, label in zip(tabs.keys(), tabs.labels()):
-                tabs.setCurrentKey(key)
+            for key, label in zip(tabs.keys(), tabs.labels()) if tabs is not None else [("interaction", "点击与气泡")]:
+                if tabs is not None:
+                    tabs.setCurrentKey(key)
                 for scroll in page.findChildren(QScrollArea):
                     scroll.verticalScrollBar().setValue(0)
                     scroll.horizontalScrollBar().setValue(0)
@@ -173,11 +155,11 @@ def capture(args: argparse.Namespace) -> None:
             if not dialog.grab().save(str(target)):
                 raise RuntimeError(f"failed to save screenshot: {target}")
             tabs.setCurrentKey("layout")
-            dialog.menu_layout_editor.set_item_alias("chat", "和鲸鱼聊聊")
-            chat_item = dialog.menu_layout_editor.item_for_action("chat")
+            dialog.menu_layout_editor.set_item_alias("modern_settings", "桌宠设置")
+            chat_item = dialog.menu_layout_editor.item_for_action("modern_settings")
             dialog.menu_layout_editor.tree.setCurrentItem(chat_item)
             dialog.menu_layout_editor.set_item_file_icon(
-                "chat", Path(__file__).resolve().parents[1] / "assets" / "icon-preview.png",
+                "modern_settings", Path(__file__).resolve().parents[1] / "assets" / "icon-preview.png",
             )
             app.processEvents()
             target = destination / "04-菜单-别名保留原名.png"
@@ -224,15 +206,13 @@ def capture(args: argparse.Namespace) -> None:
             dialog.sidebar.setCurrentRow(interaction_index)
             page = dialog.pages.currentWidget()
             tabs = page.findChild(SettingsTabContainer, "settingsTaskTabs")
-            if tabs is None:
-                raise RuntimeError("interaction task tabs were not found")
-            # 父开关打开：细项行（点击音效/点击自言自语/气泡自言自语）才显现，
+
             # 否则截出来的是一个"只有顶层开关"的空壳页。
-            dialog.click_sound_check.setChecked(True)
             dialog.click_self_talk_check.setChecked(True)
             dialog.self_talk_check.setChecked(True)
-            for key, label in zip(tabs.keys(), tabs.labels()):
-                tabs.setCurrentKey(key)
+            for key, label in zip(tabs.keys(), tabs.labels()) if tabs is not None else [("interaction", "点击与气泡")]:
+                if tabs is not None:
+                    tabs.setCurrentKey(key)
                 for scroll in page.findChildren(QScrollArea):
                     scroll.verticalScrollBar().setValue(0)
                     scroll.horizontalScrollBar().setValue(0)
@@ -249,13 +229,13 @@ def capture(args: argparse.Namespace) -> None:
             dialog.sidebar.setCurrentRow(interaction_index)
             dialog.self_talk_check.setChecked(True)
             # 「图片目录」行在「自言自语」标签里：必须先把该标签切到前台，
-            # 否则 grab() 截的是「点击与音效」标签页，抽屉看上去"消失"了。
+            # 否则 grab() 截的是「点击反馈」标签页，抽屉看上去"消失"了。
             page = dialog.pages.currentWidget()
             tabs = page.findChild(SettingsTabContainer, "settingsTaskTabs")
             if tabs is not None:
                 tabs.setCurrentKey("self_talk")
             dialog.self_talk_image_dir_picker.setText(
-                str(Path(__file__).resolve().parents[1] / "assets" / "chat")
+                str(Path(__file__).resolve().parents[1] / "assets" / "big_blue_fat_fish")
             )
             preview_button = dialog.self_talk_image_dir_picker.preview_button
             if preview_button is not None:
@@ -274,7 +254,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--width", type=int, default=1100)
     parser.add_argument("--height", type=int, default=760)
     parser.add_argument("--dark", action="store_true")
-    parser.add_argument("--expanded-ai", action="store_true")
     parser.add_argument("--font-scale", type=float, default=1.0)
     parser.add_argument("--extreme-copy", action="store_true")
     parser.add_argument("--expanded-toggles", action="store_true")

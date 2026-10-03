@@ -39,7 +39,7 @@ REPORT_GATE_LABELS: dict[str, str] = {
     "exec_failed": "失败与错误",
     "model_access": "模型访问失败",
     "stuck": "检测类提醒（卡住 / 行为重复 / 循环）",
-    "bridge": "桥接、写回与查询",
+    "bridge": "联动连接与查询",
 }
 
 #: 旧布尔开关 → 新概率门（一次性迁移用；迁移后不再写回旧键）
@@ -77,7 +77,6 @@ _EVENT_PREFIX: tuple[tuple[str, str], ...] = (
     ("pattern.", "stuck"),
     ("watchdog.", "stuck"),
     ("bridge.", "bridge"),
-    ("dsh.writeback.", "bridge"),
 )
 
 

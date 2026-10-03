@@ -12,11 +12,7 @@
 
 ## Global Constraints
 
-- Run after [B1](2026-09-27-personal-edition-phase-b1.md) passes. Source is `E:\CODE\desktop-pet`; external artifacts go to `E:\CODX\desktop-pet`; no `.git` is present, so do not claim commits or a Git diff.
-- Retired top-level config keys: `agent_cost_enabled`, `click_show_balance`, `balance_refresh_minutes`, `balance_tier_labels_mode`, `balance_tier_label_peak`, `balance_tier_label_idle`, `balance_tier_color_enabled`. `dynamic_island.info_mode` values `balance_tier` and `balance` become `time`.
-- Do not directly edit user config, remove stored keys/secrets, purge `balance_cache.json`, install/uninstall external hooks, or change custom chat Provider endpoints. Remove retired keys only on normal app save.
-- Keep Cursor and existing generic Agent link protocol; DSH/Harness, Claude and OpenCode removal belongs to batch C. `tools_help` remains until its last child is retired.
-- Qt objects stay on the owning thread. Use real Qt event loops for lifecycle behavior and mocked network only at OS boundaries. Apply settings/menu/Windows shutdown guidance from `AGENTS.md`.
+
 
 ## Review Focus
 

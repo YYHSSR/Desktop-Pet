@@ -1,16 +1,5 @@
 # -*- coding: utf-8 -*-
-"""节日提醒服务：调度 + 气泡落地（服务层）。
-
-分层约定与 voice_chime_service.py 一致：
-  - **模块顶层不 import Qt**：QTimer 在 ``__init__`` 内惰性导入，使本模块
-    可被无 GUI 环境导入（也便于纯逻辑测试引用常量）。
-  - 服务不继承 QObject，由 AppShell 持有引用保证生命周期。
-  - 全部逻辑跑在 GUI 线程（只有一个 QTimer），无跨线程对象，因此不需要
-    语音报时那套 _AudioBridge 信号桥（本功能不合成音频，只出气泡）。
-
-为什么 tick 是 30s 而不是 60s：提醒时间点是精确到分钟的，60s 间隔在边界
-抖动下可能整分钟跳过；30s 保证任意分钟至少被采样两次，且开销可忽略。
-"""
+"""节日气泡提醒服务：GUI 线程定时采样、按分钟去重、启动补提醒和手动预览。"""
 
 from __future__ import annotations
 
@@ -73,39 +62,14 @@ class FestivalReminderService:
     def remind_now(self) -> None:
         """手动提醒「今日节日」（右键菜单入口）。
 
-        与语音报时的 say_now 同约定：**无视总开关**，由用户主动发起即执行；
+        **无视总开关**，由用户主动发起即执行；
         当天没有任何节日/节气时给出明确文案而不是静默无反应。
         """
         self.apply_config()
         now = datetime.now()
         text = build_festival_text(now.date(), self._cfg, 0) or NO_FESTIVAL_TEXT
         self._bubble(text)
-        self._speak(text)
 
-    def should_speak_at(self, chime_slot: str) -> bool:
-        """本分钟是否该让报时让位（由 AppShell 注入到报时服务的 yield_slot 钩子）。
-
-        报时每次到点前先问这一句，因此让位判定**与两个服务 QTimer 的触发先后
-        无关**——不会出现「报时先响、节日后响」于是两个都说的竞态。这正是不能
-        靠节日去"抢"通道的原因。
-
-        入参是报时槽位（``YYYY-MM-DDTHH:MM``，报时侧还可能带 ``#schedule`` 后缀，
-        故只取前 16 位）；返回 True 表示节日语音要在这一分钟说话，报时应放弃该槽位。
-
-        **现读配置而不是用构造期缓存的 ``_cfg``**：报时服务可能在本服务的
-        ``apply_config()`` 之前就 tick 一次（AppShell.start 的装配顺序、以及用户
-        恰好在节假日整点启动），用缓存值会让让位判定在该窗口内失效，从而两个
-        功能同时出声。这里每次从 app.config 重新清洗，代价是每分钟至多一次。
-        """
-        config = getattr(self._app, "config", None)
-        cfg = normalize_festival_config(config if config is not None else {})
-        if not (cfg.get("enabled") and cfg.get("speak")):
-            return False
-        try:
-            when = datetime.strptime(str(chime_slot)[:16], "%Y-%m-%dT%H:%M")
-        except (TypeError, ValueError):
-            return False
-        return bool(reminder_slot(when, cfg))
 
     # ------------------------------------------------------------ 调度
     def _catch_up(self, now: datetime | None = None) -> None:
@@ -126,10 +90,8 @@ class FestivalReminderService:
         text = build_festival_text(now.date(), self._cfg, 0)
         if text:
             self._bubble(text)
-            self._speak(text)
             # 启动时刻恰好落在当天的某个提醒分钟内：把本分钟的正式槽位一并
             # 盖戳。否则紧接着的 _on_tick 会命中同一分钟再播一次（两次气泡 +
-            # 两段 TTS），与 reminder_slot 承诺的"同一提醒时间只播报一次"矛盾。
             # 只压这一分钟——晚些时候的提醒点仍走各自的正式槽位照常播报。
             due = reminder_slot(now, self._cfg)
             if due:
@@ -149,45 +111,18 @@ class FestivalReminderService:
         text = build_festival_text(now.date(), self._cfg, index)
         if text:
             self._bubble(text)
-            self._speak(text)
 
     def _roll_day(self, today: date) -> None:
         if self._slot_day != today:
             self._slot_day = today
             self._fired = set()
 
-    # ------------------------------------------------------------ 语音
-    def _speak(self, text: str) -> None:
-        """经语音报时服务的音频通道播报节日提醒。
-
-        刻意**不自建播放器**：报时服务是进程内唯一的音频通道，共用它才能在结构上
-        保证不叠音（详情见 voice_chime_service.speak 的说明）。通道不存在或播放
-        失败都只降级为"有气泡没声音"，不影响提醒本身。
-        """
-        if not self._cfg.get("speak") or not text:
-            return
-        getter = getattr(self._app, "ensure_audio_channel", None)
-        if not callable(getter):
-            logger.warning("音频通道不可用，节日提醒仅出气泡")
-            return
-        try:
-            channel = getter()
-        except Exception:
-            logger.exception("获取音频通道失败，节日提醒仅出气泡")
-            return
-        if channel is None:
-            logger.warning("音频通道为空，节日提醒仅出气泡")
-            return
-        try:
-            channel.speak(text, log_tag="节日提醒")
-        except Exception:
-            logger.exception("节日提醒语音播报失败")
 
     # ------------------------------------------------------------ 提示
     def _bubble(self, text: str) -> None:
         """桌宠气泡展示节日提醒。
 
-        与语音报时同策略：设置窗口打开等场景下 ``win.show_bubble`` 会被抑制，
+        设置窗口打开等场景下 ``win.show_bubble`` 会被抑制，
         而节日提醒是用户主动关注的事件（一天只有一两次），此时退到桌宠气泡位
         直接展示，避免"弹一下就没了"；两者都不可用时再退到系统通知。
         """

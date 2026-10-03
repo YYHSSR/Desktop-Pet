@@ -197,7 +197,7 @@ class WatchdogSettingsPage(QWidget):
 
         root.addWidget(SettingsSection("卡住检测", [
             SettingRow("stuck_detect", "启用卡住检测",
-                        "DSH 联动时识别工具失败/超时/反复重试等钻牛角尖行为，建议人工介入。",
+                        "Agent 联动时识别工具失败/超时/反复重试等钻牛角尖行为，建议人工介入。",
                         self.stuck_enabled_check),
             SettingRow("stuck_worried_threshold", "担忧动画阈值",
                         "卡住评分达到该分值时播放担忧动画。", self.stuck_worried_spin),
@@ -213,7 +213,7 @@ class WatchdogSettingsPage(QWidget):
 
         root.addWidget(SettingsSection("行为重复检测", [
             SettingRow("pattern_detect", "启用行为重复检测",
-                        "DSH 联动时用 W6/W10 双窗口识别慢性循环、短时爆发与纯探索无产出。",
+                        "Agent 联动时用 W6/W10 双窗口识别慢性循环、短时爆发与纯探索无产出。",
                         self.pattern_enabled_check),
             SettingRow("pattern_w6_control", "W6 同类重复（控制）",
                         "短窗口内同一行为类别重复达到该次数即控制级提醒。",
@@ -276,4 +276,3 @@ class WatchdogSettingsPage(QWidget):
         updated["pattern_min_steps_between"] = self.pattern_min_steps_between_spin.value()
         updated["pattern_cooldown_seconds"] = self.pattern_cooldown_seconds_spin.value()
         return updated
-

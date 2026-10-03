@@ -109,29 +109,13 @@ def test_legacy_menu_has_golden_spin_and_edge_probe():
 
 def test_settings_dialog_has_effect_toggles_and_writes_config(tmp_path, monkeypatch):
     app = _qapp()
-    # 该用例只验证设置写回，不验证音频预热；在 Windows headless CI 上触发
-    # QSoundEffect 异步加载的 processEvents 可能产生 access violation。
-    monkeypatch.setattr(
-        "pet.modern_settings_dialog.warm_click_sound_effects",
-        lambda *args, **kwargs: None,
-    )
     cfg = Config(tmp_path)
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
-    assert dialog.golden_spin_click_check is not None
-    assert dialog.golden_spin_direct_check is not None
+    dialog = ModernSettingsDialog(cfg)
     assert dialog.edge_probe_check is not None
     direct_row = dialog.findChild(SettingRow, "settingRow_golden_spin_direct")
-    assert direct_row is not None
-    # 子开关只在“点击触发黄金回旋”开启后显示。
-    assert dialog.golden_spin_click_check.isChecked() is False
-    assert direct_row.isHidden() is True
-    dialog.golden_spin_click_check.setChecked(True)
-    assert direct_row.isHidden() is False
-    dialog.golden_spin_direct_check.setChecked(True)
+    assert direct_row is None
     dialog.edge_probe_check.setChecked(True)
     assert dialog._write_config() is True
-    assert cfg.get("golden_spin_on_click") is True
-    assert cfg.get("golden_spin_direct") is True
     assert cfg.get("edge_probe_enabled") is True
     dialog.reject()
     app.processEvents()

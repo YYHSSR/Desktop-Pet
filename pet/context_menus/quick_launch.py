@@ -84,7 +84,7 @@ def launch_quick_app(item: dict) -> bool:
 def add_quick_launch_menu(menu: QMenu, pet_or_cfg) -> QMenu:
     cfg = getattr(pet_or_cfg, "cfg", pet_or_cfg)
     apps = configured_quick_apps(cfg)
-    submenu = add_submenu(menu, "快捷启动", "application")
+    submenu = add_submenu(menu, "快捷应用", "application")
     if not apps:
         placeholder = submenu.addAction("尚未配置快捷项")
         placeholder.setEnabled(False)
@@ -94,7 +94,7 @@ def add_quick_launch_menu(menu: QMenu, pet_or_cfg) -> QMenu:
             action.setProperty("closeOnTrigger", True)
             connect_action(action, lambda item=dict(item): launch_quick_app(item))
     submenu.addSeparator()
-    manage_act = submenu.addAction(vector_menu_icon(submenu, "settings"), "管理快捷启动...")
+    manage_act = submenu.addAction(vector_menu_icon(submenu, "settings"), "管理快捷应用...")
     manage_act.setProperty("closeOnTrigger", True)
     open_settings = getattr(pet_or_cfg, "on_open_modern_settings", None)
     if callable(open_settings):

@@ -47,11 +47,11 @@ QFrame#settingsCard { background: #2a2a30; border: 1px solid #3a3a42; }
 QFrame#cardSeparator { background: #33333a; }
 QLabel#settingLabel { color: #e0e0e6; }
 QLabel#settingHint { color: #9a9aa3; }
-QLabel#quickLaunchName { color: #e0e0e6; }
-QLabel#quickLaunchDetail, QLabel#quickLaunchCount, QLabel#quickLaunchEmpty,
+QLabel#quickLaunchName, QLabel#quickUrlName { color: #e0e0e6; }
+QLabel#quickLaunchDetail, QLabel#quickUrlDetail, QLabel#quickLaunchCount, QLabel#quickUrlCount, QLabel#quickLaunchEmpty, QLabel#quickUrlEmpty,
 QLabel#menuLayoutEditorLabel, QLabel#menuLayoutPreviewLabel,
 QLabel#menuLayoutEditorHint { color: #a8a8b0; }
-QLabel#quickLaunchEmpty { background: #26262c; border-color: #3c3c44; }
+QLabel#quickLaunchEmpty, QLabel#quickUrlEmpty { background: #26262c; border-color: #3c3c44; }
 QFrame#menuLayoutEditorPanel, QFrame#menuLayoutPreviewPanel {
     background: #26262c; border: 1px solid #3c3c44; border-radius: 10px;
 }
@@ -67,8 +67,8 @@ QPushButton#imagePreviewClose { background: transparent; border: none; font-size
 QPushButton#imagePreviewClose:hover { background: #393940; }
 QLabel#settingLabel:disabled, QLabel#settingHint:disabled { color: #66666e; }
 SettingRow[searchMatch="true"] { background: #2c3a4e; }
-QListWidget#quickLaunchList { background: #26262c; border: 1px solid #3c3c44; }
-QListWidget#quickLaunchList::item:selected { background: #3a3a46; color: #ffffff; }
+QListWidget#quickLaunchList, QListWidget#quickUrlList { background: #26262c; border: 1px solid #3c3c44; }
+QListWidget#quickLaunchList::item:selected, QListWidget#quickUrlList::item:selected { background: #3a3a46; color: #ffffff; }
 QTreeWidget#menuLayoutTree, QTreeWidget#menuLayoutPreview {
     background: #2a2a30;
     border-color: #3a3a42;
@@ -242,34 +242,34 @@ SettingRow[searchMatch="true"] {
 QScrollArea#settingsScroll, QScrollArea#settingsScroll > QWidget > QWidget {
     background: transparent;
 }
-QLabel#quickLaunchCount, QLabel#menuLayoutEditorLabel, QLabel#menuLayoutPreviewLabel,
+QLabel#quickLaunchCount, QLabel#quickUrlCount, QLabel#menuLayoutEditorLabel, QLabel#menuLayoutPreviewLabel,
 QLabel#menuLayoutEditorHint {
     color: #6f7378;
     font-size: 12px;
     font-weight: 500;
     padding-left: 2px;
 }
-QLabel#quickLaunchName { color: #252525; font-size: 13px; font-weight: 500; }
-QLabel#quickLaunchDetail { color: #777777; font-size: 11px; }
-QLabel#quickLaunchEmpty {
+QLabel#quickLaunchName, QLabel#quickUrlName { color: #252525; font-size: 13px; font-weight: 500; }
+QLabel#quickLaunchDetail, QLabel#quickUrlDetail { color: #777777; font-size: 11px; }
+QLabel#quickLaunchEmpty, QLabel#quickUrlEmpty {
     color: #777777;
     background: #fbfbfb;
     border: 1px dashed #d9d9d9;
     border-radius: 8px;
 }
-QListWidget#quickLaunchList {
+QListWidget#quickLaunchList, QListWidget#quickUrlList {
     background: #fbfbfb;
     border: 1px solid #d9d9d9;
     border-radius: 8px;
     outline: none;
     padding: 3px;
 }
-QListWidget#quickLaunchList::item {
+QListWidget#quickLaunchList::item, QListWidget#quickUrlList::item {
     min-height: 30px;
     padding: 3px 7px;
     border-radius: 6px;
 }
-QListWidget#quickLaunchList::item:selected { background: #e8e8e8; color: #202020; }
+QListWidget#quickLaunchList::item:selected, QListWidget#quickUrlList::item:selected { background: #e8e8e8; color: #202020; }
 QLabel#menuLayoutEditorHint { font-weight: 400; }
 QFrame#menuLayoutEditorPanel, QFrame#menuLayoutPreviewPanel {
     background: #fbfbfc;

@@ -161,20 +161,6 @@ def test_all_advertised_fields_reach_presentation_layer():
     assert "balance.loading" not in entries and "balance.result" not in entries
     assert "balance.query" not in entries
 
-    # ── 上下文字段层：桥接插件确实写出这些字段（或 Pet 侧注入）──
-    bridge_src = (root / "integrations" / "dsh-pet-bridge" / "index.js").read_text(encoding="utf-8")
-    agent_link_src = (root / "pet" / "agent_link.py").read_text(encoding="utf-8")
-    pet_side_fields = {"agent_key"}
-    for group, fields in UPSTREAM_FIELDS.items():
-        for field in fields:
-            if field in pet_side_fields:
-                assert "agent_key" in agent_link_src
-                continue
-            pattern = chr(92) + "b" + re.escape(field) + chr(92) + "b"
-            assert re.search(pattern, bridge_src), (
-                "UPSTREAM_FIELDS[" + repr(group) + "] 的 " + repr(field)
-                + " 在桥接插件中不存在，模板不得宣称"
-            )
 
 
 def test_render_template_exposes_future_upstream_fields_and_nested_payload():
@@ -198,4 +184,3 @@ def test_render_template_supports_list_index_and_format_spec():
         {"questions": [{"label": "方案 A"}], "count": 3},
     )
     assert text == "方案 A:03"
-

@@ -1,17 +1,17 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 <#
 .SYNOPSIS
-    dsh-pet-standalone onedir build + portable zip packaging.
+    dsh-pet-standalone onedir build.
 
 .DESCRIPTION
     Builds a PyInstaller --onedir variant (no runtime extraction, no _MEI cache),
-    output at dist-onedir\<name>\ plus a <name>-portable.zip green package.
+    output at dist-onedir\<name>\ containing <name>.exe.
 
     Variants:
-      webm-chat   - WebM assets + AI chat (default)
-      webm        - WebM assets, no chat
-      gif-chat    - GIF assets + AI chat (run with -Gif to generate GIFs first)
-      gif         - GIF assets, no chat
+      webm-chat   - WebM pet + ChatGPT Work/Codex link (default; legacy variant ID)
+      webm        - WebM pet + ChatGPT Work/Codex link
+      gif-chat    - GIF pet + ChatGPT Work/Codex link (run with -Gif to generate GIFs first)
+      gif         - GIF pet + ChatGPT Work/Codex link
 
     Encoding isolation (issue #26):
       The whole build runs with PYTHONUTF8=1 + PYTHONIOENCODING=utf-8 so neither
@@ -31,7 +31,7 @@
 
     Examples:
       powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1
-      powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm -SkipZip
+      powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm
       powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -SkipSlim
 #>
 param(
@@ -39,8 +39,6 @@ param(
     [string]$PythonExe,
     [string]$UcrtBin = 'E:\msys2\ucrt64\bin',
     [switch]$SkipBuild,
-    [switch]$Zip,
-    [switch]$SkipZip,
     [switch]$SkipCheck,
     [switch]$SkipSlim,
     [switch]$SkipGuiSmoke,
@@ -70,60 +68,24 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 $variants = @{
     'webm-chat' = @{ Name = 'dsh-pet-standalone-webm-chat'; Entry = 'packaging\pet_entry.py' }
-    'webm'      = @{ Name = 'dsh-pet-standalone-webm';      Entry = 'packaging\pet_entry_no_chat.py'; NoChat = $true }
+    'webm'      = @{ Name = 'dsh-pet-standalone-webm';      Entry = 'packaging\pet_entry.py' }
     'gif-chat'  = @{ Name = 'dsh-pet-standalone-gif-chat';  Entry = 'packaging\pet_entry.py'; Gif = $true }
-    'gif'       = @{ Name = 'dsh-pet-standalone-gif';       Entry = 'packaging\pet_entry_no_chat.py'; Gif = $true; NoChat = $true }
+    'gif'       = @{ Name = 'dsh-pet-standalone-gif';       Entry = 'packaging\pet_entry.py'; Gif = $true }
 }
 
 if (-not $variants.ContainsKey($Variant)) {
     throw "Unknown variant: $Variant (available: $($variants.Keys -join ', '))"
 }
 $name  = $variants[$Variant].Name
-$entry = $variants[$Variant].Entry
+$entry = 'packaging\pet_entry.py'
 $isGif = $variants[$Variant].Gif
-$noChat = $variants[$Variant].NoChat
-
-# Bridge is linked into dsh profiles via pnpm's link: protocol, which does NOT
-# install the linked package's own dependencies, and the link target is usually
-# the packaged copy (_internal) that ships without node_modules. Declaring any
-# runtime dependency therefore bricks the user's entire dsh plugin tree on load
-# (2026-09 incident: missing @deepseek-ai/dsh-llm, all profiles fail to start).
-# Red line: the bridge must stay ZERO-dependency; enforce it at build time.
-$bridgeManifest = Join-Path $root 'integrations\dsh-pet-bridge\package.json'
-if (-not (Test-Path $bridgeManifest)) { throw "Bridge manifest missing: $bridgeManifest" }
-# PowerShell 5.1 reads Get-Content using the system ANSI codepage by default;
-# package.json is UTF-8 and its Chinese description would become invalid JSON.
-$bridgeManifestJson = [System.IO.File]::ReadAllText($bridgeManifest, [System.Text.Encoding]::UTF8)
-$bridgePackage = $bridgeManifestJson | ConvertFrom-Json
-$bridgeDepNames = @()
-foreach ($field in 'dependencies', 'peerDependencies', 'optionalDependencies') {
-    $deps = $bridgePackage.$field
-    if ($deps) { $bridgeDepNames += @($deps.PSObject.Properties | ForEach-Object { $_.Name }) }
-}
-if ($bridgeDepNames.Count -gt 0) {
-    throw "[bridge] runtime dependencies are forbidden (zero-dependency red line): " +
-          ($bridgeDepNames -join ', ') +
-          " - hand-roll what you need inside index.js instead"
-}
-# Hermetic smoke: imports the plugin from a temp dir WITHOUT node_modules and
-# checks the envelope shape. Needs only node (preinstalled on CI runners); the
-# PR gate (node --test) covers environments without it.
-$nodeExe = Get-Command node -ErrorAction SilentlyContinue
-if ($nodeExe) {
-    $smoke = Join-Path $root 'integrations\dsh-pet-bridge\verify_import.mjs'
-    if (-not (Test-Path $smoke)) { throw "missing verify script: $smoke" }
-    Write-Host "[bridge] verifying zero-dependency plugin import (hermetic smoke)..." -ForegroundColor Cyan
-    & node $smoke
-    if ($LASTEXITCODE -ne 0) { throw "[bridge] plugin import smoke test failed (exit $LASTEXITCODE)" }
-    Write-Host "[bridge] import smoke OK" -ForegroundColor Green
-} else {
-    Write-Host "[bridge] node not found - smoke skipped (PR gate covers it)" -ForegroundColor Yellow
-}
 
 # GIF builds ship assets/characters_gif (webm dir must NOT be bundled, else runtime prefers webm)
 $datas = if ($isGif) { 'assets/characters_gif;assets/characters_gif' } else { 'assets/characters;assets/characters' }
-# No-chat builds exclude the chat subsystem and keyring (kept out of the bundle)
-$excludes = if ($noChat) { @('--exclude-module', 'pet.chat', '--exclude-module', 'keyring') } else { @() }
+$excludes = @('--exclude-module', 'keyring')
+foreach ($audioModule in @('PySide6.QtMultimedia','PySide6.QtMultimediaWidgets','edge_tts','aiofiles','aiohttp','certifi')) {
+    $excludes += @('--exclude-module', $audioModule)
+}
 # PyOpenGL 与本应用无关（Qt 用自带 OpenGL），但其 freeglut_README.txt 是
 # CP1252 编码，会触发 check_bundle_encoding 的 UTF-8 严格校验（该自检针对
 # 中文资源，第三方 README 属误伤）；排除后包体也更小。
@@ -139,7 +101,6 @@ foreach ($m in @('torch','transformers','datasets','langchain','langchain_core',
                  'spacy','cv2','playwright','narwhals','sympy','fsspec')) {
     $excludes += @('--exclude-module', $m)
 }
-# Qt 绑定互斥（2026-09-22 实测：构建被直接中止——不修好这一条，edge-tts 根本
 # 打不进包，因为 PyInstaller 在收集阶段就退出了）。
 # 打包机上装了 PyQt5 时，上面那批库（连同 matplotlib 这类经笔记本/绘图栈被连带
 # 收集的模块）里的 `qt_compat` 会**条件导入任意 Qt 绑定**，于是 hook-PyQt5 与
@@ -158,14 +119,6 @@ foreach ($m in @('PyQt5','PyQt6','PySide2')) {
 foreach ($m in @('matplotlib','matplotlib_inline','seaborn','IPython','ipykernel',
                  'jupyter_client','jupyter_core','nbformat','zmq')) {
     $excludes += @('--exclude-module', $m)
-}
-# Chat 版必须显式收集 keyring（API Key 系统安全存储）；no-chat 不收集
-$keyringCollect = if ($noChat) { @() } else { @('--collect-all', 'keyring') }
-$chatData = if ($noChat) { @() } else {
-    @(
-        '--add-data', 'pet\chat\legacy_styles.qss;pet\chat',
-        '--add-data', 'pet\chat\modern_styles.qss;pet\chat'
-    )
 }
 # GIF variants: generate GIF assets from webm first (auto when missing, -Gif forces regen)
 if ($isGif -and -not $Gif -and -not (Test-Path 'assets\characters_gif')) {
@@ -251,22 +204,13 @@ if (-not $SkipBuild) {
         --workpath build-onedir `
         --icon assets\icon.ico `
         --collect-all imageio_ffmpeg `
-        --collect-all certifi `
-        --collect-all PySide6.QtMultimedia `
-        --collect-all edge_tts `
-        --collect-all aiofiles `
         --collect-all tzdata `
         --collect-all psutil `
         @nativeBinaries `
-        @keyringCollect `
         --add-data $datas `
         --add-data "assets\big_blue_fat_fish;assets\big_blue_fat_fish" `
         --add-data "pet\persona_presets;pet\persona_presets" `
         --add-data "pet\menu_templates;pet\menu_templates" `
-        @chatData `
-        --add-data "assets\sounds;assets\sounds" `
-        --add-data "assets\chat;assets\chat" `
-        --add-data "integrations;integrations" `
         @excludes `
         $entry
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed: $LASTEXITCODE" }
@@ -274,17 +218,9 @@ if (-not $SkipBuild) {
 
 $appDir = Join-Path $root "dist-onedir\$name"
 if (-not (Test-Path $appDir)) { throw "Build output missing: $appDir" }
-
-# ---------- Bridge 零依赖防线（2026-09 事故：缺 @deepseek-ai/dsh-llm 导致
-# 用户整个 dsh 插件树加载失败） ----------
-# 桥接插件必须零外部依赖（package.json 不声明 dependencies）。PyInstaller 的
-# --add-data 若把本机残留的 node_modules junction 复制进产物，在这里剥掉；
-# 随后在 dist 副本上跑 hermetic 冒烟（拷进无 node_modules 的临时目录再 import），
-# 任何外部 bare import 都会直接判构建失败，而不是在用户机器上炸掉 dsh。
-Write-Host "[bridge] enforcing zero-dependency bundle..." -ForegroundColor Cyan
-& $PythonExe scripts\fix_bridge_bundle.py --app-dir $appDir
-if ($LASTEXITCODE -ne 0) { throw "Bridge zero-dependency check failed: $LASTEXITCODE" }
-Write-Host "[bridge] zero-dependency bundle OK" -ForegroundColor Green
+foreach ($notice in @('LICENSE', 'THIRD_PARTY_NOTICES.md')) {
+    Copy-Item -LiteralPath (Join-Path $root $notice) -Destination $appDir -Force
+}
 
 # =====================================================================
 # Qt runtime post-build (issue: shiboken6 "找不到指定的模块")
@@ -473,7 +409,12 @@ if ($LASTEXITCODE -ne 0) { throw "[smoke] frozen native self-test failed" }
 
 if (-not $SkipGuiSmoke) {
 Write-Host "[smoke] Launching $exePath ..." -ForegroundColor Cyan
-$proc = Start-Process -FilePath $exePath -PassThru
+$petSmokeBase = Join-Path $env:TEMP ("pet-build-smoke-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $petSmokeBase -Force | Out-Null
+$petSmokeOriginalAppData = $env:APPDATA
+$env:APPDATA = $petSmokeBase
+$proc = Start-Process -FilePath $exePath -PassThru -WindowStyle Hidden
+$env:APPDATA = $petSmokeOriginalAppData
 Start-Sleep -Seconds 10
 if ($proc.HasExited) {
     throw "[smoke] exe exited early (code $($proc.ExitCode)) - runtime dependency broken"
@@ -496,15 +437,14 @@ $oldAppData = $env:APPDATA
 $env:APPDATA = $smokeBase
 $settingsProc = $null
 try {
-    $settingsProc = Start-Process -FilePath $exePath -ArgumentList '--settings' -PassThru
+    $settingsProc = Start-Process -FilePath $exePath -ArgumentList '--settings' -PassThru -WindowStyle Hidden
     Start-Sleep -Seconds 10
     if ($settingsProc.HasExited) {
         throw "[smoke] --settings exited early (code $($settingsProc.ExitCode)) - arg routing broken"
     }
     $settingsProc.Refresh()
-    if ($settingsProc.MainWindowHandle -eq 0) {
-        throw "[smoke] --settings running but no settings window appeared"
-    }
+    & $PythonExe scripts\verify_settings_window.py --pid $settingsProc.Id
+    if ($LASTEXITCODE -ne 0) { throw "[smoke] --settings Qt window missing" }
     # 配置目录名随打包变体走（= $name，如 dsh-pet-standalone-webm-chat），
     # 写死基础名会让 webm-chat 等变体误报"没拿到锁"（实机踩过）
     $settingsLock = Join-Path (Join-Path $smokeBase $name) 'settings.lock'
@@ -516,18 +456,13 @@ try {
         Stop-Process -Id $settingsProc.Id -Force -ErrorAction SilentlyContinue
     }
     $env:APPDATA = $oldAppData
-    Remove-Item $smokeBase -Recurse -Force -ErrorAction SilentlyContinue
+    $resolvedSmoke = [System.IO.Path]::GetFullPath($smokeBase)
+    $resolvedTemp = [System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
+    if (-not $resolvedSmoke.StartsWith($resolvedTemp, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe smoke cleanup path: $resolvedSmoke" }
+    Remove-Item -LiteralPath $resolvedSmoke -Recurse -Force -ErrorAction SilentlyContinue
 }
 Write-Host "[smoke] --settings started OK" -ForegroundColor Green
 }
 
-if ($Zip -and -not $SkipZip) {
-    Write-Host "[2/3] Packing portable zip..." -ForegroundColor Cyan
-    $zip = Join-Path $root "dist-onedir\$name-portable.zip"
-    Remove-Item $zip -Force -ErrorAction SilentlyContinue
-    Compress-Archive -Path "$appDir\*" -DestinationPath $zip -CompressionLevel Optimal
-    Write-Host "      $zip ($([math]::Round((Get-Item $zip).Length/1MB,1)) MB)" -ForegroundColor Green
-}
-
-Write-Host "[3/3] Done. onedir dir: $appDir" -ForegroundColor Green
+Write-Host "[2/2] Done. onedir dir: $appDir (exe: $exePath)" -ForegroundColor Green
 Write-Host "      Installer: compile packaging\dsh-pet-$Variant.iss with ISCC.exe"

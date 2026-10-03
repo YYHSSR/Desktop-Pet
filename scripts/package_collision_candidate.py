@@ -11,8 +11,8 @@ import subprocess
 import zipfile
 
 
-SOURCE_DIRS = ("pet", "scripts", "C++-Python", "packaging", "integrations", "assets")
-SOURCE_FILES = ("requirements.txt", "requirements-dev.txt", "requirements-windows-music.txt", "pyproject.toml")
+SOURCE_DIRS = ("pet", "scripts", "C++-Python", "packaging", "assets")
+SOURCE_FILES = ("requirements.txt", "requirements-dev.txt", "pyproject.toml")
 SKIP_PARTS = {"__pycache__", ".pytest_cache", ".ruff_cache", "_bin", "build", "build-native"}
 
 

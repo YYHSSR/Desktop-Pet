@@ -25,7 +25,7 @@ from pet import catalog
 from pet.agent_link import AgentLinkManager
 from pet.app import AppShell, PetInstance
 from pet.config import Config
-from pet.multi_window_shared import MultiWindowProxy, SharedProactiveWatcher
+from pet.multi_window_shared import MultiWindowProxy
 
 
 @pytest.fixture
@@ -130,7 +130,7 @@ def _make_flag_on_shell(tmp_path):
     config.set("experimental_single_process_spawn", True)
     config.save()
     slot_id, slot_handle = slot_manager_mod.acquire_pet_slot(config.dir, preferred_slot=0)
-    shell = AppShell(QApplication.instance(), config, enable_chat=True,
+    shell = AppShell(QApplication.instance(), config,
                      slot_handle=slot_handle, slot_id=slot_id)
     return shell, config, slot_handle
 
@@ -187,7 +187,7 @@ def test_flag_on_agent_link_single_manager_fans_out(tmp_path, app, monkeypatch):
         # 「全体跳舞」动画扇出：state_applied 忙状态 → request_link_anim 到两可见窗
         primary_win.bubbles.clear()
         second_win.bubbles.clear()
-        mgr._on_agent_state("dsh", "working", gen=0)
+        mgr._on_agent_state("codex", "working", gen=0)
         assert primary_win.anims, "主窗应收到联动动画"
         assert second_win.anims, "第二窗应收到联动动画（全体跳舞）"
 
@@ -209,7 +209,7 @@ def test_flag_off_shared_subsystems_none(tmp_path, app):
     config = Config(tmp_path)
     config.set("experimental_single_process_spawn", False)
     config.save()
-    shell = AppShell(QApplication.instance(), config, enable_chat=True)
+    shell = AppShell(QApplication.instance(), config,)
     assert shell._single_process_spawn is False
     assert shell._shared is None
     assert shell.instance.win is None
@@ -305,29 +305,6 @@ def test_flag_on_island_toggle_all_windows(tmp_path, app, monkeypatch):
         slot_manager_mod._unlock_file(primary_handle)
 
 
-def test_flag_on_shared_proactive_broadcasts_bubble(tmp_path, app, monkeypatch):
-    """§③.2：共享 proactive watcher 单一实例（限流器全局）；
-    气泡只发首个可见窗（多窗不重复弹，与 proxy.show_alert 同策）。"""
-    shell, config, primary_handle = _make_flag_on_shell(tmp_path)
-    try:
-        primary_win = _make_primary_record_win(shell, config)
-        second = _make_second_record_win(shell, tmp_path, monkeypatch)
-        second_win = second.win
-
-        # 共享 proactive watcher：单一实例，限流器绑定主窗 config 目录（全局语义，R8）
-        assert isinstance(shell._shared.proactive, SharedProactiveWatcher)
-        assert shell._shared.proactive.limiter.state_path == \
-            (config.dir / "proactive_screen_state.json")
-
-        # 「我看」先兆气泡只发首个可见窗
-        shell._shared.proactive._bridge._forward_bubble("hello", 1000)
-        assert "hello" in primary_win.bubbles
-        assert "hello" not in second_win.bubbles
-    finally:
-        _stop_sessions(*getattr(shell, "instances", []))
-        if getattr(shell, "_shared", None) is not None:
-            shell._shared.stop_all()
-        slot_manager_mod._unlock_file(primary_handle)
 
 
 def test_flag_on_hidden_notify_text_non_primary(tmp_path, app, monkeypatch):
@@ -372,8 +349,6 @@ def test_new_window_receives_link_provider_after_real_build(tmp_path, app, monke
     from tests.test_predictive_prewarm import FakeLibrary
 
     shell, config, handle = _make_flag_on_shell(tmp_path)
-    config.set("click_sound_enabled", False)
-    config.set("collision_sound_enabled", False)
     win = None
     try:
         win = shell.instance._build_window("shenshen", lib=FakeLibrary())
@@ -393,15 +368,10 @@ def test_shared_fullscreen_broadcast_respects_per_window_config(tmp_path, app):
     from tests.test_predictive_prewarm import FakeLibrary
 
     shell, config, handle = _make_flag_on_shell(tmp_path)
-    config.set("click_sound_enabled", False)
-    config.set("collision_sound_enabled", False)
     win1 = win2 = None
     try:
         win1 = shell.instance._build_window("shenshen", lib=FakeLibrary())
-        sec = PetInstance(shell, Config(base=tmp_path, instance_id="slot-1"),
-                          enable_chat=True)
-        sec.config.set("click_sound_enabled", False)
-        sec.config.set("collision_sound_enabled", False)
+        sec = PetInstance(shell, Config(base=tmp_path, instance_id="slot-1"),)
         shell._instances.append(sec)
         win2 = sec._build_window("shenshen", lib=FakeLibrary(), build_tray=False)
         win2.set_auto_hide_fullscreen(False)
@@ -531,8 +501,8 @@ def _proxy_payload(**over):
         "steps": [{"behaviors": ["READ"], "targets": ["src/a.py"]}],
         "session_id": "sess-1",
         "goal": "修好登录",
-        "agent_key": "dsh",
-        "agent_name": "DSH",
+        "agent_key": "codex",
+        "agent_name": "ChatGPT",
         "targetCount": 1,
         "targets": ["src/a.py"],
     }
@@ -563,7 +533,7 @@ def test_proxy_control_alert_fans_out_buttons(tmp_path, app):
         assert w1.alerts, "首个可见窗应收到控制提醒（而非退化气泡）"
         alert = w1.alerts[-1]
         assert alert["alert_type"] == "control"
-        assert _control_buttons(alert) == ["自动优化", "终止", "忽略"]
+        assert _control_buttons(alert) == ["忽略"]
         assert alert["sticky"] is True
         assert not w2.alerts, "交互式提醒只在首个可见窗展示，不多窗重复"
     finally:
@@ -578,11 +548,11 @@ def test_proxy_interaction_approval_buttons_fan_out(tmp_path, app):
         mgr._pending_interactions["itest"] = {
             "kind": "approval", "text": "DSH 请求执行：rm -rf，请选择：",
             "interactive": True, "rpc_id": "rpc-1", "alert_id": "interaction:itest",
-            "session_id": "s1", "agent_key": "dsh",
+            "session_id": "s1", "agent_key": "codex",
         }
         mgr._show_interaction_bubble("itest")
         assert w1.alerts, "审批应经 show_alert 展示（同意/拒绝按钮不丢）"
-        assert _control_buttons(w1.alerts[-1]) == ["同意", "拒绝"]
+        assert _control_buttons(w1.alerts[-1]) == []
         assert not w2.alerts, "审批只在首个可见窗展示"
     finally:
         mgr.shutdown()
@@ -670,82 +640,3 @@ def test_proxy_physics_mode_reports_active_mode(tmp_path, app):
     assert proxy._physics_mode == "drag"
     w1._physics_mode = None
     assert proxy._physics_mode is None
-
-
-def test_shared_watcher_tick_survives_idle_windows(tmp_path, app, monkeypatch):
-    """红→绿：端到端——共享 watcher 在无人交互时，tick 必须越过 G1 守卫。
-
-    修复前 proxy._physics_mode 恒为 False → `is not None` 恒真 → G1 恒定拦截，
-    `_on_tick` 在守卫处 return，连前台窗口探测都不发生（用户的实测现象：
-    零日志、零状态文件）。这里用「前台窗口查询被调用」作为越过守卫的证据。
-    """
-    w1, w2 = _RecordWin(visible=True), _RecordWin(visible=True)
-    config = Config(base=tmp_path)
-    config.set("proactive_screen", {"enabled": True, "whitelist": ["*"]})
-    proxy = MultiWindowProxy(_ProxyShell(config, [w1, w2]))
-    watcher = SharedProactiveWatcher(proxy, config)
-    try:
-        from pet import vision
-
-        probed: list[int] = []
-        # 返回 None：守卫之后的第一步（前台窗口信息），且不会触发截图/网络，
-        # 该分支只清状态、不产生副作用。
-        monkeypatch.setattr(
-            vision, "foreground_window_info",
-            lambda: (probed.append(1), None)[1])
-
-        watcher._on_tick()
-        assert probed, (
-            "无人交互时 G1 守卫不得拦截——否则共享模式（experimental_"
-            "single_process_spawn=true）下主动识屏永不触发")
-    finally:
-        watcher.stop_all()
-
-
-def test_flag_on_production_watcher_reads_proxy_sentinel(tmp_path, app, monkeypatch):
-    """端到端（真实装配）：flag 开时 AppShell 注入的共享 watcher，其 ``win``
-    就是 ``MultiWindowProxy``——G1 读的正是这个对象，这里直接对生产装配面取值。
-
-    前两条用例手工构造 proxy；本条钉的是**生产接线**：``app.py`` 把
-    ``shared.proactive`` 注入各窗（``PetWindow.proactive_watcher``），而它的
-    ``win`` 是 ``shared.proxy``。修复前这条路径读到的 ``_physics_mode`` 是
-    ``False``，G1 恒真拦截——用户看到的「右键开关无效」也源于此（同一实例）。
-    """
-    shell, config, primary_handle = _make_flag_on_shell(tmp_path)
-    try:
-        assert shell._shared is not None, "flag 开必须实例化共享子系统"
-        proxy = shell._shared.proxy
-        watcher = shell._shared.proactive
-        assert watcher.win is proxy, (
-            "共享 watcher 的 win 必须是代理——G1 守卫就是通过它读聚合态")
-
-        # 生产形态：真实装配出的 proxy，所有替身窗都不在物理模式
-        _make_primary_record_win(shell, config)
-        _make_second_record_win(shell, tmp_path, monkeypatch)
-        assert len(proxy._windows()) == 2
-        assert proxy._physics_mode is None, (
-            "真实装配下无人拖拽/抛掷时，G1 读到的必须是哨兵 None；"
-            "返回 False 会让 `is not None` 恒真、识屏永不触发")
-
-        # 任一窗进入物理模式仍要拦住（聚合语义不能被修复改坏）
-        shell.instance.win._physics_mode = "throw"
-        assert proxy._physics_mode == "throw"
-        shell.instance.win._physics_mode = None
-        assert proxy._physics_mode is None
-
-        # 并且真实 tick 能越过 G1（前台窗口查询被调用即证明）
-        from pet import vision
-
-        # _on_tick 只读 effective config（与平台守卫无关），无需 apply_config 起表
-        config.set("proactive_screen", {"enabled": True, "whitelist": ["*"]})
-        probed: list[int] = []
-        monkeypatch.setattr(
-            vision, "foreground_window_info",
-            lambda: (probed.append(1), None)[1])
-        watcher._on_tick()
-        assert probed, "生产装配下 tick 也必须越过 G1 守卫"
-    finally:
-        _stop_sessions(*getattr(shell, "instances", []))
-        if getattr(shell, "_shared", None) is not None:
-            shell._shared.stop_all()
-        slot_manager_mod._unlock_file(primary_handle)

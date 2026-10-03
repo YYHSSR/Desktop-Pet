@@ -31,14 +31,14 @@ from pathlib import Path
 from typing import Iterable
 
 # 这些字面量以原始中文形式存在于打包进所有变体的 .py 源码中
-# （catalog/agent_link/proactive/speech_bubble），编译后必在字节码常量里。
+# （catalog/agent_link/chatgpt_desktop/speech_bubble），编译后必在字节码常量里。
 EXPECTED_CODE_LITERALS = (
     "吃Token",
     "写代码",
     "原地敲击桌面互动",
     "深色玻璃",
-    "让我看看……",
-    "DSH 桥接插件安装失败",
+    "ChatGPT 工作状态",
+    "请自行打开桌面端",
 )
 
 # 必须原样存在的包内中文文件名（webm 变体；gif 变体同名换扩展名）

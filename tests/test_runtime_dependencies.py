@@ -48,6 +48,8 @@ def _declared_requirement_names() -> set[str]:
     """requirements.txt 里的发行包名（规范化：小写、「_/.」统一成「-」）。"""
     names = set()
     for manifest in (REQUIREMENTS, OPTIONAL_REQUIREMENTS):
+        if not manifest.exists():
+            continue
         for raw in manifest.read_text(encoding="utf-8").splitlines():
             line = raw.strip()
             if not line or line.startswith("#") or line.startswith("-"):
@@ -128,18 +130,6 @@ def test_pet_third_party_imports_are_declared():
     )
 
 
-def test_psutil_is_declared_for_player_probe():
-    """psutil 专项保险：歌词显示靠它绕开 SMTC 的永久阻塞，缺了就白修（见模块 docstring）。"""
-    assert "psutil" in _declared_requirement_names(), (
-        "psutil 必须留在 requirements.txt：pet/now_playing.py 用它判断播放器进程在不在，"
-        "进程不在时直接启动播放器而**不碰 WinRT**；缺失时该判断放行，"
-        "SMTC 卡住的老路会照旧走。"
-    )
-    from pet import now_playing
-
-    assert callable(now_playing.player_process_running)
-
-
 def test_catalog_integrity():
     from pet import catalog
 
@@ -152,4 +142,3 @@ def test_catalog_integrity():
     assert catalog.DRAG in catalog.ANIM_FILES
     assert all(n in catalog.ANIM_FILES for n in catalog.CLICKS + catalog.MOVES)
     assert catalog.FRAME_MS > 0
-

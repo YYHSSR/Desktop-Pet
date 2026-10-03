@@ -272,4 +272,3 @@ def test_enable_prewarm_reschedules_when_visible(tmp_path, monkeypatch):
         lib._low_warm_timer.stop()
         lib.deleteLater()
         app.processEvents()
-

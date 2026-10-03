@@ -959,4 +959,3 @@ def test_rotated_region_bounds_45_degrees_square_grows():
     expected = round(100 * 2 ** 0.5)
     assert abs(bounds.width() - expected) <= 2
     assert abs(bounds.height() - expected) <= 2
-

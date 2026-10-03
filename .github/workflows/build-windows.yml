@@ -59,7 +59,7 @@ jobs:
         run: |
           $candidate = "dist-onedir/candidates/run-${{ github.run_id }}"
           $language = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\Languages\ChineseSimplified.isl'
-          python scripts/candidate_release.py snapshot --root . --dist dist-onedir --candidate-dir $candidate --ucrt-bin "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin" --language-file $language --build-command "scripts/build_native.ps1; scripts/build_onedir.ps1 -Variant webm-chat -SkipZip; scripts/build_onedir.ps1 -Variant webm -SkipZip; ISCC.exe packaging/dsh-pet.iss (both variants)"
+          python scripts/candidate_release.py snapshot --root . --dist dist-onedir --candidate-dir $candidate --ucrt-bin "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin" --language-file $language --build-command "scripts/build_native.ps1; scripts/build_onedir.ps1 -Variant webm-chat; scripts/build_onedir.ps1 -Variant webm; ISCC.exe packaging/dsh-pet.iss (both variants)"
 
       - name: Build and test native collision core
         shell: pwsh
@@ -111,7 +111,7 @@ jobs:
           $candidate = "dist-onedir/candidates/run-${{ github.run_id }}"
           foreach ($VARIANT in 'webm-chat', 'webm') {
             Write-Host "==> building $VARIANT"
-            & "$env:GITHUB_WORKSPACE\scripts\build_onedir.ps1" -Variant $VARIANT -PythonExe $pythonExe -UcrtBin $ucrtBin -SkipZip
+            & "$env:GITHUB_WORKSPACE\scripts\build_onedir.ps1" -Variant $VARIANT -PythonExe $pythonExe -UcrtBin $ucrtBin
             if ($LASTEXITCODE -ne 0) { throw "$VARIANT build failed" }
             Copy-Item packaging/build_variant.py (Join-Path $candidate "generated-$VARIANT-build_variant.py")
             Copy-Item "dsh-pet-standalone-${VARIANT}.spec" (Join-Path $candidate "generated-${VARIANT}.spec")

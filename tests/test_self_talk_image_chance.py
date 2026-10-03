@@ -96,7 +96,7 @@ def test_settings_page_row_round_trip(tmp_path):
 
     QApplication.instance() or QApplication([])
     cfg = Config(base=tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(cfg, include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(cfg,)
     try:
         row = dialog.findChild(settings_mod.SettingRow, "settingRow_self_talk_image_chance")
         assert row is not None, "设置页必须有这一行"

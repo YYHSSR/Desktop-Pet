@@ -57,15 +57,7 @@
 
 ### 功能修复（相对上游新增）
 
-- Agent 联动 opencode 事件流：`step-finish` 按 reason 分流，
-  `tool-calls`（等工具/等子代理）不再误报完成（本机 opencode.db 实测
-  tool-calls 占绝大多数；回归测试见 `tests/test_agent_link.py`）。
-- 气泡配图大小可调：`self_talk_image_scale`（设置 → 自言自语 →
-  配图大小，50–300%）。
-- 会话多前端原子追加（modern/legacy/QuickChat 经
-  `SessionStore.append_messages` 在 io 锁内读-改-写，互不覆盖）。
-- 其余审查修复（三方盲审 + 两轮修复复审）的批次与清单见
-  `_plan/current/PR_READY_PERF.md` 总账（含 PR 拆分建议）。
+
 
 ## 2. 怎么验证（交付时的实测状态）
 

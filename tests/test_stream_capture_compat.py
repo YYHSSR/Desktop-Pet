@@ -156,9 +156,6 @@ def test_capture_child_interactive_bubble_is_non_transparent_hit_target():
     # 该点位于帧绘制矩形上方，未加气泡守卫时 _is_transparent_at 返回 True。
     assert PetWindow._is_transparent_at(fake, QPoint(10, 2)) is False
 
-    # 快速对话子控件同样必须是非透明命中区。
-    fake._quick_chat_capture_widget = _FakeBubble(fake, QRect(0, 50, 100, 50))
-    assert PetWindow._is_transparent_at(fake, QPoint(10, 60)) is False
 
 
 class _FakeQuickBubble:
@@ -177,80 +174,10 @@ class _FakeQuickBubble:
         return QRect(0, 0, 120, 50).size()
 
 
-def test_try_open_quick_chat_from_bubble_works_in_child_mode():
-    """子模式气泡 geometry 是父坐标；快速对话命中判断必须换算回全局坐标。"""
-    _qapp()
-    opened = []
-    bubble = _FakeQuickBubble()
-    pet = SimpleNamespace(on_open_quick_chat=lambda: opened.append(True), _speech_bubble=bubble)
-    # 子模式全局命中：气泡左上角在 (100,20)，点击内部 (110,30) 应命中。
-    assert PetWindow._try_open_quick_chat_from_bubble(pet, QPoint(110, 30)) is True
-    assert opened == [True]
-    # 气泡外点击不触发快速对话。
-    assert PetWindow._try_open_quick_chat_from_bubble(pet, QPoint(300, 300)) is False
-    assert opened == [True]
 
 
-def test_quick_chat_capture_compat_becomes_child_and_restores(tmp_path):
-    """快速对话气泡在直播捕获模式下也作为主窗子内容渲染。"""
-    app = _qapp()
-    from pet.quick_chat import QuickChatBubble
-
-    host = QWidget()
-    host.setGeometry(0, 0, 640, 390)
-    bubble = QuickChatBubble(Config(base=tmp_path))
-    try:
-        assert bubble.parentWidget() is None
-        assert _window_type_mask(bubble.windowFlags()) == Qt.WindowType.Tool
-
-        bubble.set_capture_compat(True, host)
-        assert bubble.parentWidget() is host
-        assert _window_type_mask(bubble.windowFlags()) == Qt.WindowType.Widget
-
-        bubble.set_capture_compat(False)
-        assert bubble.parentWidget() is None
-        assert _window_type_mask(bubble.windowFlags()) == Qt.WindowType.Tool
-    finally:
-        bubble.close()
-        host.close()
-        bubble.deleteLater()
-        host.deleteLater()
-        app.processEvents()
 
 
-def test_quick_chat_capture_requests_headroom_and_stays_above(tmp_path):
-    """直播捕获子模式下快速对话应申请透明头顶空间，保持“向上生成”。"""
-    app = _qapp()
-    from pet.quick_chat import QuickChatBubble
-
-    win = _make_pet(tmp_path, capture_on=True)
-    # 给主窗一帧可定位的角色内容，并放到屏幕底部附近。
-    win.movie = win.lib.movie(win.idle)
-    win._rebuild_frame()
-    avail = app.primaryScreen().availableGeometry()
-    win.move(avail.right() - win.width() - 20, avail.bottom() - win.height())
-    app.processEvents()
-    anchor = QRect(win.visible_content_rect())
-
-    bubble = QuickChatBubble(Config(base=tmp_path), pet_window=win)
-    try:
-        win.set_quick_chat_capture_widget(bubble)
-        bubble.adjustSize()
-        bubble.position_near_pet()
-        global_rect = QRect(bubble.mapToGlobal(QPoint(0, 0)), bubble.size())
-        assert win._capture_headroom > 0, "子模式应申请头顶空间"
-        assert global_rect.bottom() <= anchor.top(), "气泡应仍位于角色上方"
-        assert not bubble._tail_up, "朝上放置时尾尖应指向下方角色"
-
-        bubble.close()
-        assert win._capture_headroom == 0, "关闭快速对话后应回收头顶空间"
-    finally:
-        if bubble.parentWidget() is not None:
-            bubble.close()
-        win.close()
-        bubble.deleteLater()
-        win.deleteLater()
-        app.processEvents()
 
 
 def test_pet_window_capture_headroom_preserves_bottom(tmp_path):
@@ -292,24 +219,6 @@ class _FakeQuickCaptureWidget:
         self.calls.append((on, host))
 
 
-def test_pet_window_stream_capture_syncs_registered_quick_chat_widget(tmp_path):
-    app = _qapp()
-    win = _make_pet(tmp_path, capture_on=False)
-    quick = _FakeQuickCaptureWidget()
-    try:
-        win.set_quick_chat_capture_widget(quick)
-        assert quick.calls == [(False, win)], "注册时应立即同步当前非捕获状态"
-
-        quick.calls.clear()
-        win.set_stream_capture_mode(True)
-        assert quick.calls[-1] == (True, win)
-
-        win.set_stream_capture_mode(False)
-        assert quick.calls[-1] == (False, win)
-    finally:
-        win.close()
-        win.deleteLater()
-        app.processEvents()
 
 
 def test_pet_window_runtime_capture_mode_syncs_bubble(tmp_path):

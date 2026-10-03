@@ -26,8 +26,6 @@ import pytest
 
 from pet.config import Config, APP_DIR_NAME
 from pet import slot_manager as sm
-from pet.chat.session_store import SessionStore
-from pet.chat.models import ChatMessage, ChatSession
 
 
 def _run_slot_worker_code(config_dir: Path, code: str, timeout: float = 10.0) -> subprocess.Popen:
@@ -283,61 +281,6 @@ def test_lock_acquisition_repairs_an_oversized_pid_record(tmp_path):
         sm.release_file_lock(handle)
 
 
-def test_slot_reclaimed_after_process_killed_and_keeps_memory(tmp_path):
-    """场景 2：子进程持有 slot-1 后被终止；新子进程重新加锁 slot-1，读取原个体配置和 sessions，且未删 lock 文件。"""
-    config_dir = tmp_path / APP_DIR_NAME
-    config_dir.mkdir(parents=True, exist_ok=True)
-
-    # 先锁住 slot-0，让后续进程拿 slot-1
-    slot0, handle0 = sm.acquire_pet_slot(config_dir, preferred_slot=0)
-
-    # 启动子进程拿 slot-1 并写个体记忆
-    worker_code = f"""
-from pet.slot_manager import acquire_pet_slot
-from pet.config import Config
-from pet.chat.session_store import SessionStore
-from pet.chat.models import ChatMessage
-import time
-
-slot, handle = acquire_pet_slot({repr(str(config_dir))})
-cfg = Config(base={repr(str(tmp_path))}, instance_id=f"slot-{{slot}}")
-cfg.set("rx", 0.77)
-cfg.save()
-
-store = SessionStore({repr(str(config_dir))}, instance_id=f"slot-{{slot}}")
-s = store.create("shenshen", "openai-main", "prompt")
-s.messages.append(ChatMessage("user", "hello-slot-1"))
-store.save(s)
-store.flush()  # 异步 writer 落盘后再 READY：主进程收到 READY 即 kill，等不起后台线程
-
-print(f"READY:{{slot}}", flush=True)
-time.sleep(10)
-"""
-    p = _run_slot_worker_code(config_dir, worker_code)
-    assert p.stdout.readline().strip() == "READY:1"
-
-    # 强制杀死子进程
-    p.kill()
-    p.wait()
-    time.sleep(0.1)
-
-    # 锁文件依然存在
-    lock1 = sm.get_slot_lock_path(config_dir, 1)
-    assert lock1.exists()
-
-    # 新子进程重新申请 slot-1 并读取配置与会话
-    slot1_again, handle1 = sm.acquire_pet_slot(config_dir, preferred_slot=1)
-    assert slot1_again == 1
-    cfg_again = Config(base=tmp_path, instance_id="slot-1")
-    assert cfg_again.get("rx") == 0.77
-
-    store_again = SessionStore(config_dir, instance_id="slot-1")
-    sessions = store_again.list("shenshen")
-    assert len(sessions) == 1
-    assert sessions[0].messages[0].content == "hello-slot-1"
-
-    handle0.close()
-    handle1.close()
 
 
 def test_concurrent_creation_and_save_pid_tmp(tmp_path):
@@ -393,10 +336,10 @@ def test_field_default_factory_and_individual_memory(tmp_path):
     master = Config(base=tmp_path)
     master.set("character", "shenshen")
     master.set("playback_speed", 1.5)
-    master.set("click_sound_volume", 0.33)
+    master.set("animation_gap_seconds", 0.33)
     master.set("on_top", False)
     master.set("show_dock_icon", False)
-    master.set("chat_follow_pet", True)
+    master.set("no_move", True)
     master.set("rx", 0.1)
     master.set("ry", 0.2)
     master.set("autostart_wanted", True)
@@ -407,32 +350,32 @@ def test_field_default_factory_and_individual_memory(tmp_path):
     slot1 = Config(base=tmp_path, instance_id="slot-1")
     assert slot1.get("character") == "shenshen"
     assert slot1.get("playback_speed") == 1.5
-    assert slot1.get("click_sound_volume") == 0.33
+    assert slot1.get("animation_gap_seconds") == 0.33
     assert slot1.get("on_top") is False
     assert slot1.get("show_dock_icon") is False
-    assert slot1.get("chat_follow_pet") is True
+    assert slot1.get("no_move") is True
     assert slot1.get("rx") is None
     assert slot1.get("ry") is None
     assert slot1.get("autostart_wanted") is False
 
     # slot-1 修改自身属性并保存（个体记忆）
     slot1.set("character", "dundun")
-    slot1.set("click_sound_volume", 0.55)
+    slot1.set("animation_gap_seconds", 0.55)
     slot1.save()
 
     # 修改主配置后，已有 slot-1 不受影响
     master.set("character", "master_new")
-    master.set("click_sound_volume", 0.99)
+    master.set("animation_gap_seconds", 0.99)
     master.save()
 
     slot1_reload = Config(base=tmp_path, instance_id="slot-1")
     assert slot1_reload.get("character") == "dundun"
-    assert slot1_reload.get("click_sound_volume") == 0.55
+    assert slot1_reload.get("animation_gap_seconds") == 0.55
 
     # 新建 slot-2 在首次创建时继承主配置当时的值（最新主配置），之后各自独立
     slot2 = Config(base=tmp_path, instance_id="slot-2")
     assert slot2.get("character") == "master_new"
-    assert slot2.get("click_sound_volume") == 0.99
+    assert slot2.get("animation_gap_seconds") == 0.99
 
 
 def test_spawn_reuse_keeps_existing_slot_config(tmp_path, monkeypatch):
@@ -441,13 +384,13 @@ def test_spawn_reuse_keeps_existing_slot_config(tmp_path, monkeypatch):
     master = Config(base=tmp_path)
     master.set("character", "shenshen")
     master.set("playback_speed", 2.0)
-    master.set("click_sound_volume", 0.8)
+    master.set("animation_gap_seconds", 0.8)
     master.save()
 
     old_slot = Config(base=tmp_path, instance_id="slot-1")
     old_slot.set("character", "dundun")
     old_slot.set("playback_speed", 0.5)
-    old_slot.set("click_sound_volume", 0.2)
+    old_slot.set("animation_gap_seconds", 0.2)
     old_slot.save()
 
     # 旧版孵化进程环境可能仍带着 SPAWN_FRESH 标记，须被完全忽略
@@ -455,7 +398,7 @@ def test_spawn_reuse_keeps_existing_slot_config(tmp_path, monkeypatch):
     reused_slot = Config(base=tmp_path, instance_id="slot-1")
     assert reused_slot.get("character") == "dundun"
     assert reused_slot.get("playback_speed") == 0.5
-    assert reused_slot.get("click_sound_volume") == 0.2
+    assert reused_slot.get("animation_gap_seconds") == 0.2
 
 
 def test_normal_reopen_keeps_existing_slot_config(tmp_path, monkeypatch):

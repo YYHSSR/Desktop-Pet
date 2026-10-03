@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH Agent 卡住检测与人工介入建议引擎（StuckDetector）。
+"""Agent Agent 卡住检测与人工介入建议引擎（StuckDetector）。
 
 桌宠端推断事件 ``pet/intervention-recommended`` 的定义与实现：
 直接监听桥接增强事件（``tools/result``、``tool/call``、``agent/request-error``、
@@ -196,7 +196,7 @@ class StuckDetector(QObject):
     用法：:
 
         detector = StuckDetector()
-        detector.feed_record("dsh", {"event": "tool/result", "tool": "pip", ...})
+        detector.feed_record("codex", {"event": "tool/result", "tool": "pip", ...})
         detector.intervention_recommended.connect(handler)
     """
 
@@ -310,7 +310,7 @@ class StuckDetector(QObject):
             return
 
     def reset(self, agent_key: str) -> None:
-        """手动重置指定 Agent 的卡住状态（DSH 离线/新任务开始等）。"""
+        """手动重置指定 Agent 的卡住状态（Agent 离线/新任务开始等）。"""
         self._reset(agent_key)
 
     def reset_all(self) -> None:

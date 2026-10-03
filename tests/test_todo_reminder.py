@@ -532,7 +532,7 @@ def test_settings_roundtrip_todo_prefs(tmp_path):
     _qapp()
     cfg_root = tmp_path / "appdata"
     cfg = Config(cfg_root)
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg,)
     try:
         assert dialog.todo_reminder_check.isChecked() is True
         assert dialog.todo_reminder_lead_spin.value() == 5

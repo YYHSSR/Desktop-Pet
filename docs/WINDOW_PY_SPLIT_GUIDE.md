@@ -128,8 +128,7 @@
   `set_bubble_suppressed` / `_on_speech_bubble_clicked` /
   `_try_open_quick_chat_from_bubble` / `_schedule_self_talk` /
   `_show_self_talk_text` / `_show_random_self_talk` /
-  `_show_click_self_talk` / `_on_self_talk_timeout` / `_read_self_talk_texts` /
-  `_check_music_sing`
+  `_show_click_self_talk` / `_on_self_talk_timeout` / `_read_self_talk_texts`
 - 注意：气泡绘制本体位于 speech_bubble.py；窗口侧除调度与定位外，
   还保留公开气泡 API、气泡占用状态（`_bubble_busy_until`）与交互回调，
   实际边界比「纯调度层」更宽。

@@ -799,21 +799,3 @@ def test_bubble_reshow_after_dismiss_not_dragged_back():
     QTest.qWait(350)
     assert bubble._pos_anim.state() == QPropertyAnimation.State.Stopped
     bubble.dismiss()
-
-
-def test_breath_bubble_preset_gets_rounded_fallback_radius():
-    from pet.quick_chat import _surface_radius
-    from pet.speech_bubble import BUBBLE_STYLE_PRESETS
-
-    preset = BUBBLE_STYLE_PRESETS["breath_bubble"]
-    assert preset.get("shape") == "breath_bubble"
-    assert _surface_radius(preset) > 0
-
-
-def test_regular_preset_uses_own_radius():
-    from pet.quick_chat import _surface_radius
-    from pet.speech_bubble import BUBBLE_STYLE_PRESETS
-
-    preset = BUBBLE_STYLE_PRESETS["classic_top"]
-    assert _surface_radius(preset) == float(preset.get("radius", 14))
-

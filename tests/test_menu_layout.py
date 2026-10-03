@@ -22,11 +22,10 @@ def test_modern_default_v1_has_compact_root_and_safety_actions():
         "default.separator-playback",
         "pet_controls",
         "quick_launch",
+        "quick_urls",
         "default.separator-pet",
         "agent_link",
         "todo_panel",
-        "voice_chime_now",
-        "voice_chime_toggle",
         "festival_now",
         "festival_toggle",
         "default.separator-tools",
@@ -42,7 +41,7 @@ def test_modern_default_v1_has_compact_root_and_safety_actions():
 def test_retired_builtin_links_are_absent_but_harness_survives_custom_layout():
     from pet.context_menus.registry import MENU_ACTIONS
 
-    retired = {"deepseek_web", "check_update", "github_project", "quark_download", "harness"}
+    retired = {"example_web", "check_update", "github_project", "quark_download", "harness"}
     assert retired.isdisjoint(MENU_ACTIONS.ids)
     layout = load_default_menu_layout()
     assert all(node.get("id") != "tools_help" for node in layout["nodes"])
@@ -69,7 +68,7 @@ def test_retired_cost_and_balance_actions_leave_custom_aliases_intact():
             {"type": "action", "id": "agent_cost", "visible": True},
             {"type": "submenu", "id": "test_sub", "visible": True, "children": [
                 {"type": "action", "id": "balance", "visible": True},
-                {"type": "action", "id": "chat", "visible": True, "alias": "Keep", "icon": "automation"},
+                {"type": "action", "id": "modern_settings", "visible": True, "alias": "Keep", "icon": "automation"},
             ]},
             {"type": "action", "id": "quick_launch", "visible": True, "alias": "Apps"},
         ]}, registered_actions=MENU_ACTIONS.ids, available_actions=MENU_ACTIONS.ids,
@@ -93,8 +92,8 @@ def test_legacy_section_boundaries_become_editable_separator_nodes():
         "schema_version": 1,
         "layout_id": "user",
         "nodes": [
-            {"type": "action", "id": "chat", "visible": True, "section": "one"},
-            {"type": "action", "id": "look_screen", "visible": True, "section": "two"},
+            {"type": "action", "id": "modern_settings", "visible": True, "section": "one"},
+            {"type": "action", "id": "agent_link", "visible": True, "section": "two"},
         ],
     })
 
@@ -132,8 +131,8 @@ def test_user_layout_filters_hidden_unavailable_and_empty_submenus():
             "schema_version": 1,
             "layout_id": "user",
             "nodes": [
-                {"type": "action", "id": "chat", "visible": False},
-                {"type": "action", "id": "look_screen", "visible": True},
+                {"type": "action", "id": "quick_launch", "visible": False},
+                {"type": "action", "id": "agent_link", "visible": True},
                 {
                     "type": "submenu",
                     "id": "pet_controls",
@@ -158,8 +157,8 @@ def test_user_layout_filters_hidden_unavailable_and_empty_submenus():
             ],
         },
         registered_actions={
-            "chat",
-            "look_screen",
+            "quick_launch",
+            "agent_link",
             "no_move",
             "mouse_through",
             "balance",
@@ -186,6 +185,7 @@ def test_user_layout_filters_hidden_unavailable_and_empty_submenus():
     )
 
 
+
 def test_layout_preserves_alias_icon_and_explicit_separator_nodes():
     result = resolve_menu_layout(
         {
@@ -194,7 +194,7 @@ def test_layout_preserves_alias_icon_and_explicit_separator_nodes():
             "nodes": [
                 {
                     "type": "action",
-                    "id": "chat",
+                    "id": "quick_launch",
                     "visible": True,
                     "alias": "和鲸鱼聊聊",
                     "icon": "screen",
@@ -204,13 +204,13 @@ def test_layout_preserves_alias_icon_and_explicit_separator_nodes():
                 {"type": "action", "id": "quit", "visible": True},
             ],
         },
-        registered_actions={"chat", "modern_settings", "quit"},
-        available_actions={"chat", "modern_settings", "quit"},
+        registered_actions={"quick_launch", "modern_settings", "quit"},
+        available_actions={"quick_launch", "modern_settings", "quit"},
     )
 
     assert result.nodes[0] == {
         "type": "action",
-        "id": "chat",
+        "id": "quick_launch",
         "visible": True,
         "alias": "和鲸鱼聊聊",
         "icon": "screen",
@@ -220,6 +220,7 @@ def test_layout_preserves_alias_icon_and_explicit_separator_nodes():
         "id": "user.separator-1",
         "visible": True,
     }
+
 
 
 def test_runtime_feature_state_does_not_filter_menu_layout_actions():
@@ -268,7 +269,7 @@ def test_runtime_menu_renders_alias_icon_separator_and_disabled_item():
     app = QApplication.instance() or QApplication([])
     menu = QMenu()
     nodes = (
-        {"type": "action", "id": "chat", "alias": "和鲸鱼聊聊", "icon": "screen"},
+        {"type": "action", "id": "modern_settings", "alias": "和鲸鱼聊聊", "icon": "screen"},
         {"type": "separator", "id": "user.separator-1"},
         {"type": "action", "id": "ojingjing"},
     )
@@ -325,12 +326,12 @@ def test_layout_restores_required_settings_and_exit_actions():
             "schema_version": 1,
             "layout_id": "user",
             "nodes": [
-                {"type": "action", "id": "chat", "visible": True},
+                {"type": "action", "id": "quick_launch", "visible": True},
                 {"type": "action", "id": "modern_settings", "visible": False},
             ],
         },
-        registered_actions={"chat", "modern_settings", "quit"},
-        available_actions={"chat", "modern_settings", "quit"},
+        registered_actions={"quick_launch", "modern_settings", "quit"},
+        available_actions={"quick_launch", "modern_settings", "quit"},
     )
 
     assert result.source == "normalized"
@@ -339,17 +340,18 @@ def test_layout_restores_required_settings_and_exit_actions():
         "required-action-restored:quit",
     )
     assert [node["id"] for node in result.nodes if node["type"] != "separator"] == [
-        "chat",
+        "quick_launch",
         "modern_settings",
         "quit",
     ]
 
 
+
 def test_missing_user_layout_resolves_versioned_default():
     registered = {
         "ojingjing",
-        "chat",
-        "look_screen",
+        "modern_settings",
+        "agent_link",
         "animations_hub",
         "character",
         "playback_speed",
@@ -364,28 +366,19 @@ def test_missing_user_layout_resolves_versioned_default():
         "spawn_pet",
         "clear_spawned_pets",
         "agent_cost",
-        "music",
-        "music_pause",
-        "music_next",
-        "music_prev",
-        "music_quit",
-        "music_lyric_align",
-        "music_open_netease",
-        "music_open_qqmusic",
         "golden_spin",
         "edge_probe",
         "quick_launch",
+        "quick_urls",
         "balance",
         "harness",
-        "deepseek_web",
+        "example_web",
         "check_update",
         "github_project",
         "quark_download",
         "agent_link",
         "proactive_screen",
         "todo_panel",
-        "voice_chime_now",
-        "voice_chime_toggle",
         "festival_now",
         "festival_toggle",
         "modern_settings",
@@ -408,6 +401,7 @@ def test_missing_user_layout_resolves_versioned_default():
         "size",
         "pet_controls",
         "quick_launch",
+        "quick_urls",
         "agent_link",
         "todo_panel",
         "modern_settings",
@@ -417,7 +411,7 @@ def test_missing_user_layout_resolves_versioned_default():
     # 用户可在菜单编辑器自行加回），resolve 后被过滤，不出现在渲染结果里。
     assert all(
         item not in {node.get("id") for node in result.nodes}
-        for item in ("voice_chime_now", "voice_chime_toggle", "festival_now", "festival_toggle")
+        for item in ("festival_now", "festival_toggle")
     )
 
 
@@ -447,7 +441,7 @@ def test_unknown_schema_uses_safe_fallback_with_migration_diagnostic():
         {
             "schema_version": 99,
             "layout_id": "future",
-            "nodes": [{"type": "action", "id": "chat", "visible": True}],
+            "nodes": [{"type": "action", "id": "modern_settings", "visible": True}],
         },
         registered_actions={"chat", "modern_settings", "quit"},
         available_actions={"chat", "modern_settings", "quit"},
@@ -475,7 +469,6 @@ def test_default_layout_populates_real_qmenu_hierarchy(monkeypatch):
             "character": "shenshen",
             "on_top": True,
             "agent_link": {},
-            "music_lyric_enabled": True,
         }
 
         def get(self, key, default=None):
@@ -521,7 +514,8 @@ def test_default_layout_populates_real_qmenu_hierarchy(monkeypatch):
         "播放速率",
         "大小",
         "桌宠控制",
-        "快捷启动",
+        "快捷应用",
+        "快捷网址",
         "Agent 联动",
         "待办提醒",
         "桌宠设置",
@@ -533,7 +527,7 @@ def test_default_layout_populates_real_qmenu_hierarchy(monkeypatch):
     expected_rendered = [
         "厉害了我的鲸", "|",
         "播放动画", "切换角色", "播放速率", "大小", "|",
-        "桌宠控制", "快捷启动", "|",
+        "桌宠控制", "快捷应用", "快捷网址", "|",
         "Agent 联动", "待办提醒", "|",
         "桌宠设置", "退出",
     ]
@@ -546,7 +540,6 @@ def test_default_layout_populates_real_qmenu_hierarchy(monkeypatch):
         "窗口置顶",
         "开机自启",
         "回到右下角",
-        "隐藏桌宠",
         "生小肥鱼",
         "退出子肥鱼",
         "黄金回旋",
@@ -568,7 +561,7 @@ def test_settings_menu_editor_commits_visibility_draft(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
     config = Config(tmp_path)
-    dialog = ModernSettingsDialog(config, include_ai=False)
+    dialog = ModernSettingsDialog(config)
 
     sidebar_labels = [dialog.sidebar.item(i).text() for i in range(dialog.sidebar.count())]
     assert "菜单" in sidebar_labels
@@ -597,7 +590,7 @@ def test_settings_menu_editor_moves_action_into_submenu_without_dragging(tmp_pat
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     editor = dialog.menu_layout_editor
     editor.tree.setCurrentItem(editor.item_for_action("playback_speed"))
     editor.move_menu.aboutToShow.emit()
@@ -666,7 +659,7 @@ def test_settings_menu_editor_creates_named_submenu(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
     monkeypatch.setattr(QInputDialog, "getText", lambda *args, **kwargs: ("常用操作", True))
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = ModernSettingsDialog(Config(tmp_path))
 
     dialog.menu_layout_editor.new_submenu_action.trigger()
 
@@ -790,7 +783,7 @@ def test_user_layout_rejects_nested_submenus_beyond_one_level():
                     "label": "内层",
                     "visible": True,
                     "children": [
-                        {"type": "action", "id": "chat", "visible": True}
+                        {"type": "action", "id": "modern_settings", "visible": True}
                     ],
                 }],
             }],
@@ -813,25 +806,19 @@ def test_settings_sidebar_uses_stable_domains_and_owns_representative_rows(tmp_p
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    expected = ["常规", "桌宠", "互动", "菜单", "AI 与对话", "自动化与联动", "语音"]
+    dialog = ModernSettingsDialog(Config(tmp_path))
+    expected = ["常规", "桌宠", "互动", "菜单", "自动化与联动"]
     assert [dialog.sidebar.item(i).text() for i in range(dialog.sidebar.count())] == expected
 
     def owner(setting_id):
         row = dialog.findChild(SettingRow, f"settingRow_{setting_id}")
         return next(expected[index] for index in range(dialog.pages.count()) if dialog.pages.widget(index).isAncestorOf(row))
 
-    assert owner("click_sound") == "互动"
-    # 台词自动预缓存必须留在「互动」域的「点击反馈」组：它的 setting_id 用 click_
-    # 前缀才会被 claim_prefix("click_") 认领，否则掉进「待分类（开发期）」——这正是
-    # 本功能第一版踩过的坑（全量测试因此红了一条）。
-    assert owner("click_self_talk_precache") == "互动"
-    # 配图概率属于「自言自语」组（必须是显式 claim 的成员，否则掉进「待分类」）。
+    assert owner("click_self_talk") == "互动"
     assert owner("self_talk_image_chance") == "互动"
     assert owner("menu_theme") == "菜单"
     assert owner("quick_launch_apps") == "菜单"
-    assert owner("api_url") == "AI 与对话"
-    assert owner("voice_chime_enabled") == "语音"
+    assert owner("festival_reminder_enabled") == "自动化与联动"
     assert "待分类（开发期）" not in [
         label.text() for label in dialog.findChildren(settings_mod.QLabel)
     ]
@@ -839,74 +826,8 @@ def test_settings_sidebar_uses_stable_domains_and_owns_representative_rows(tmp_p
     app.processEvents()
 
 
-def test_voice_chime_rows_live_only_in_their_own_sidebar_domain(tmp_path, monkeypatch):
-    """「语音报时」自 2026-09-17 起收在「语音」总域：voice_chime_* 行只落在该域，
-    automation 页不再持有。
-
-    历史事故：设置页里没包进 SettingRow 的控件不会被域收集机制搬运，页面移出
-    pages 后直接消失——这里把「立即试听」按钮所在行也一起断言。
-    """
-    from PySide6.QtWidgets import QApplication
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog, SettingRow
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    try:
-        labels = [dialog.sidebar.item(i).text() for i in range(dialog.sidebar.count())]
-        assert "语音" in labels
-        chime_page = dialog.pages.widget(labels.index("语音"))
-        automation_page = dialog.pages.widget(labels.index("自动化与联动"))
-
-        rows = [
-            row for row in dialog.findChildren(SettingRow)
-            if row.objectName().startswith("settingRow_voice_chime_")
-        ]
-        assert rows, "语音报时设置行必须存在"
-        for row in rows:
-            assert chime_page.isAncestorOf(row), f"{row.objectName()} 不在「语音」域"
-            assert not automation_page.isAncestorOf(row), (
-                f"{row.objectName()} 仍残留在「自动化与联动」域"
-            )
-
-        preview_row = dialog.findChild(SettingRow, "settingRow_voice_chime_preview")
-        assert preview_row is not None, "「立即试听」必须在 SettingRow 内才不会被域收集漏掉"
-        assert chime_page.isAncestorOf(preview_row)
-        assert chime_page.isAncestorOf(dialog.voice_chime_page.preview_btn)
-        assert dialog.voice_chime_page.preview_btn.isVisibleTo(chime_page), (
-            "试听按钮在新域里必须可见（历史事故：打包版不可见）"
-        )
-        previews: list[str] = []
-        dialog.voice_chime_page.preview_requested.connect(previews.append)
-        dialog.voice_chime_page.preview_btn.click()
-        assert previews == [""], "搬家后「立即试听」仍须照常发信号（功能不变）"
-    finally:
-        dialog.reject()
-        app.processEvents()
 
 
-def test_voice_chime_search_jumps_to_its_own_sidebar_domain(tmp_path, monkeypatch):
-    """搜索命中语音报时行时，侧边栏应跳到「语音」总域。"""
-    from PySide6.QtWidgets import QApplication
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    try:
-        dialog.search_edit.setText("报时频率")
-        app.processEvents()
-        assert dialog.sidebar.currentItem().text() == "语音"
-        assert dialog.search_status.text() == "1/1 · 报时频率"
-    finally:
-        dialog.reject()
-        app.processEvents()
 
 
 def _section_of(dialog, settings_mod, setting_id):
@@ -932,201 +853,15 @@ def _section_title(section) -> str:
     return label.text()
 
 
-def test_voice_domain_owns_only_tts_rows(tmp_path, monkeypatch):
-    """「语音」域按 2026-09-17 定稿口径只收鱼开口说话（TTS）类设置：
-    语音报时组 + 节日提醒组（节日提醒原在「自动化与联动」域，但带 speak/TTS 播报）。
-
-    音效类不属此域：点击音效回「互动 · 点击反馈」、碰撞音效回「桌宠」碰撞组
-    （见下面两个用例），Agent 提示音效仍留在 Agent 联动折叠框。
-    """
-    from PySide6.QtWidgets import QApplication
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog, SettingRow
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    try:
-        labels = [dialog.sidebar.item(i).text() for i in range(dialog.sidebar.count())]
-        voice_page = dialog.pages.widget(labels.index("语音"))
-        automation_page = dialog.pages.widget(labels.index("自动化与联动"))
-
-        all_rows = dialog.findChildren(SettingRow)
-        chime_rows = [r for r in all_rows if r.objectName().startswith("settingRow_voice_chime_")]
-        festival_rows = [r for r in all_rows if r.objectName().startswith("settingRow_festival")]
-        # 语音报时页实测 12 行（基础设置 3 + 语音 7 + 台词/歌词 2）：锁「整组都在、
-        # 一个不漏」，行本身不动，只是被域收集机制 reparent 进「语音」域。
-        assert len(chime_rows) == 12, "语音报时整组 12 行都必须在「语音」域"
-        assert len(festival_rows) == 12, "节日提醒 12 行整体移入「语音」域"
-        for item in chime_rows + festival_rows:
-            assert voice_page.isAncestorOf(item), f"{item.objectName()} 必须在「语音」域"
-            assert not automation_page.isAncestorOf(item), (
-                f"{item.objectName()} 仍残留在「自动化与联动」域"
-            )
-
-        section_titles = [
-            label.text()
-            for label in voice_page.findChildren(settings_mod.QLabel, "sectionTitle")
-        ]
-        assert section_titles == ["语音报时", "节日提醒"]
-
-        # 音效类三组都不在「语音」域（各自回原功能分组，行本身仍照常存在）。
-        for setting_id in (
-            "click_sound",
-            "click_sound_pack",
-            "click_sound_volume",
-            "click_sound_preview",
-            "collision_sound_enabled",
-            "collision_sound_volume",
-        ):
-            voice_row = dialog.findChild(SettingRow, f"settingRow_{setting_id}")
-            assert voice_row is not None, f"{setting_id} 行必须存在"
-            assert not voice_page.isAncestorOf(voice_row), (
-                f"{setting_id} 是音效类，不该落在「语音」域"
-            )
-        assert "待分类（开发期）" not in [
-            label.text() for label in dialog.findChildren(settings_mod.QLabel)
-        ]
-    finally:
-        dialog.reject()
-        app.processEvents()
 
 
-def test_click_sound_rows_return_to_interaction_click_feedback(tmp_path, monkeypatch):
-    """点击音效 4 行回「互动 · 点击反馈」，且保持原有行顺序（在 click_self_talk 之前）。
-
-    整组走 click_ 前缀认领（与 HEAD 一致，本批未动认领规则本身）；域归属必须
-    唯一——不能同时被「语音」域或「待分类（开发期）」收走。
-    """
-    from PySide6.QtWidgets import QApplication
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    try:
-        labels = [dialog.sidebar.item(i).text() for i in range(dialog.sidebar.count())]
-        interaction_page = dialog.pages.widget(labels.index("互动"))
-        voice_page = dialog.pages.widget(labels.index("语音"))
-
-        section = _section_of(dialog, settings_mod, "click_sound")
-        assert _section_title(section) == "点击反馈"
-        assert interaction_page.isAncestorOf(section)
-        names = [r.objectName() for r in section.rows]
-        assert names[:4] == [
-            "settingRow_click_sound",
-            "settingRow_click_sound_pack",
-            "settingRow_click_sound_volume",
-            "settingRow_click_sound_preview",
-        ], "点击音效 4 行必须整组回到「点击反馈」且保持原顺序"
-        assert names.index("settingRow_click_self_talk") > 3, (
-            "点击音效 4 行原本排在 click_self_talk 之前"
-        )
-        # click_ 前缀里另有余额 / 点击台词绑定，同样留在「互动」。
-        for setting_id in ("click_talk_bindings",):
-            keep_row = dialog.findChild(settings_mod.SettingRow, f"settingRow_{setting_id}")
-            assert keep_row is not None, f"{setting_id} 行必须存在"
-            assert interaction_page.isAncestorOf(keep_row), f"{setting_id} 必须留在「互动」域"
-        for item in section.rows:
-            assert not voice_page.isAncestorOf(item), f"{item.objectName()} 不该落在「语音」域"
-    finally:
-        dialog.reject()
-        app.processEvents()
 
 
-def test_collision_sound_rows_return_to_pet_collision_groups(tmp_path, monkeypatch):
-    """碰撞音效 2 行回「桌宠」：开关紧随碰撞开关（多开碰撞组），音量随物理参数进
-    「碰撞参数（高级）」；「语音」域不再持有。"""
-    from PySide6.QtWidgets import QApplication
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    try:
-        labels = [dialog.sidebar.item(i).text() for i in range(dialog.sidebar.count())]
-        pet_page = dialog.pages.widget(labels.index("桌宠"))
-        voice_page = dialog.pages.widget(labels.index("语音"))
-
-        primary = _section_of(dialog, settings_mod, "collision_sound_enabled")
-        assert _section_title(primary) == "多开碰撞"
-        assert pet_page.isAncestorOf(primary)
-        assert [r.objectName() for r in primary.rows] == [
-            "settingRow_collision_enabled",
-            "settingRow_collision_sound_enabled",
-        ], "碰撞音效开关必须紧跟在碰撞开关之后"
-
-        advanced = _section_of(dialog, settings_mod, "collision_sound_volume")
-        assert _section_title(advanced) == "碰撞参数（高级）"
-        assert advanced.toggle is not None, "碰撞参数是高级折叠组"
-        assert "settingRow_collision_sound_volume" in [
-            r.objectName() for r in advanced.rows
-        ]
-
-        for setting_id in ("collision_sound_enabled", "collision_sound_volume"):
-            item = dialog.findChild(settings_mod.SettingRow, f"settingRow_{setting_id}")
-            assert item is not None, f"{setting_id} 行必须存在"
-            assert pet_page.isAncestorOf(item)
-            assert not voice_page.isAncestorOf(item), f"{setting_id} 不该落在「语音」域"
-    finally:
-        dialog.reject()
-        app.processEvents()
 
 
-def test_agent_sound_rows_stay_in_agent_link_fold(tmp_path, monkeypatch):
-    """Agent 提示音效 6 行按主人拍板留在「自动化与联动」的 Agent 联动折叠框内，
-    不随「语音」域搬家。"""
-    from PySide6.QtWidgets import QApplication
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog, SettingRow
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    try:
-        labels = [dialog.sidebar.item(i).text() for i in range(dialog.sidebar.count())]
-        voice_page = dialog.pages.widget(labels.index("语音"))
-        automation_page = dialog.pages.widget(labels.index("自动化与联动"))
-        group_titles = [
-            section.findChild(settings_mod.QLabel, "sectionTitle").text()
-            for section in dialog.agent_link_box.groups
-        ]
-        assert "提示音效" in group_titles
-        for setting_id in (
-            "agent_sound_enabled",
-            "agent_sound_start",
-            "agent_sound_done",
-            "agent_sound_error",
-            "agent_sound_volume",
-            "agent_sound_cooldown",
-        ):
-            row = dialog.findChild(SettingRow, f"settingRow_{setting_id}")
-            assert row is not None, f"{setting_id} 行必须存在"
-            assert dialog.agent_link_box.isAncestorOf(row), (
-                f"{setting_id} 必须留在 Agent 联动折叠框内"
-            )
-            assert automation_page.isAncestorOf(row), (
-                f"{setting_id} 必须留在「自动化与联动」域"
-            )
-            assert not voice_page.isAncestorOf(row), (
-                f"{setting_id} 不应被「语音」域收走"
-            )
-    finally:
-        dialog.reject()
-        app.processEvents()
 
 
-def test_sound_and_festival_search_jump_to_owning_domains(tmp_path, monkeypatch):
+def test_click_and_festival_search_jump_to_owning_domains(tmp_path, monkeypatch):
     """搜索按「语音」定稿口径跳域：点击音效 → 互动、碰撞音效 → 桌宠、
     节日提醒 / 语音报时 → 语音、Agent 提示音 → 自动化与联动。"""
     from PySide6.QtWidgets import QApplication
@@ -1137,21 +872,13 @@ def test_sound_and_festival_search_jump_to_owning_domains(tmp_path, monkeypatch)
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     try:
         # (查询词, 应跳到的域, 命中行是否应可见)：只有「碰撞参数（高级）」里的行
         # 藏在默认收起的 disclosure 后面（搜索不展开 disclosure），其余行可见。
         cases = (
-            ("点击音效", "互动", True),
-            ("音效音源", "互动", True),
-            ("试听音效", "互动", True),
-            ("click_sound_volume", "互动", True),
-            ("碰撞音效", "桌宠", True),
-            ("碰撞音量", "桌宠", False),
-            ("报时频率", "语音", True),
-            ("节日提醒", "语音", True),
-            ("立即试听", "语音", True),
-            ("agent_sound_enabled", "自动化与联动", True),
+            ("点击触发自言自语", "互动", True),
+            ("节日提醒", "自动化与联动", True),
         )
         for query, domain, should_be_visible in cases:
             dialog.search_edit.setText(query)
@@ -1180,20 +907,22 @@ def test_menu_domain_uses_in_page_task_tabs_without_changing_sidebar(tmp_path, m
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
 
-    expected_sidebar = ["常规", "桌宠", "互动", "菜单", "AI 与对话", "自动化与联动", "语音"]
+    expected_sidebar = ["常规", "桌宠", "互动", "菜单", "自动化与联动"]
     assert [dialog.sidebar.item(i).text() for i in range(dialog.sidebar.count())] == expected_sidebar
     tabs = dialog.pages.widget(3).findChild(SettingsTabContainer, "settingsTaskTabs")
     assert tabs is not None
-    assert tabs.keys() == ("layout", "launcher", "appearance")
-    assert tabs.labels() == ("菜单编排", "快捷启动", "外观")
+    assert tabs.keys() == ("layout", "launcher", "quick_urls", "appearance")
+    assert tabs.labels() == ("菜单编排", "快捷应用", "快捷网址", "外观")
 
     layout_row = dialog.findChild(SettingRow, "settingRow_context_menu_layout")
     launcher_row = dialog.findChild(SettingRow, "settingRow_quick_launch_apps")
+    quick_urls_row = dialog.findChild(SettingRow, "settingRow_quick_urls")
     appearance_row = dialog.findChild(SettingRow, "settingRow_menu_theme")
     assert tabs.key_for_descendant(layout_row) == "layout"
     assert tabs.key_for_descendant(launcher_row) == "launcher"
+    assert tabs.key_for_descendant(quick_urls_row) == "quick_urls"
     assert tabs.key_for_descendant(appearance_row) == "appearance"
 
     dialog.search_edit.setText("应用快捷启动")
@@ -1213,7 +942,7 @@ def test_runtime_toggles_refresh_menu_status_without_rewriting_tree(tmp_path, mo
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     before = dialog.menu_layout_editor.value()["nodes"]
 
     dialog.egg_enabled_check.setChecked(False)
@@ -1241,7 +970,7 @@ def test_advanced_setting_groups_use_single_collapsed_disclosure_layer(tmp_path,
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
 
     color_toggle = next(
         button for button in dialog.findChildren(SettingsDisclosureHeader)
@@ -1261,28 +990,6 @@ def test_advanced_setting_groups_use_single_collapsed_disclosure_layer(tmp_path,
     app.processEvents()
 
 
-def test_ai_settings_content_expands_to_the_shared_page_width(tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QApplication
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    dialog.resize(1100, 760)
-    ai_index = next(i for i in range(dialog.sidebar.count()) if dialog.sidebar.item(i).text() == "AI 与对话")
-    dialog.sidebar.setCurrentRow(ai_index)
-    dialog.show()
-    app.processEvents()
-
-    ai_domain = dialog.findChild(settings_mod.QWidget, "settingsDomain_ai")
-    assert ai_domain is not None
-    assert ai_domain.width() >= ai_domain.parentWidget().width() - 2
-    assert not dialog.ai_page.isVisible()
-    dialog.reject()
-    app.processEvents()
 
 
 def test_settings_visual_hierarchy_uses_shared_product_tokens(tmp_path, monkeypatch):
@@ -1295,7 +1002,7 @@ def test_settings_visual_hierarchy_uses_shared_product_tokens(tmp_path, monkeypa
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     dialog.show()
     app.processEvents()
 
@@ -1325,7 +1032,7 @@ def test_wide_settings_title_tracks_the_centered_page_content(tmp_path, monkeypa
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     dialog.resize(1600, 900)
     dialog.show()
     app.processEvents()
@@ -1352,7 +1059,7 @@ def test_setting_rows_name_and_describe_their_controls_for_accessibility(tmp_pat
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     row = dialog.findChild(SettingRow, "settingRow_animation_gap")
 
     assert row.label.buddy() is row.control
@@ -1395,50 +1102,6 @@ def test_setting_row_stacks_a_wide_control_before_copy_becomes_unreadable():
     app.processEvents()
 
 
-def test_compact_ai_provider_controls_stay_inside_their_setting_row(tmp_path, monkeypatch):
-    from PySide6.QtCore import QPoint
-    from PySide6.QtWidgets import QApplication, QScrollArea
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog, SettingRow
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
-    dialog.resize(720, 760)
-    ai_index = next(i for i in range(dialog.sidebar.count()) if dialog.sidebar.item(i).text() == "AI 与对话")
-    dialog.sidebar.setCurrentRow(ai_index)
-    for control in (
-        dialog.ai_page.provider_combo,
-        dialog.ai_page.add_provider_btn,
-        dialog.ai_page.delete_provider_btn,
-    ):
-        font = control.font()
-        font.setPixelSize(17)
-        control.setFont(font)
-    dialog.ai_page.add_provider_btn.setText("添加新的 Provider")
-    dialog.ai_page.delete_provider_btn.setText("删除当前 Provider")
-    dialog.show()
-    dialog.resize(721, 760)
-    app.processEvents()
-    dialog.resize(720, 760)
-    app.processEvents()
-
-    row = dialog.findChild(SettingRow, "settingRow_provider_list")
-    provider_controls = dialog.ai_page.provider_combo.parentWidget()
-    left = provider_controls.mapTo(row, QPoint(0, 0)).x()
-    assert left >= 16
-    assert left + provider_controls.width() <= row.width() - 16
-    scroll = row.parentWidget()
-    while scroll is not None and not isinstance(scroll, QScrollArea):
-        scroll = scroll.parentWidget()
-    assert scroll is not None
-    row_left = row.mapTo(scroll.viewport(), QPoint(0, 0)).x()
-    assert row_left >= 0
-    assert row_left + row.width() <= scroll.viewport().width()
-    dialog.reject()
-    app.processEvents()
 
 
 def test_responsive_action_row_can_stack_wide_actions_vertically():
@@ -1491,56 +1154,6 @@ def test_responsive_action_row_inline_mode_does_not_reserve_compact_height():
     app.processEvents()
 
 
-def test_compact_agent_sound_controls_reflow_inside_their_setting_row(tmp_path, monkeypatch):
-    from PySide6.QtCore import QPoint
-    from PySide6.QtWidgets import QApplication, QScrollArea
-
-    from pet import modern_settings_dialog as settings_mod
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog, SettingRow
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=False)
-    dialog.agent_sound_check.setChecked(True)
-    dialog.resize(720, 760)
-    automation_index = next(
-        index for index in range(dialog.sidebar.count())
-        if dialog.sidebar.item(index).text() == "自动化与联动"
-    )
-    dialog.sidebar.setCurrentRow(automation_index)
-    for control in (
-        dialog.agent_sound_start_picker,
-        dialog.agent_sound_start_preview,
-    ):
-        font = control.font()
-        font.setPixelSize(17)
-        control.setFont(font)
-    dialog.show()
-    dialog.resize(721, 760)
-    app.processEvents()
-    dialog.resize(720, 760)
-    app.processEvents()
-
-    row = dialog.findChild(SettingRow, "settingRow_agent_sound_start")
-    for control in (
-        dialog.agent_sound_start_check,
-        dialog.agent_sound_start_picker,
-        dialog.agent_sound_start_preview,
-    ):
-        left = control.mapTo(row, QPoint(0, 0)).x()
-        assert left >= 16
-        assert left + control.width() <= row.width() - 16
-    assert dialog.agent_sound_start_widget.property("responsiveStacked") is True
-    scroll = row.parentWidget()
-    while scroll is not None and not isinstance(scroll, QScrollArea):
-        scroll = scroll.parentWidget()
-    assert scroll is not None
-    row_left = row.mapTo(scroll.viewport(), QPoint(0, 0)).x()
-    assert row_left >= 0
-    assert row_left + row.width() <= scroll.viewport().width()
-    dialog.reject()
-    app.processEvents()
 
 
 def test_settings_domains_use_semantic_sidebar_icons():
@@ -1551,9 +1164,7 @@ def test_settings_domains_use_semantic_sidebar_icons():
         ("桌宠", "pet"),
         ("互动", "interaction"),
         ("菜单", "application"),
-        ("AI 与对话", "chat"),
         ("自动化与联动", "automation"),
-        ("语音", "sound"),
     )
 
 
@@ -1568,7 +1179,7 @@ def test_settings_menu_page_persists_legacy_compatibility_mode(tmp_path, monkeyp
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
     cfg = Config(tmp_path)
     cfg.set("context_menu_template", "legacy")
-    dialog = ModernSettingsDialog(cfg, include_ai=False)
+    dialog = ModernSettingsDialog(cfg)
 
     dialog.save_exit_button.click()
 
@@ -1585,7 +1196,7 @@ def test_saving_unchanged_default_menu_keeps_layout_override_empty(tmp_path, mon
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = ModernSettingsDialog(Config(tmp_path))
 
     dialog.save_exit_button.click()
 
@@ -1623,7 +1234,7 @@ def test_menu_preview_uses_resolver_and_omits_empty_submenu(tmp_path, monkeypatc
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     editor = dialog.menu_layout_editor
     controls = next(
         editor.tree.topLevelItem(i)
@@ -1818,7 +1429,7 @@ def test_wide_menu_editor_expands_and_groups_commands_into_dropdowns(tmp_path, m
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     menu_index = next(
         index for index in range(dialog.sidebar.count())
         if dialog.sidebar.item(index).text() == "菜单"
@@ -1893,7 +1504,7 @@ def test_non_windows_settings_does_not_create_orphan_windows_control(tmp_path, m
         return
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
 
     assert dialog.cursor_hidden_passthrough_check is None
     dialog.reject()
@@ -1910,7 +1521,7 @@ def test_compact_settings_menu_action_bar_fits_scroll_viewport(tmp_path, monkeyp
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=True)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     dialog.sidebar.setCurrentRow(3)
     dialog.resize(1100, 700)
     dialog.show()
@@ -1958,7 +1569,7 @@ def test_menu_editor_retains_but_marks_platform_unavailable_action(tmp_path, mon
         "layout_id": "test-platform",
         "nodes": [{"type": "action", "id": "proactive_screen", "visible": True}],
     })
-    dialog = ModernSettingsDialog(cfg, include_ai=True)
+    dialog = ModernSettingsDialog(cfg)
     item = dialog.menu_layout_editor.item_for_action("proactive_screen")
 
     assert item is not None
@@ -1982,7 +1593,7 @@ def test_menu_editor_keeps_recovery_actions_visible_but_movable(tmp_path, monkey
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     for action_id in ("modern_settings", "quit"):
         item = dialog.menu_layout_editor.item_for_action(action_id)
         assert item.checkState(0) == Qt.CheckState.Checked
@@ -2045,18 +1656,19 @@ def test_removed_action_is_ignored_with_migration_diagnostic():
             "layout_id": "user",
             "nodes": [
                 {"type": "action", "id": "retired_action", "visible": True},
-                {"type": "action", "id": "chat", "visible": True},
+                {"type": "action", "id": "quick_launch", "visible": True},
                 {"type": "action", "id": "modern_settings", "visible": True},
                 {"type": "action", "id": "quit", "visible": True},
             ],
         },
-        registered_actions={"chat", "modern_settings", "quit"},
-        available_actions={"chat", "modern_settings", "quit"},
+        registered_actions={"quick_launch", "modern_settings", "quit"},
+        available_actions={"quick_launch", "modern_settings", "quit"},
     )
 
     assert result.source == "normalized"
     assert result.diagnostics == ("unknown-action:retired_action",)
-    assert [node["id"] for node in result.nodes] == ["chat", "modern_settings", "quit"]
+    assert [node["id"] for node in result.nodes] == ["quick_launch", "modern_settings", "quit"]
+
 
 
 def test_user_layout_gains_future_default_action_without_losing_custom_order(
@@ -2145,8 +1757,8 @@ def test_menu_editor_exposes_future_default_action_for_customization(monkeypatch
             "schema_version": 1,
             "layout_id": "modern-default-v1",
             "nodes": [
-                {"type": "action", "id": "chat", "visible": True},
-                {"type": "action", "id": "look_screen", "visible": True},
+                {"type": "action", "id": "quick_launch", "visible": True},
+                {"type": "action", "id": "agent_link", "visible": True},
                 {"type": "action", "id": "modern_settings", "visible": True},
                 {"type": "action", "id": "quit", "visible": True},
             ],
@@ -2158,23 +1770,24 @@ def test_menu_editor_exposes_future_default_action_for_customization(monkeypatch
             "schema_version": 1,
             "layout_id": "user",
             "nodes": [
-                {"type": "action", "id": "chat", "visible": True},
+                {"type": "action", "id": "quick_launch", "visible": True},
                 {"type": "action", "id": "modern_settings", "visible": True},
                 {"type": "action", "id": "quit", "visible": True},
             ],
         },
-        available_actions={"chat", "look_screen", "modern_settings", "quit"},
+        available_actions={"quick_launch", "agent_link", "modern_settings", "quit"},
     )
 
-    assert editor.item_for_action("look_screen") is not None
+    assert editor.item_for_action("agent_link") is not None
     assert [node["id"] for node in editor.value()["nodes"]] == [
-        "chat",
-        "look_screen",
+        "quick_launch",
+        "agent_link",
         "modern_settings",
         "quit",
     ]
     editor.close()
     app.processEvents()
+
 
 
 def test_settings_rejects_invalid_nested_menu_draft_before_writing(tmp_path, monkeypatch):
@@ -2189,7 +1802,7 @@ def test_settings_rejects_invalid_nested_menu_draft_before_writing(tmp_path, mon
     monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
     warnings = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *args: warnings.append(args[2]))
-    dialog = ModernSettingsDialog(Config(tmp_path), include_ai=False)
+    dialog = ModernSettingsDialog(Config(tmp_path))
     outer = next(
         dialog.menu_layout_editor.tree.topLevelItem(i)
         for i in range(dialog.menu_layout_editor.tree.topLevelItemCount())
@@ -2402,7 +2015,7 @@ def test_alias_keeps_original_name_in_editor_but_runtime_uses_alias_only():
     app.processEvents()
     editor.set_item_alias("quick_launch", "我的启动器")
     item = editor.item_for_action("quick_launch")
-    assert item.text(0) == "我的启动器（快捷启动）"
+    assert item.text(0) == "我的启动器（快捷应用）"
     assert editor.tree.header().sectionSize(0) > editor.tree.header().sectionSize(2)
     preview = [
         editor.preview.topLevelItem(index).text(0)
@@ -2494,83 +2107,6 @@ def test_pending_preview_refresh_is_cancelled_when_editor_destroyed():
     app.processEvents()  # 不得抛 RuntimeError（旧实现此处必红）
 
 
-def test_music_align_ready_and_callback_routing(monkeypatch):
-    """「歌词对齐」的可用性判定与回调路由。
-
-    实测依据（2026-09-21）：网易云音乐不上报播放进度 → 位置只能本地估算 →
-    快进后必须手动对齐；而报了进度的播放器（Chrome / QQ 音乐）位置本来就跟着
-    走，此时必须置灰（否则手动对齐会与真值打架）。
-    """
-    from PySide6.QtCore import QObject
-    from PySide6.QtWidgets import QApplication
-
-    from pet.context_menus import registry as registry_mod
-    from pet.context_menus import shared as shared_mod
-    from pet.music_lyric import LyricLine
-    from pet.music_lyric_controller import MusicLyricController
-
-    app = QApplication.instance() or QApplication([])
-
-    class Win(QObject):
-        _alert_current = None
-        _sticky_bubble_active = False
-        _speech_bubble = None
-
-        def isVisible(self):
-            return True
-
-        def show_bubble(self, *args, **kwargs):
-            return None
-
-        def hold_bubble(self, *args, **kwargs):
-            return None
-
-    class Cfg:
-        def get(self, key, default=None):
-            return default
-
-    class Pet:
-        cfg = Cfg()
-
-    ctrl = MusicLyricController(Win())
-    ctrl._tracker.load(
-        [LyricLine(0.0, "A"), LyricLine(5.0, "B")], now=0.0, position=None,
-    )
-    pet = Pet()
-    pet._music_lyric = ctrl
-    assert registry_mod._music_align_ready(pet) is True     # 本地时钟 + 有词
-
-    # 报进度的播放器：位置本就跟着快进走，不该提供手动对齐
-    ctrl._tracker.position(0.0, reported=1.0)
-    assert registry_mod._music_align_ready(pet) is False
-
-    # 宿主 __getattr__ 兜底返回可调用对象时，不能把它当成控制器
-    class Loose:
-        cfg = Cfg()
-
-        def __getattr__(self, name):
-            return lambda *args, **kwargs: None
-
-    assert registry_mod._music_align_ready(Loose()) is False
-
-    # 五个手柄各自路由到控制器对应方法
-    calls: list = []
-    monkeypatch.setattr(ctrl, "resync_to_start", lambda: calls.append("start") or True)
-    monkeypatch.setattr(
-        ctrl, "resync_to_line", lambda d: calls.append(("line", d)) or True,
-    )
-    monkeypatch.setattr(ctrl, "nudge", lambda s: calls.append(("nudge", s)) or True)
-
-    for kind in ("start", "prev", "next", "back5", "fwd5"):
-        assert shared_mod._align_lyric(pet, kind) is True
-    assert calls == [
-        "start", ("line", -1), ("line", 1), ("nudge", -5.0), ("nudge", 5.0),
-    ]
-    assert shared_mod._align_lyric(pet, "不存在的动作") is False
-    ctrl.shutdown()
-    app.processEvents()
-
-
 class _ToggleCfg:
     def __init__(self, values: dict):
         self._values = dict(values)
@@ -2583,19 +2119,14 @@ class _TogglePet:
     def __init__(self, values: dict | None = None, with_cfg: bool = True):
         if with_cfg:
             self.cfg = _ToggleCfg(values or {})
-        self.voice_calls = 0
         self.festival_calls = 0
 
-    def on_toggle_voice_chime(self):
-        self.voice_calls += 1
 
     def on_toggle_festival(self):
         self.festival_calls += 1
 
 
 @pytest.mark.parametrize("action_id,key,caller,on_label,off_label", [
-    ("voice_chime_toggle", "voice_chime_enabled", "voice_calls",
-     "关闭语音报时", "启用语音报时"),
     ("festival_toggle", "festival_reminder_enabled", "festival_calls",
      "关闭节日提醒", "启用节日提醒"),
 ])
@@ -2631,24 +2162,12 @@ def test_flag_toggle_spec_tolerates_missing_config():
     from pet.context_menus import registry as registry_mod
 
     app = QApplication.instance() or QApplication([])
-    spec = registry_mod.MENU_ACTIONS._specs["voice_chime_toggle"]
+    spec = registry_mod.MENU_ACTIONS._specs["festival_toggle"]
     pet = _TogglePet(with_cfg=False)
     menu = QMenu()
     action = spec.build(menu, pet)
-    assert action.text() == "启用语音报时"
+    assert action.text() == "启用节日提醒"
     action.trigger()
-    assert pet.voice_calls == 1
+    assert pet.festival_calls == 1
     menu.close()
     app.processEvents()
-
-
-def test_two_toggles_share_one_factory():
-    """两个开关必须由同一工厂产出（防回潮：各自再抄一份同构实现）。"""
-    from pet.context_menus import registry as registry_mod
-
-    for builder in (registry_mod._build_voice_chime_toggle,
-                    registry_mod._build_festival_toggle):
-        assert builder.__qualname__.startswith("_flag_toggle_spec.<locals>"), (
-            f"{builder.__qualname__} 必须来自 _flag_toggle_spec 工厂"
-        )
-

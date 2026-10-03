@@ -15,7 +15,7 @@ import sys
 import time
 import re
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import BinaryIO
 
 from . import catalog
 from .config import _bool_or_default
@@ -285,14 +285,8 @@ def seed_slot_config_from_main(config_dir: Path | str, slot_id: int) -> bool:
         island["enabled"] = bool(inherit_island)
     else:
         seed["dynamic_island"] = {"enabled": bool(inherit_island)}
-    chat = seed.get("chat")
-    if isinstance(chat, dict):
-        providers = chat.get("providers")
-        if isinstance(providers, dict):
-            for provider in providers.values():
-                if isinstance(provider, dict):
-                    provider.pop("api_key", None)
-                    provider.pop("vision_api_key", None)
+    from .config import Config
+    Config._clean_retired_data(seed)
     # 落种/刷新永不写位置键：剔除从主配置继承的位置键，再还原本 slot 自存的位置。
     for key in _SEED_EXCLUDE_KEYS:
         seed.pop(key, None)
@@ -474,19 +468,15 @@ def migrate_legacy_spawns(config_dir: Path | str) -> bool:
         staged_cfg = staging_dir / target_cfg.name
         staged_sessions = staging_dir / target_sessions.name if old_sessions.is_dir() else None
 
-        step = 0  # 0: 未动, 1: old->staging, 2: staged_cfg->target_cfg, 3: staged_sessions->target_sessions
         try:
             shutil.move(str(old_cfg), str(staged_cfg))
             if staged_sessions and old_sessions.is_dir():
                 shutil.move(str(old_sessions), str(staged_sessions))
-            step = 1
 
             shutil.move(str(staged_cfg), str(target_cfg))
-            step = 2
 
             if staged_sessions and staged_sessions.exists():
                 shutil.move(str(staged_sessions), str(target_sessions))
-                step = 3
 
             slot_idx += 1
         except Exception as exc:

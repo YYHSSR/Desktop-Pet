@@ -452,6 +452,8 @@ class MovieLibrary(QObject):
             ]
             for t in threads:
                 t.start()
+            for t in threads:
+                t.join()
         def _warm_clip(c: object) -> None:
             c.warm_meta()
             if include_frames and not self._warm_paused:

@@ -74,12 +74,11 @@ class _AutoCloseDialog(QDialog):
 
     captured: dict = {}
 
-    def __init__(self, config, parent=None, *, include_ai=True, standalone=False):
+    def __init__(self, config, parent=None, *, standalone=False):
         super().__init__(parent)
         type(self).captured = {
             "config": config,
             "parent": parent,
-            "include_ai": include_ai,
             "standalone": standalone,
         }
 
@@ -106,7 +105,6 @@ def test_exec_settings_builds_standalone_dialog(tmp_path, monkeypatch):
         app.setQuitOnLastWindowClosed(previous)
     assert _AutoCloseDialog.captured["standalone"] is True
     assert _AutoCloseDialog.captured["parent"] is None
-    assert _AutoCloseDialog.captured["include_ai"] is False
     # 锁文件用完即释放（QLockFile 解锁会删文件），主进程据此判定设置页已关闭
     assert not (config.dir / "settings.lock").exists()
 
@@ -129,27 +127,12 @@ def test_exec_settings_exits_when_another_settings_process_holds_lock(tmp_path, 
     assert created == []
 
 
-def test_run_settings_disables_ai_page_without_chat_module(tmp_path, monkeypatch):
-    """no-chat 打包变体（pet.chat 被 excludes）里 include_ai 必须回落 False。"""
-    import pet.__main__ as entry
-    import pet.modern_settings_dialog as settings_mod
-
-    app = _qapp()
-    monkeypatch.setattr(settings_mod, "ModernSettingsDialog", _AutoCloseDialog)
-    monkeypatch.setattr(entry, "_chat_available", lambda: False)
-    _AutoCloseDialog.captured = {}
-    previous = app.quitOnLastWindowClosed()
-    try:
-        assert entry._run_settings(Config(base=tmp_path)) == 0
-    finally:
-        app.setQuitOnLastWindowClosed(previous)
-    assert _AutoCloseDialog.captured["include_ai"] is False
 
 
 def test_packaging_entries_route_settings_before_importing_app():
     """打包入口必须在 import pet.app 之前分流 --settings，否则子进程跑成桌宠。"""
     root = Path(__file__).resolve().parents[1]
-    for name in ("packaging/pet_entry.py", "packaging/pet_entry_no_chat.py"):
+    for name in ("packaging/pet_entry.py",):
         source = (root / name).read_text(encoding="utf-8")
         settings_at = source.index('"--settings" in sys.argv')
         app_import_at = source.index("from pet.app import main")
@@ -162,23 +145,23 @@ def test_packaging_entries_route_settings_before_importing_app():
 def test_standalone_save_merges_external_disk_change(tmp_path):
     """主进程中途改盘 → 设置页保存不覆盖该键（standalone 保存前 reload）。
 
-    用设置页不暴露的 pnpm_bin 做探针：没有 reload 的话内存里的旧空值会把
+    用设置页不暴露的 experimental_single_process_spawn 做探针：没有 reload 的话内存里的旧空值会把
     外部改动写回覆盖掉（回归点）。
     """
     from pet.modern_settings_dialog import ModernSettingsDialog
 
     _qapp()
     config = Config(base=tmp_path)
-    assert config.get("pnpm_bin") == ""
-    dialog = ModernSettingsDialog(config, include_ai=False, standalone=True)
+    assert config.get("experimental_single_process_spawn") is False
+    dialog = ModernSettingsDialog(config, standalone=True)
     try:
         external = Config(base=tmp_path)
-        external.set("pnpm_bin", "C:/tools/pnpm.cmd")
+        external.set("experimental_single_process_spawn", True)
         assert external.save()
         assert dialog._write_config()
-        assert config.get("pnpm_bin") == "C:/tools/pnpm.cmd"
+        assert config.get("experimental_single_process_spawn") is True
         on_disk = json.loads(Path(config.path).read_text(encoding="utf-8"))
-        assert on_disk["pnpm_bin"] == "C:/tools/pnpm.cmd"
+        assert on_disk["experimental_single_process_spawn"] is True
     finally:
         dialog.deleteLater()
 
@@ -195,14 +178,14 @@ def test_config_watcher_reloads_and_applies_external_change(tmp_path):
     try:
         shell._apply_external_config_change = lambda: applied.append(1)
         external = Config(base=tmp_path)
-        external.set("pnpm_bin", "C:/tools/pnpm.cmd")
+        external.set("experimental_single_process_spawn", True)
         assert external.save()
         deadline = time.monotonic() + 10.0
         while time.monotonic() < deadline and not applied:
             app.processEvents()
             time.sleep(0.02)
         assert applied, "外部写盘后 watcher 未触发应用链"
-        assert shell.config.get("pnpm_bin") == "C:/tools/pnpm.cmd"
+        assert shell.config.get("experimental_single_process_spawn") is True
     finally:
         shell._teardown_config_watcher()
 
@@ -237,13 +220,10 @@ def test_apply_external_config_change_fans_out_to_all_instances(tmp_path, monkey
         def __init__(self):
             self.win = mock.Mock()
             self.prewarm = 0
-            self.chats = 0
 
         def _sync_animation_prewarm(self):
             self.prewarm += 1
 
-        def _refresh_chat_windows(self):
-            self.chats += 1
 
     shell = _bare_shell(Config(base=tmp_path))
     shell._instances = [_Inst(), _Inst()]
@@ -257,7 +237,6 @@ def test_apply_external_config_change_fans_out_to_all_instances(tmp_path, monkey
     for inst in shell._instances:
         inst.win.refresh_pet_settings.assert_called_once_with()
         assert inst.prewarm == 1
-        assert inst.chats == 1
 
 
 # ------------------------------------------------------- 4. 单实例 / 降级回退
@@ -292,50 +271,8 @@ def test_open_settings_process_disabled_by_config(tmp_path):
     assert shell._config_watcher is None
 
 
-def test_open_modern_settings_falls_back_when_launch_fails(tmp_path, monkeypatch):
-    """startDetached 失败 → 回退进程内对话框（功能绝不丢）。"""
-    import pet.modern_settings_dialog as settings_mod
-
-    _qapp()
-    owner = PetInstance.__new__(PetInstance)
-    owner.config = Config(base=tmp_path)
-    owner.shell = AppShell.__new__(AppShell)
-    owner.shell.enable_chat = True
-    owner.shell.open_settings_process = lambda instance: False
-    owner.win = mock.Mock()
-    owner.modern_settings_dialog = None
-    owner.chat_settings_dialog = None
-    created = []
-    monkeypatch.setattr(
-        settings_mod, "ModernSettingsDialog",
-        lambda *a, **k: created.append((a, k)) or mock.Mock(),
-    )
-    owner._present_dialog = lambda dialog, before_present=None: None
-    owner.open_modern_settings()
-    assert created, "拉起独立进程失败必须回退进程内对话框"
-    args, kwargs = created[0]
-    assert args[0] is owner.config and args[1] is owner.win
-    assert kwargs.get("include_ai") is True
 
 
-def test_open_modern_settings_does_not_build_inprocess_dialog_when_launched(tmp_path, monkeypatch):
-    """拉起成功 → 不再构造进程内对话框。"""
-    import pet.modern_settings_dialog as settings_mod
-
-    _qapp()
-    owner = PetInstance.__new__(PetInstance)
-    owner.config = Config(base=tmp_path)
-    owner.shell = AppShell.__new__(AppShell)
-    owner.shell.enable_chat = True
-    owner.shell.open_settings_process = lambda instance: True
-    owner.win = mock.Mock()
-    owner.modern_settings_dialog = None
-    owner.chat_settings_dialog = None
-    created = []
-    monkeypatch.setattr(settings_mod, "ModernSettingsDialog", lambda *a, **k: created.append(1))
-    owner.open_modern_settings()
-    assert created == []
-    assert owner.modern_settings_dialog is None
 
 
 def test_launch_settings_process_uses_source_command(tmp_path, monkeypatch):
@@ -381,7 +318,6 @@ def test_bubble_suppressed_while_external_settings_process_runs(tmp_path):
     owner.shell = AppShell.__new__(AppShell)
     owner.shell._settings_child_active = True
     owner.modern_settings_dialog = None
-    owner.chat_settings_dialog = None
     calls = []
     owner.win = mock.Mock()
     owner.win.set_bubble_suppressed = lambda value: calls.append(value)
@@ -400,7 +336,6 @@ def test_poll_settings_process_clears_suppression_after_child_exit(tmp_path):
     owner.config = config
     owner.shell = shell
     owner.modern_settings_dialog = None
-    owner.chat_settings_dialog = None
     suppressed = []
     owner.win = mock.Mock()
     owner.win.set_bubble_suppressed = lambda value: suppressed.append(value)
@@ -448,15 +383,12 @@ def test_standalone_preview_uses_local_channel(tmp_path, monkeypatch):
 
     _qapp()
     seen = []
-    monkeypatch.setattr(standalone_mod, "preview_voice_chime", lambda dialog, text="": seen.append(("chime", text)))
     monkeypatch.setattr(standalone_mod, "preview_festival", lambda dialog: seen.append(("festival", "")))
-    dialog = settings_mod.ModernSettingsDialog(Config(base=tmp_path), include_ai=False, standalone=True)
-    inproc = settings_mod.ModernSettingsDialog(Config(base=tmp_path / "inproc"), include_ai=False)
+    dialog = settings_mod.ModernSettingsDialog(Config(base=tmp_path), standalone=True)
+    inproc = settings_mod.ModernSettingsDialog(Config(base=tmp_path / "inproc"),)
     try:
         assert dialog.standalone is True
         assert inproc.standalone is False
-        dialog.voice_chime_page.preview_requested.emit("")
-        assert seen == [("chime", "")]
         assert callable(getattr(dialog, "on_festival_now", None))
         dialog.on_festival_now()
         assert seen[-1] == ("festival", "")
@@ -476,13 +408,11 @@ def test_standalone_festival_preview_shows_notice_without_speech(tmp_path, monke
     notices = []
     monkeypatch.setattr(standalone_mod, "show_transient_notice", lambda text: notices.append(text))
     config = Config(base=tmp_path)
-    config.set("festival_reminder_speak", False)
-    dialog = ModernSettingsDialog(config, include_ai=False, standalone=True)
+    dialog = ModernSettingsDialog(config, standalone=True)
     try:
         assert callable(dialog.on_festival_now)
         dialog.on_festival_now()
         assert notices, "节日试听必须给出可见文案（standalone 不许静默失效）"
-        assert dialog._standalone_host._chime is None, "语音关时不该建音频通道"
     finally:
         dialog.deleteLater()
 
@@ -495,7 +425,7 @@ def test_standalone_runtime_marker_drives_move_away(tmp_path):
     config = Config(base=tmp_path)
     config.dir.mkdir(parents=True, exist_ok=True)
     slot_manager_mod.write_runtime_marker(config.dir, "", 111, 222, 200, 300)
-    dialog = ModernSettingsDialog(config, include_ai=False, standalone=True)
+    dialog = ModernSettingsDialog(config, standalone=True)
     moved = []
     dialog._move_away_from = lambda rect: moved.append(rect)
     try:
@@ -510,7 +440,7 @@ def test_standalone_move_away_without_marker_does_not_crash(tmp_path):
     from pet.modern_settings_dialog import ModernSettingsDialog
 
     _qapp()
-    dialog = ModernSettingsDialog(Config(base=tmp_path), include_ai=False, standalone=True)
+    dialog = ModernSettingsDialog(Config(base=tmp_path), standalone=True)
     moved = []
     dialog._move_away_from = lambda rect: moved.append(rect)
     try:

@@ -376,13 +376,13 @@ def test_tray_menu_syncs_mouse_through_from_config(tmp_path):
 
     win = Win(config)
     win._speech_bubble = QWidget()
-    manager = AppShell(app, config, enable_chat=True)
+    manager = AppShell(app, config)
     tray = manager._build_tray(win)
     menu = tray.contextMenu()
     labels = [action.text() for action in menu.actions() if not action.isSeparator()]
     assert "检查更新" not in labels
-    assert "打开网页版 DeepSeek" not in labels
-    assert "启动 DeepSeek Harness" not in labels
+    assert "打开网页版 example" not in labels
+    assert "启动 example Harness" not in labels
     action = next(a for a in menu.actions() if a.text() == "鼠标穿透")
     assert action.isChecked() is False
     # 设置对话框里改了鼠标穿透 → config 变化 → 托盘菜单弹出前同步
@@ -399,115 +399,6 @@ def test_tray_menu_syncs_mouse_through_from_config(tmp_path):
     tray.hide()
     app.processEvents()
 
-def test_drag_does_not_play_click_sound_but_click_does(app, tmp_path, monkeypatch):
-    from pathlib import Path
-    win = _make_win(app, tmp_path)
-    press_calls = []
-    release_calls = []
-    monkeypatch.setattr("pet.window.resolve_click_sound_pair", lambda pack, data_dir=None: (Path("press.wav"), Path("release.wav")))
-    monkeypatch.setattr("pet.window.play_press_sound", lambda pair, volume: press_calls.append((pair, volume)))
-    monkeypatch.setattr("pet.window.play_release_sound", lambda pair, volume: release_calls.append((pair, volume)))
-
-    # 拖动：按下 -> 超过阈值移动 -> 松手，不应触发任何点击音效
-    start = win.pos()
-    win.mousePressEvent(_press(QPointF(10, 10), QPointF(100, 100)))
-    win.mouseMoveEvent(_move(QPointF(60, 60), QPointF(400, 300)))
-    win.mouseReleaseEvent(_release(QPointF(60, 60), QPointF(400, 300)))
-    assert win.pos() != start
-    assert press_calls == []
-    assert release_calls == []
-
-    # 点击：按下 -> 原位松手，应播放完整 press+release
-    win.mousePressEvent(_press(QPointF(10, 10), QPointF(200, 200)))
-    win.mouseReleaseEvent(_release(QPointF(10, 10), QPointF(200, 200)))
-    assert len(press_calls) == 1
-    assert len(release_calls) == 1
-
-    win.close()
-    app.processEvents()
-
-def test_click_sound_pair_is_cleared_when_resolution_fails(app, tmp_path, monkeypatch):
-    from pathlib import Path
-    win = _make_win(app, tmp_path)
-    press_calls = []
-    release_calls = []
-    pair_a = (Path("press-a.wav"), Path("release-a.wav"))
-    current_pair = [pair_a]
-    monkeypatch.setattr("pet.window.resolve_click_sound_pair", lambda pack, data_dir=None: current_pair[0])
-    monkeypatch.setattr("pet.window.play_press_sound", lambda pair, volume: press_calls.append(pair))
-    monkeypatch.setattr("pet.window.play_release_sound", lambda pair, volume: release_calls.append(pair))
-
-    # 第一次点击：解析成功，播放 pair_a
-    win.mousePressEvent(_press(QPointF(10, 10), QPointF(200, 200)))
-    win.mouseReleaseEvent(_release(QPointF(10, 10), QPointF(200, 200)))
-    assert press_calls == [pair_a]
-    assert release_calls == [pair_a]
-
-    # 解析失败（如切换音效包后文件缺失）：不应复用旧 pair
-    current_pair[0] = None
-    win.mousePressEvent(_press(QPointF(10, 10), QPointF(300, 300)))
-    win.mouseReleaseEvent(_release(QPointF(10, 10), QPointF(300, 300)))
-    assert press_calls == [pair_a], "解析失败时不应播放旧按下音"
-    assert release_calls == [pair_a], "解析失败时不应播放旧释放音"
-
-    # 再次解析成功且换成 pair_b：应播放新 pair
-    pair_b = (Path("press-b.wav"), Path("release-b.wav"))
-    current_pair[0] = pair_b
-    win.mousePressEvent(_press(QPointF(10, 10), QPointF(400, 400)))
-    win.mouseReleaseEvent(_release(QPointF(10, 10), QPointF(400, 400)))
-    assert press_calls == [pair_a, pair_b]
-    assert release_calls == [pair_a, pair_b]
-
-    win.close()
-    app.processEvents()
-
-
-class _ProbeForSoundTest:
-    def __init__(self, active: bool):
-        self.active = active
-        self.clicked = 0
-
-    def on_clicked(self):
-        self.clicked += 1
-
-    def on_release(self, was_dragging: bool):
-        return None
-
-
-def test_edge_probe_click_does_not_play_click_sound(app, tmp_path, monkeypatch):
-    """边缘探头激活时的点击不播 press/release 音效，但普通点击仍播放。"""
-    from pathlib import Path
-
-    win = _make_win(app, tmp_path)
-    press_calls = []
-    release_calls = []
-    pair = (Path("press.wav"), Path("release.wav"))
-    monkeypatch.setattr("pet.window.resolve_click_sound_pair",
-                        lambda pack, data_dir=None: pair)
-    monkeypatch.setattr("pet.window.play_press_sound",
-                        lambda sound_pair, volume: press_calls.append(sound_pair))
-    monkeypatch.setattr("pet.window.play_release_sound",
-                        lambda sound_pair, volume: release_calls.append(sound_pair))
-
-    probe = _ProbeForSoundTest(active=True)
-    win._edge_probe = probe
-
-    # 探头激活：点击被探头消费，且不播音效。
-    win.mousePressEvent(_press(QPointF(10, 10), QPointF(200, 200)))
-    win.mouseReleaseEvent(_release(QPointF(10, 10), QPointF(200, 200)))
-    assert probe.clicked == 1
-    assert press_calls == []
-    assert release_calls == []
-
-    # 探头未激活：普通点击照常播放 press+release。
-    probe.active = False
-    win.mousePressEvent(_press(QPointF(10, 10), QPointF(300, 300)))
-    win.mouseReleaseEvent(_release(QPointF(10, 10), QPointF(300, 300)))
-    assert len(press_calls) == 1
-    assert len(release_calls) == 1
-
-    win.close()
-    app.processEvents()
 
 
 def test_go_default_corner_cancels_active_edge_probe(app, tmp_path):

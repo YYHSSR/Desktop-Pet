@@ -639,18 +639,18 @@ class TestAgentBusy:
         mgr = AgentLinkManager(None, cfg)
         assert mgr.any_busy() is False
 
-        mon = mgr.monitors["dsh"]
+        mon = mgr.monitors["codex"]
         mon._running = True
-        mgr._last_raw = {"dsh": "working"}
+        mgr._last_raw = {"codex": "working"}
         assert mgr.any_busy() is True
-        mgr._last_raw = {"dsh": "thinking"}
+        mgr._last_raw = {"codex": "thinking"}
         assert mgr.any_busy() is True
-        mgr._last_raw = {"dsh": "idle"}
+        mgr._last_raw = {"codex": "idle"}
         assert mgr.any_busy() is False
 
         # 已停用监视器的残留 busy 不计入（关掉联动 = 不再视为活跃）
         mon._running = False
-        mgr._last_raw = {"dsh": "working"}
+        mgr._last_raw = {"codex": "working"}
         assert mgr.any_busy() is False
 
     def test_window_gate_respects_agent_busy(self, app, tmp_path):
@@ -664,11 +664,11 @@ class TestAgentBusy:
             assert win._idle_reduction_active() is True
             # Phase 1：Agent 联动默认不装配，测试显式创建管理器。
             mgr = win._ensure_agent_link_manager()
-            mon = mgr.monitors["dsh"]
+            mon = mgr.monitors["codex"]
             mon._running = True
-            mgr._last_raw = {"dsh": "working"}
+            mgr._last_raw = {"codex": "working"}
             assert win._idle_reduction_active() is False  # dsh 在干活 = 活跃
-            mgr._last_raw = {"dsh": "idle"}
+            mgr._last_raw = {"codex": "idle"}
             assert win._idle_reduction_active() is True
         finally:
             win.close()
@@ -682,7 +682,7 @@ class TestSettings:
     def test_settings_toggle_round_trip(self, app, tmp_path):
         cfg_root = tmp_path / "appdata"
         cfg = Config(cfg_root)
-        dialog = ModernSettingsDialog(cfg, include_ai=False)
+        dialog = ModernSettingsDialog(cfg)
         try:
             assert dialog.idle_low_fps_check.isChecked() is False  # 灰度默认关
             dialog.idle_low_fps_check.setChecked(True)

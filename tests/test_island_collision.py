@@ -126,7 +126,6 @@ class WallWin:
         self._just_dragged = False
         self._last_physics_tick_time = None
         self._physics_timer = FakePhysicsTimer()
-        self.sounds = 0
         self.squashes = 0
         self.entered_modes = []
 
@@ -164,8 +163,6 @@ class WallWin:
     def _cancel_animation_gap(self):
         pass
 
-    def _play_collision_sound(self):
-        self.sounds += 1
 
     def _enter_physics_mode(self, mode):
         self._physics_mode = mode
@@ -403,7 +400,6 @@ def test_throw_mode_pet_reflects_off_island_wall(tmp_path):
         assert abs(win._phys_pos[1] - vp.y()) < 1e-6
         _assert_body_out_of_stadium(win, body, "抛掷反射")
         # 命中反馈：音效/挤压/岛弹跳（不重进 throw——已处于抛掷中）
-        assert win.sounds == 1
         assert win.squashes == 1
         assert len(bumps) == 1
         assert win._physics_mode == "throw"
@@ -438,7 +434,6 @@ def test_fast_roaming_pet_flings_off_island_with_feedback(tmp_path):
         assert win._interaction_state == "THROWN"
         assert win._phys_vel[0] < 0.0  # 弹回左侧
         assert abs(win._phys_vel[0]) > 400.0 * 1.3  # e=1.3 加速反弹
-        assert win.sounds == 1
         assert win.squashes == 1
         assert len(bumps) == 1
         _assert_body_out_of_stadium(win, body, "漫游真撞")
@@ -466,7 +461,6 @@ def test_slow_roaming_pet_is_pushed_without_feedback(tmp_path):
         win._move_window_towards(win._virtual_pos().x(), win._virtual_pos().y())
         assert win._physics_mode != "throw"
         assert win._interaction_state == "IDLE"
-        assert win.sounds == 0
         assert win.squashes == 0
         assert bumps == []
         _assert_body_out_of_stadium(win, body, "轻贴推出")
@@ -501,7 +495,6 @@ def test_submit_flings_pet_when_island_swept_onto_it(tmp_path):
         island.on_geometry_changed()
         assert win._physics_mode == "throw"  # 被拍飞进抛掷物理
         assert win._phys_vel[0] > 0.0  # 沿岛运动方向（向右）飞出
-        assert win.sounds == 1
         assert win.squashes == 1
         assert len(bumps) == 1
         _assert_body_out_of_stadium(win, body, "拖岛拍鱼")

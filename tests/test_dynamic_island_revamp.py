@@ -229,9 +229,8 @@ def test_click_expands_card_and_buttons_emit(tmp_path):
     try:
         island.show()
         island.set_last_message("我吃了三碗饭")
-        got = {"toggle": 0, "chat": 0, "settings": 0}
+        got = {"toggle": 0, "settings": 0}
         island.toggle_pet_requested.connect(lambda: got.__setitem__("toggle", 1))
-        island.open_chat_requested.connect(lambda: got.__setitem__("chat", 1))
         island.open_settings_requested.connect(lambda: got.__setitem__("settings", 1))
 
         _click(island)
@@ -243,9 +242,8 @@ def test_click_expands_card_and_buttons_emit(tmp_path):
         assert island._card_message_label.text() == "我吃了三碗饭"
 
         island._card_toggle_btn.click()
-        island._card_chat_btn.click()
         island._card_settings_btn.click()
-        assert got == {"toggle": 1, "chat": 1, "settings": 1}
+        assert got == {"toggle": 1, "settings": 1}
         # 任一按钮动作后卡片收起
         assert island._debug_state()["mode"] == "normal"
 
@@ -676,7 +674,7 @@ def test_config_icon_normalization(tmp_path):
     assert cfg.get("dynamic_island")["icon"] == "🐳"
 
 
-def test_click_hidden_pet_without_chat_falls_back_to_card(tmp_path):
+def test_click_hidden_pet_expands_restore_card(tmp_path):
     """纯桌宠版死锁回归（hidden_chat 路由）：
 
     hidden_chat 开 + 桌宠隐藏 + 本构建无聊天能力 → 单击必须回退展开卡片
@@ -684,38 +682,16 @@ def test_click_hidden_pet_without_chat_falls_back_to_card(tmp_path):
     ——否则岛无任何反应、桌宠永远回不来。
     """
     _qapp()
-    island = _island(tmp_path, hidden_chat=True)
+    island = _island(tmp_path)
     try:
         island.show()
-        island.set_chat_available(False)  # 纯桌宠版：无聊天模块
         island.set_pet_visible(False)
         chat_hits, card_hits = [], []
-        island.chat_requested.connect(lambda: chat_hits.append(1))
         island.card_expanded.connect(lambda: card_hits.append(1))
         _click(island)
         island._finish_animations()
         assert chat_hits == []
         assert card_hits == [1]
-    finally:
-        island.hide()
-        island.deleteLater()
-
-
-def test_click_hidden_pet_with_chat_requests_bubble(tmp_path):
-    """对照：有聊天能力的构建维持原路由（隐藏 + hidden_chat 开 → 弹气泡）。"""
-    _qapp()
-    island = _island(tmp_path, hidden_chat=True)
-    try:
-        island.show()
-        island.set_chat_available(True)
-        island.set_pet_visible(False)
-        chat_hits, card_hits = [], []
-        island.chat_requested.connect(lambda: chat_hits.append(1))
-        island.card_expanded.connect(lambda: card_hits.append(1))
-        _click(island)
-        island._finish_animations()
-        assert chat_hits == [1]
-        assert card_hits == []
     finally:
         island.hide()
         island.deleteLater()

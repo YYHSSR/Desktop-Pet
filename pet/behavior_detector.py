@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""DSH 行为模式检测器（BehaviorPatternDetector）。
+"""Agent 行为模式检测器（BehaviorPatternDetector）。
 
 与 ``stuck_detector``（失败/超时/重试的「卡住评分」）互补，本模块专攻**行为模式**：
 不再按工具名数「同一种工具重复几次」，而是把工具调用归一化成**行为类**，再用
@@ -32,7 +32,7 @@
   规划，只提醒、不打断 Agent）。原先预留的小型 LLM Judge 从未接线，已随本次
   清理删除；本模块只负责「这个行为模式值得检查」。
 
-事件来源：桥接插件 ``integrations/dsh-pet-bridge`` 写盘的 ``tool/call`` /
+事件来源：本地事件通道提供的 ``tool/call`` /
 ``command/run`` 等记录（每条约 80ms 合批一次），带 ``step`` 字段。
 """
 
@@ -97,7 +97,7 @@ _TRACKED_CLASSES = frozenset(
 # ---------------------------------------------------------------------------
 
 # 精确别名表：归一化后的工具名 → 行为类。
-# 覆盖 DSH / Claude / Cursor / OpenCode / 常见命令 的命名习惯（小写、去空格、去扩展名）。
+# 覆盖 ChatGPT / Cursor / 常见命令 的命名习惯（小写、去空格、去扩展名）。
 _CLASS_ALIASES: dict[BehaviorClass, frozenset[str]] = {
     BehaviorClass.SEARCH: frozenset(
         {
@@ -306,7 +306,7 @@ class _StepDecision:
 
 
 class BehaviorPatternDetector(QObject):
-    """DSH 行为模式检测器：工具调用 → 行为类 → 双窗口规则 → warning/control。
+    """Agent 行为模式检测器：工具调用 → 行为类 → 双窗口规则 → warning/control。
 
     用法::
 

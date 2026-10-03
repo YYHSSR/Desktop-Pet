@@ -4,9 +4,8 @@
 - 常驻顶层小窗，可显示图标、名称、信息槽、状态灯；
 - 支持拖拽、四边停靠半隐藏（收成细条、鼠标靠近滑出）、位置持久化；
 - 单击胶囊按 ``click_action`` 展开卡片（最近消息/快捷按钮）或切换桌宠显隐；
-  桌宠隐藏时（``hidden_chat`` 开启）单击改为弹岛对话气泡（island_chat.py）；
 - 事件动效（``event_effects``）：AI 回复时位移弹跳 +
-  表面轻压 + 短暂呼吸，静止时完全无定时器开销；dsh 工作时状态灯变蓝；
+  表面轻压 + 短暂呼吸，静止时完全无定时器开销；Agent 工作时状态灯变蓝；
 - ``bump()`` 供碰撞系统调用：被撞时表面压扁回弹（史莱姆果冻形变只作用于
   胶囊外形，文字图标保持锐利）+ 按撞击方向轻微踢动；
 - 外观：黑/白/玻璃质感自绘 + 背景不透明度 + 主题色（五级）。
@@ -148,10 +147,8 @@ class DynamicIsland(QWidget):
 
     clicked = Signal()  # click_action == "toggle_pet" 时的单击（旧行为）
     toggle_pet_requested = Signal()
-    open_chat_requested = Signal()
     open_settings_requested = Signal()
     card_expanded = Signal()  # 卡片展开
-    chat_requested = Signal()  # 桌宠隐藏时单击胶囊（hidden_chat 开启）：弹岛对话气泡
 
     def __init__(self, config, parent=None):
         super().__init__(parent)
@@ -174,9 +171,6 @@ class DynamicIsland(QWidget):
         self._dragging = False
         self._press_global: QPoint | None = None
         self._pet_visible = True
-        # 本构建是否具备聊天能力（AppShell 按 enable_chat 喂入，默认 True
-        # 维持现状；纯桌宠版置 False 时 hidden_chat 单击路由回退展开卡片）
-        self._chat_available = True
         self._agent_active = False
         self._last_message = ""
         # 几何变化回调（果冻墙碰撞体挂这里跟踪拖拽/停靠滑动）：AppShell 注入。
@@ -254,9 +248,6 @@ class DynamicIsland(QWidget):
     def _click_action(self) -> str:
         return str(self._cfg.get("click_action") or "expand")
 
-    def _hidden_chat_enabled(self) -> bool:
-        """桌宠隐藏时的对话气泡开关（点击岛弹气泡 + 回复到达自动预览）。"""
-        return bool(self._cfg.get("hidden_chat", True))
 
     def _event_effects_enabled(self) -> bool:
         return bool(self._cfg.get("event_effects", True))
@@ -299,18 +290,9 @@ class DynamicIsland(QWidget):
         self._sync_card_labels()
         self.update()
 
-    def set_chat_available(self, available: bool) -> None:
-        """写入本构建是否具备聊天能力（AppShell 按 enable_chat 喂入）。
-
-        纯桌宠版（无 pet.chat 的打包变体）置 False：hidden_chat 开且桌宠
-        隐藏时，单击路由回退为展开卡片——卡片的「显示桌宠」是该形态下
-        唯一的恢复入口；否则单击被路由到不存在的对话气泡，岛无任何
-        反应，桌宠永远回不来（纯桌宠版实机死锁）。
-        """
-        self._chat_available = bool(available)
 
     def set_agent_active(self, active: bool) -> None:
-        """dsh/agent 工作状态：点亮蓝色状态灯；上升沿弹一下提示开工。"""
+        """Agent 工作状态：点亮蓝色状态灯；上升沿弹一下提示开工。"""
         active = bool(active)
         rising = active and not self._agent_active
         self._agent_active = active
@@ -398,12 +380,10 @@ class DynamicIsland(QWidget):
         button_row = QHBoxLayout()
         button_row.setSpacing(8)
         self._card_toggle_btn = QPushButton("显隐桌宠", self._card_box)
-        self._card_chat_btn = QPushButton("聊天", self._card_box)
         self._card_settings_btn = QPushButton("设置", self._card_box)
         self._card_toggle_btn.clicked.connect(self._on_card_toggle)
-        self._card_chat_btn.clicked.connect(self._on_card_chat)
         self._card_settings_btn.clicked.connect(self._on_card_settings)
-        for btn in (self._card_toggle_btn, self._card_chat_btn,
+        for btn in (self._card_toggle_btn,
                     self._card_settings_btn):
             button_row.addWidget(btn)
         layout.addLayout(button_row)
@@ -426,7 +406,7 @@ class DynamicIsland(QWidget):
             f"QPushButton:hover {{ background: {accent_hex}; color: #ffffff; }}"
             f"QPushButton:pressed {{ background: {secondary_hex}; }}"
         )
-        for btn in (self._card_toggle_btn, self._card_chat_btn,
+        for btn in (self._card_toggle_btn,
                     self._card_settings_btn):
             btn.setStyleSheet(button_style)
         message = self._last_message or "（暂无最近消息）"
@@ -448,9 +428,6 @@ class DynamicIsland(QWidget):
         self.toggle_pet_requested.emit()
         self.collapse_card()
 
-    def _on_card_chat(self) -> None:
-        self.open_chat_requested.emit()
-        self.collapse_card()
 
     def _on_card_settings(self) -> None:
         self.open_settings_requested.emit()
@@ -1244,12 +1221,6 @@ class DynamicIsland(QWidget):
                 self._dock_back_timer.start()
             elif self._click_action() == "toggle_pet":
                 self.clicked.emit()
-            elif self._hidden_chat_enabled() and not self._pet_visible and self._chat_available:
-                # 桌宠隐藏时岛是唯一常驻交互面：单击直接弹对话气泡
-                #（恢复桌宠的入口由气泡内的「显示桌宠」按钮承接）；
-                # 无聊天能力的构建（纯桌宠版）不进此分支——回退 else 展开
-                # 卡片，由卡片的「显示桌宠」按钮承接恢复入口
-                self.chat_requested.emit()
             else:
                 self.expand_card()
         else:

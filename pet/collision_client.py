@@ -11,7 +11,7 @@
 4. 碰撞相关状态字段（session / seq / epoch / peer snapshots / predicted
    bounces / pending predicted / watermark / 上报节流 / 碰撞 squash 冷却）
 
-PetWindow 保留组合：持有 ``CollisionClient`` 实例，对外行为（碰撞反应、音效、
+PetWindow 保留组合：持有 ``CollisionClient`` 实例，对外行为（碰撞反应、
 弹开）一丝不变。本模块只依赖纯物理/协议/调试层（collision / collision_codec /
 collision_debug / physics），不反向依赖 window.py；交互状态常量（THROWN 等）与
 碰撞阈值常量由构造时从 PetWindow 显式传入，避免模块循环导入。
@@ -340,7 +340,6 @@ class CollisionClient(QObject):
                 return
         # 撞岛冲量的归属：本进程持有岛 widget 时撞岛反应走本进程直连业务链
         # （island_collision._apply_hit），协调者转发的岛冲量必须丢弃——
-        # 否则宿主进程的宠物撞岛被双重结算（音效/弹开各响两次）。
         a_str, b_str = str(message.get('a') or ''), str(message.get('b') or '')
         if collision.ISLAND_MEMBER_ID in (a_str, b_str):
             body = getattr(win, '_island_collision_body', None)
@@ -441,8 +440,6 @@ class CollisionClient(QObject):
             QTimer.singleShot(120, win, win._clear_just_dragged)
             # 只有"有分量的撞击"才响：dv 太小（静置非弹性接触的微小抵消）
             # 不播，否则贴贴时每秒 4 声机枪响
-            if is_real_hit:
-                win._play_collision_sound()
         if is_real_hit and not contact_deviation:
             win._interaction_state = self._thrown
             win._enter_physics_mode('throw')
@@ -577,7 +574,6 @@ class CollisionClient(QObject):
                 float(own.x), float(own.y),
                 [[float(c[0]), float(c[1]), float(c[2])] for c in current_circles],
             )
-            win._play_collision_sound()
             self._submit_collision_state(force=True)
             if not win._squash_active and now - self.last_collision_squash_at >= 0.25:
                 self.last_collision_squash_at = now

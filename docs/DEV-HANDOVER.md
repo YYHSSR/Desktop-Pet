@@ -439,7 +439,6 @@ powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm-
 | 步骤 | 门禁 | 作用 |
 |---|---|---|
 | 1 | `PYTHONUTF8=1` 环境隔离 | 保证中文路径/源码/产物编码一致 |
-| 2 | bridge 零依赖检查 | `integrations/dsh-pet-bridge` 不得引入第三方 node 依赖 |
 | 3 | DLL 冲突预检 + PATH 剔除 | 剔除会与 PyInstaller 抢 DLL 的目录 |
 | 4 | PyInstaller `--onedir` | 产出程序目录 |
 | 5 | Qt runtime 复制与验证 | `platforms` / `styles` / `imageformats` / `multimedia` 等插件齐全（语音播放依赖 multimedia） |

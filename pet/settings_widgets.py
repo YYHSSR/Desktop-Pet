@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QBoxLayout,
     QColorDialog,
+    QDialog,
     QDoubleSpinBox,
     QFileDialog,
     QFileIconProvider,
@@ -78,9 +79,7 @@ SETTINGS_DOMAIN_NAV = (
     ("桌宠", "pet"),
     ("互动", "interaction"),
     ("菜单", "application"),
-    ("AI 与对话", "chat"),
     ("自动化与联动", "automation"),
-    ("语音", "sound"),
 )
 
 BROWSER_CONTROL_STYLESHEET = """
@@ -174,93 +173,7 @@ class ToggleSwitch(QAbstractButton):
 
 IMAGE_NAME_FILTER = "图片文件 (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff)"
 
-AUDIO_NAME_FILTER = "音频文件 (*.wav *.mp3 *.ogg *.flac *.m4a)"
 
-class ClickSoundPackPicker(QWidget):
-    """点击音效包选择器（内置默认/小黄鸭/自定义单文件/自定义文件夹）。"""
-
-    changed = Signal()
-
-    def __init__(self, pack: dict | None = None, parent=None):
-        super().__init__(parent)
-        self.mode_select = ModernSelect(self, width=170)
-        self.mode_select.addItem("默认包", "builtin:default")
-        self.mode_select.addItem("小黄鸭包", "builtin:duck")
-        self.mode_select.addItem("自定义单文件", "file")
-        self.mode_select.addItem("自定义文件夹（随机）", "folder")
-
-        self.file_picker = ResourcePathPicker("", name_filter=AUDIO_NAME_FILTER, parent=self)
-        self.folder_picker = ResourcePathPicker("", directory=True, parent=self)
-
-        self.stack = QStackedWidget(self)
-        empty_page = QWidget(self)
-        self.stack.addWidget(empty_page)         # 0: builtin (hidden)
-        self.stack.addWidget(self.file_picker)    # 1: file
-        self.stack.addWidget(self.folder_picker)  # 2: folder
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
-        layout.addWidget(self.mode_select)
-        layout.addWidget(self.stack)
-
-        self.mode_select.currentIndexChanged.connect(self._on_mode_changed)
-        self.file_picker.edit.textChanged.connect(lambda: self.changed.emit())
-        self.folder_picker.edit.textChanged.connect(lambda: self.changed.emit())
-
-        self.set_pack(pack or {})
-
-    def _on_mode_changed(self, index: int) -> None:
-        data = self.mode_select.currentData()
-        if data == "file":
-            self.stack.setCurrentIndex(1)
-            self.stack.show()
-        elif data == "folder":
-            self.stack.setCurrentIndex(2)
-            self.stack.show()
-        else:
-            self.stack.setCurrentIndex(0)
-            self.stack.hide()
-        self.changed.emit()
-
-    def value(self) -> dict:
-        data = str(self.mode_select.currentData() or "builtin:default")
-        if data.startswith("builtin:"):
-            bid = data.split(":", 1)[1]
-            return {"kind": "builtin", "id": bid, "path": ""}
-        if data == "file":
-            return {"kind": "file", "id": "custom", "path": self.file_picker.text()}
-        if data == "folder":
-            return {"kind": "folder", "id": "custom", "path": self.folder_picker.text()}
-        return {"kind": "builtin", "id": "default", "path": ""}
-
-    def set_pack(self, pack: dict) -> None:
-        pack = pack if isinstance(pack, dict) else {}
-        kind = str(pack.get("kind") or "builtin").strip().lower()
-        pack_id = str(pack.get("id") or "default").strip()
-        path = str(pack.get("path") or "")
-
-        if kind == "builtin":
-            if pack_id == "duck":
-                self.mode_select.setCurrentData("builtin:duck")
-            else:
-                self.mode_select.setCurrentData("builtin:default")
-            self.stack.setCurrentIndex(0)
-            self.stack.hide()
-        elif kind == "file":
-            self.file_picker.setText(path)
-            self.mode_select.setCurrentData("file")
-            self.stack.setCurrentIndex(1)
-            self.stack.show()
-        elif kind == "folder":
-            self.folder_picker.setText(path)
-            self.mode_select.setCurrentData("folder")
-            self.stack.setCurrentIndex(2)
-            self.stack.show()
-        else:
-            self.mode_select.setCurrentData("builtin:default")
-            self.stack.setCurrentIndex(0)
-            self.stack.hide()
 
 class MasonryLayout(QLayout):
     """A true shortest-column layout whose cards retain their image ratios."""
@@ -519,7 +432,7 @@ class ResourcePathPicker(QWidget):
         self.directory = bool(directory)
         self.name_filter = name_filter
         # 选择对话框标题：默认沿用图片语义（既有调用方不变），非图片用途可覆盖
-        # （例如「音乐播放器程序」选 .exe 时不该写「选择图片」）。
+        # （例如选可执行文件时不该写「选择图片」）。
         self.dialog_title = str(
             dialog_title or ("选择图片目录" if self.directory else "选择图片")
         )
@@ -1542,6 +1455,210 @@ class QuickLaunchEditor(QWidget):
         )
         if path:
             self.add_app({"name": Path(path).stem, "path": path, "kind": "application"})
+
+    def _remove_checked(self) -> None:
+        for index in range(self.list.count() - 1, -1, -1):
+            if self.list.item(index).checkState() == Qt.CheckState.Checked:
+                self.list.takeItem(index)
+        self._sync_content_height()
+
+    def _sync_content_height(self) -> None:
+        count = self.list.count()
+        self.count_label.setText(f"{count} 个快捷项")
+        self.empty_label.setVisible(count == 0)
+        self.list.setVisible(count > 0)
+        if count:
+            self.list.setFixedHeight(min(226, count * 56 + 10))
+        self.changed.emit()
+
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802
+        if (
+            watched is self.list.viewport()
+            and event.type() == QEvent.Type.MouseButtonRelease
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            point = event.position().toPoint()
+            item = self.list.itemAt(point)
+            if item is not None:
+                row = self.list.visualItemRect(item)
+                if point.x() <= row.left() + 36:
+                    checked = item.checkState() == Qt.CheckState.Checked
+                    item.setCheckState(
+                        Qt.CheckState.Unchecked if checked else Qt.CheckState.Checked
+                    )
+                    return True
+        return super().eventFilter(watched, event)
+
+
+class AddUrlDialog(QDialog):
+    """Dialog to input URL name and address."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("addUrlDialog")
+        self.setWindowTitle("添加快捷网址")
+        self.setFixedWidth(400)
+        self.setModal(True)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        form = QVBoxLayout()
+        form.setSpacing(6)
+
+        name_label = QLabel("网址名称", self)
+        name_label.setObjectName("settingLabel")
+        self.name_edit = QLineEdit(self)
+        self.name_edit.setPlaceholderText("例如：GitHub")
+
+        url_label = QLabel("网址链接", self)
+        url_label.setObjectName("settingLabel")
+        self.url_edit = QLineEdit(self)
+        self.url_edit.setPlaceholderText("例如：https://github.com")
+
+        form.addWidget(name_label)
+        form.addWidget(self.name_edit)
+        form.addSpacing(6)
+        form.addWidget(url_label)
+        form.addWidget(self.url_edit)
+
+        layout.addLayout(form)
+
+        btn_box = QHBoxLayout()
+        btn_box.addStretch(1)
+        self.cancel_button = QPushButton("取消", self)
+        self.cancel_button.clicked.connect(self.reject)
+        self.ok_button = QPushButton("确定", self)
+        self.ok_button.setDefault(True)
+        self.ok_button.clicked.connect(self._on_confirm)
+
+        btn_box.addWidget(self.cancel_button)
+        btn_box.addWidget(self.ok_button)
+        layout.addLayout(btn_box)
+
+        self._result: dict | None = None
+
+    def _on_confirm(self) -> None:
+        url = self.url_edit.text().strip()
+        if not url:
+            self.url_edit.setFocus()
+            return
+        if not url.startswith(("http://", "https://", "ftp://")):
+            url = "https://" + url
+        name = self.name_edit.text().strip()
+        if not name:
+            name = url.split("://", 1)[-1].split("/", 1)[0]
+        self._result = {"name": name[:60], "url": url, "kind": "url"}
+        self.accept()
+
+    def result_item(self) -> dict | None:
+        return self._result
+
+
+class QuickUrlItemRow(QWidget):
+    def __init__(self, name: str, url: str, parent=None):
+        super().__init__(parent)
+        self.setObjectName("quickUrlItemRow")
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.name_label = QLabel(name, self)
+        self.name_label.setObjectName("quickUrlName")
+        self.name_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.detail_label = QLabel(url, self)
+        self.detail_label.setObjectName("quickUrlDetail")
+        self.detail_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.detail_label.setToolTip(url)
+        self.detail_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        copy = QVBoxLayout(self)
+        copy.setContentsMargins(62, 5, 10, 5)
+        copy.setSpacing(1)
+        copy.addWidget(self.name_label)
+        copy.addWidget(self.detail_label)
+
+
+class QuickUrlEditor(QWidget):
+    """Small URL list editor persisted into the modern menu."""
+
+    changed = Signal()
+
+    def __init__(self, urls: list[dict], parent=None):
+        super().__init__(parent)
+        self.list = QListWidget(self)
+        self.list.setObjectName("quickUrlList")
+        self.list.setMinimumHeight(116)
+        self.list.setIconSize(QSize(22, 22))
+        self.list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.list.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.list.setDragEnabled(True)
+        self.list.setAcceptDrops(True)
+        self.list.setDropIndicatorShown(True)
+        self.list.setSpacing(2)
+        self.list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.list.viewport().installEventFilter(self)
+        self.count_label = QLabel("0 个快捷项", self)
+        self.count_label.setObjectName("quickUrlCount")
+        self.empty_label = QLabel("还没有快捷网址，可从“添加”开始。", self)
+        self.empty_label.setObjectName("quickUrlEmpty")
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setFixedHeight(64)
+        self.add_button = SettingsMenuButton("添加", self)
+        self.add_button.setIcon(vector_widget_icon(self, "add", 15))
+        self.add_menu = configure_settings_action_popup(SettingsPopupMenu(self.add_button))
+        self.add_url_action = self.add_menu.addAction("添加自定义网址…")
+        self.add_url_action.triggered.connect(self._add_url_dialog)
+        self.add_button.setPopupMenu(self.add_menu)
+        self.remove_button = QPushButton("移除所选", self)
+        self.remove_button.setIcon(vector_widget_icon(self, "remove", 15))
+        self.remove_button.clicked.connect(self._remove_checked)
+
+        toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(0, 0, 0, 0)
+        toolbar.setSpacing(7)
+        toolbar.addWidget(self.count_label)
+        toolbar.addStretch(1)
+        toolbar.addWidget(self.add_button)
+        toolbar.addWidget(self.remove_button)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+        layout.addLayout(toolbar)
+        layout.addWidget(self.list)
+        layout.addWidget(self.empty_label)
+        for item in urls:
+            self.add_url(item)
+        self._sync_content_height()
+
+    def add_url(self, item: dict) -> None:
+        item = dict(item)
+        url = str(item.get("url") or "").strip()
+        if not url:
+            return
+        if not url.startswith(("http://", "https://", "ftp://")):
+            url = "https://" + url
+        name = str(item.get("name") or "").strip()
+        if not name:
+            name = url.split("://", 1)[-1].split("/", 1)[0]
+        item_data = {"name": name, "url": url, "kind": "url"}
+        icon = vector_widget_icon(self, "web", 18)
+        list_item = QListWidgetItem(icon, "")
+        list_item.setFlags(list_item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsDragEnabled)
+        list_item.setCheckState(Qt.CheckState.Unchecked)
+        list_item.setData(Qt.ItemDataRole.UserRole, item_data)
+        list_item.setToolTip(url)
+        list_item.setSizeHint(QSize(0, 52))
+        self.list.addItem(list_item)
+        self.list.setItemWidget(list_item, QuickUrlItemRow(name, url, self.list))
+        self._sync_content_height()
+
+    def urls(self) -> list[dict]:
+        return [dict(self.list.item(index).data(Qt.ItemDataRole.UserRole)) for index in range(self.list.count())]
+
+    def _add_url_dialog(self) -> None:
+        dialog = AddUrlDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            item = dialog.result_item()
+            if item:
+                self.add_url(item)
 
     def _remove_checked(self) -> None:
         for index in range(self.list.count() - 1, -1, -1):

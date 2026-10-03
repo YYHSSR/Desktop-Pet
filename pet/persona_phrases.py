@@ -119,7 +119,7 @@ def render_template(template: str, values: Mapping[str, Any] | None = None, auto
             output.append(literal)
             if field_name is None:
                 continue
-            root = re.split(r"[.\[]", field_name, 1)[0]
+            root = re.split(r"[.\[]", field_name, maxsplit=1)[0]
             hide = root in autohide
             try:
                 obj = _safe_get_field(field_name, values)
@@ -312,11 +312,8 @@ def phrase_keys() -> tuple[str, ...]:
 
 
 # Pet/桥接级「公共事件」：不随具体 Agent 归属，编辑某 Agent 专属文案层时隐藏。
-# dsh.writeback.failed（写回 DSH 失败）属 Agent 操作回写，运行时按 agent_key 路由，
 # 归入 Agent 专属层，不在此集合。
 PUBLIC_DIALOGUE_EVENTS: frozenset[str] = frozenset({
-    "bridge.install.pending", "bridge.install.success", "bridge.install.failed",
-    "bridge.uninstall.failed", "bridge.unknown",
 })
 
 

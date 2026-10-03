@@ -74,7 +74,7 @@ _LIFECYCLE = {"agent/status", "AgentStatus", "session/created", "session/dispose
 _EXPLORATION = {"read", "grep", "glob", "search", "web_search", "web_search_begin", "exec_command_begin"}
 _ACTION = {"edit", "write", "patch", "shell", "pwsh", "bash", "pytest", "npm test", "playwright", "run"}
 
-# 上游可能用非语义名书写同一事件：DSH 状态记录写 "AgentStatus"，而消费端复位词表
+# 上游可能用非语义名书写同一事件：自定义状态记录写 "AgentStatus"，而消费端复位词表
 # （model_access_tracker._resets）按 "agent/status" 判定。归一化点负责统一成规范名，
 # 使产物字段 event 与消费端词表严格一致（原始写法仍留在协议层 AgentEvent.event）。
 _EVENT_ALIASES = {"agentstatus": "agent/status"}
@@ -93,13 +93,13 @@ def normalize_event(record: AgentEvent | dict, *, source_hint: str = "", agent_n
         return LifecycleEvent(**common)
     if lower in {"assistant/message", "assistant/chunk", "agent_reasoning", "agent_reasoning_raw_content", "reasoning"}:
         return ReasoningEvent(**common, summary=str(data.get("summary") or data.get("text") or data.get("content") or "")[:300], delta=lower.endswith("chunk") or "delta" in data)
-    if lower in {"tool/call", "command/run", "tool-workflow/run-start", "exec_command_begin", "mcp_tool_call_begin"}:
+    if lower in {"tool/call", "command/run", "tool-workflow/run-start", "exec_command_begin", "mcp_tool_call_begin", "custom_tool_call", "function_call"}:
         tool = str(data.get("tool") or data.get("toolName") or data.get("name") or "")
         target = str(data.get("target") or data.get("filePath") or data.get("path") or data.get("query") or "")[:300]
         cls = "ACTION" if tool.lower() in _ACTION or lower == "command/run" else "EXPLORATION" if tool.lower() in _EXPLORATION or lower in _EXPLORATION else "OTHER"
         typ_cls = ActionEvent if cls == "ACTION" else ToolCallEvent
         return typ_cls(**common, tool=tool, target=target, action_class=cls)
-    if lower in {"tool/result", "exec_command_end", "mcp_tool_call_end"}:
+    if lower in {"tool/result", "exec_command_end", "mcp_tool_call_end", "custom_tool_call_output", "function_call_output"}:
         ok = data.get("ok", True) not in (False, 0, "false", "error")
         result = ToolResultEvent(**common, tool=str(data.get("tool") or data.get("toolName") or ""), ok=ok, target=str(data.get("target") or data.get("path") or "")[:300])
         return result if not ok else EvidenceEvent(**common, tool=result.tool, target=result.target, status=str(data.get("evidenceStatus") or "new"))

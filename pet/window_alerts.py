@@ -9,17 +9,11 @@ from __future__ import annotations
 
 import logging
 import random
-import time
 from collections import deque
-
-from PySide6.QtCore import QTimer
 
 from . import catalog
 from . import window_placement
-
-# 确认"音乐真的停了"所需的持续静音时长（秒）。歌曲的前奏/间奏/轻声段会让
-# 音频峰值瞬时跌到阈值下，太小会导致唱歌状态反复退出。
-MUSIC_SING_GRACE_SECONDS = 6.0
+from .config import DEFAULT_SELF_TALK_TEXTS
 
 def alert_survives_suppression(alert_type: str, *, sticky: bool, buttons, priority: int) -> bool:
     """Settings only suppress ordinary presentation; stateful events survive."""
@@ -229,7 +223,7 @@ def pump_alerts(host) -> None:
 
 
 def clear_alerts(host) -> None:
-    """清空提醒消息队列并关闭当前提醒（DSH 离线/重启时全部失效）。"""
+    """清空提醒消息队列并关闭当前提醒（Agent 离线/重启时全部失效）。"""
     host._alert_queue.clear()
     host._alert_current = None
     host._sticky_bubble_active = False
@@ -240,7 +234,7 @@ def clear_alerts(host) -> None:
 
 
 def hide_bubble(host) -> None:
-    """主动关闭当前气泡并解除 sticky（审批结束 / DSH 离线时调用）。
+    """主动关闭当前气泡并解除 sticky（审批结束 / Agent 离线时调用）。
 
     若关闭的是队列中的提醒，则自动弹出下一条。"""
     host._sticky_bubble_active = False
@@ -288,7 +282,6 @@ def on_speech_bubble_hidden(host) -> None:
 
 
 def read_self_talk_texts(value) -> list[str]:
-    from .window import DEFAULT_SELF_TALK_TEXTS
     if not isinstance(value, list):
         return list(DEFAULT_SELF_TALK_TEXTS)
     texts = []
@@ -300,7 +293,6 @@ def read_self_talk_texts(value) -> list[str]:
 
 
 def expression_style_text(host, text: str) -> str:
-    from .window import DEFAULT_SELF_TALK_TEXTS
     """Apply the shared expression style only to built-in host-talk text."""
     if text not in DEFAULT_SELF_TALK_TEXTS:
         return text
@@ -345,7 +337,7 @@ DEFAULT_IMAGE_CHANCE = 30  # 与 config.py 的 DEFAULT_SELF_TALK_IMAGE_CHANCE �
 def self_talk_image_chance(host) -> int:
     """自言自语出图概率（百分比 0~100）。
 
-    与 ``self_talk_speak_enabled`` 同样在运行时读配置、不缓存到窗口字段：概率随时
+    在运行时读配置、不缓存到窗口字段：概率随时
     会改，而且读不到配置时要按默认值走——不让一次读取失败变成"点了不出图"。
     """
     cfg = getattr(host, "cfg", None)
@@ -414,8 +406,6 @@ def show_random_self_talk(host) -> bool:
     _set_speech_bubble_interactive(host)
 
     if kind == "image":
-        # 图片气泡没有可朗读的文本：显式记 None，点击路径据此保持安静。
-        host._last_self_talk_text = None
         return host._speech_bubble.show_image(
             value,
             anchor,
@@ -424,47 +414,16 @@ def show_random_self_talk(host) -> bool:
             image_scale=host._self_talk_image_scale,
         )
 
-    host._last_self_talk_text = value
     return host._show_self_talk_text(value)
 
 
-def self_talk_speak_enabled(host) -> bool:
-    """点击自言自语是否朗读（缺配置或配置损坏时按默认开启，与 config.py 一致）。"""
-    cfg = getattr(host, "cfg", None)
-    if cfg is None:
-        return False
-    try:
-        return bool(cfg.get("self_talk_speak_enabled", True))
-    except Exception:
-        return True
 
 
-def speak_click_self_talk(host, text: str) -> None:
-    """把点击自言自语**实际显示的那句话**交给语音通道读出来。
-
-    刻意复用语音报时服务的音频通道（窗口的 ``on_self_talk_speak`` 由 app 接线到
-    ``AppShell.speak_self_talk``）：报时 / 节日提醒 / 点击自言自语共用一条音频
-    通道，才能像节日提醒那样在结构上保证不叠音。
-
-    通道缺失、开关关闭或播报失败都只降级为「有气泡没声音」，绝不影响点击本身。
-    """
-    stripped = str(text or "").strip()
-    if not stripped or not self_talk_speak_enabled(host):
-        return
-    speaker = getattr(host, "on_self_talk_speak", None)
-    if not callable(speaker):
-        return
-    try:
-        speaker(stripped)
-    except Exception:
-        logging.getLogger("dsh-pet-standalone").exception("点击自言自语语音播报失败")
 
 
 def show_click_self_talk(host, click_name: str) -> bool:
     """优先播放当前点击动画绑定的台词；未绑定则回退全局随机自言自语。
 
-    显示成功后把实际显示的文本一并朗读（图片气泡没有文本，自然不出声），
-    使"听到的"与"看到的"永远是同一句。
     """
     character_id = str(host.cfg.get('character', catalog.DEFAULT_CHARACTER))
     texts = host.cfg.click_talk_texts_for(character_id, click_name)
@@ -472,11 +431,7 @@ def show_click_self_talk(host, click_name: str) -> bool:
         value = random.choice(texts)
         shown = host._show_self_talk_text(value)
     else:
-        host._last_self_talk_text = None
         shown = host._show_random_self_talk()
-        value = getattr(host, "_last_self_talk_text", None)
-    if shown and value:
-        speak_click_self_talk(host, value)
     return shown
 
 
@@ -490,75 +445,3 @@ def on_self_talk_timeout(host) -> None:
     if host._self_talk_enabled and host.isVisible():
         displayed = host._show_random_self_talk()
     host._schedule_self_talk(after_display=displayed)
-
-
-def start_music_sing_polling(host) -> None:
-    """启动音乐检测并尽量立即检查一次，避免等一个轮询周期才唱歌。"""
-    if not host._music_sing_enabled:
-        return
-    host._music_sing_timer.start()
-    if host.isVisible():
-        QTimer.singleShot(0, host, host._check_music_sing)
-
-
-def check_music_sing(host) -> None:
-    """检测后台音乐并自动播放唱歌动画（可配置开关）。
-
-    音乐播放期间唱歌动画会持续循环；音乐停止或开关关闭后恢复普通动画链。
-    不打断正在播放的一次性动作/点击/拖拽。
-
-    退出唱歌要经过一段宽限期，而不是一检测到静音就退：``is_music_playing``
-    看的是音频峰值，歌曲的前奏/间奏/轻声段会让峰值瞬时跌到阈值以下，立刻退出
-    会表现为"唱着唱着主动退出、然后静默不唱"。
-    """
-    from .window import SING_ANIM
-    if not host.isVisible():
-        return
-    if not host._music_sing_enabled:
-        host._music_sing_active = False
-        host._music_sing_silent_since = None
-        return
-    # 当前是纯音乐（配乐/OST/演奏曲）：没有可唱的句子，不唱歌。
-    # 标志由歌词控制器维护；没启用歌词功能时该标志恒为 False，不受影响。
-    if getattr(host, "_instrumental_playing", False):
-        host._music_sing_active = False
-        host._music_sing_silent_since = None
-        return
-    from . import music_detect
-    playing = music_detect.is_music_playing()
-    if host._music_sing_active:
-        # 静音起点用 getattr 兜底读取：window.py 的行数预算已满，不新增字段。
-        silent_since = getattr(host, "_music_sing_silent_since", None)
-        if playing:
-            # 还有声音：刷新静音计时，保持唱歌。
-            host._music_sing_silent_since = None
-        elif silent_since is None:
-            # 刚转为静音：起算宽限期，先不退出。
-            host._music_sing_silent_since = time.monotonic()
-        elif (
-            time.monotonic() - silent_since >= music_sing_grace_seconds(host)
-        ):
-            host._music_sing_active = False
-            host._music_sing_silent_since = None
-        # 宽限期内：保持 _music_sing_active，动画继续循环。
-        return
-    if host._dragging or host._is_one_shot_playing():
-        return
-    if playing:
-        host._music_sing_active = True
-        host._music_sing_silent_since = None
-        host._switch(SING_ANIM)
-
-
-def music_sing_grace_seconds(host) -> float:
-    """确认"音乐真的停了"所需的持续静音时长（秒）。"""
-    raw = getattr(getattr(host, "cfg", None), "get", None)
-    value = None
-    if callable(raw):
-        value = raw("music_sing_grace_seconds", None)
-    try:
-        seconds = float(value)
-    except (TypeError, ValueError):
-        seconds = MUSIC_SING_GRACE_SECONDS
-    # 下限 1 秒：低于这个值就退化回"瞬时静音即退出"的老问题。
-    return max(1.0, seconds)

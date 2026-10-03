@@ -19,7 +19,7 @@
 
 - 数据：`pet/persona_presets/legacy.json`（默认模式/正式口吻）、
   `whale_maid.json`（鲸鱼娘女仆模式）。均为扁平
-  `{event_key: [文案…]}`，36 个事件 key，每 key ≤8 条、每条 ≤240 字
+  `{event_key: [文案…]}`，34 个事件 key，每 key ≤8 条、每条 ≤240 字
   （载入时清洗）。键集合即事件词表（无独立硬编码词表）。
 - 加载：`pet/persona_phrases.py`
   - `load_builtin_presets()`：模块导入（启动）时读盘全部内置预设 →

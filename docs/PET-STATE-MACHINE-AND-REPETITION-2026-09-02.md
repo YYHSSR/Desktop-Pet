@@ -254,5 +254,4 @@ turn/end、idle、session 结束或用户点击控制按钮后清理
 - [行为模式检测器](<pet/behavior_detector.py>)
 - [探索循环 Watchdog](<pet/exploration_watchdog.py>)
 - [卡住检测器](<pet/stuck_detector.py>)
-- [DSH 状态跟踪器](<pet/dsh_state.py>)
 - [Agent 联动管理器](<pet/agent_link.py>)

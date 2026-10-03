@@ -48,7 +48,7 @@ def test_unified_preset_phrases_survive_normalize(tmp_path):
         },
         "agents": {
             "dsh": {"start": ["DSH 专属开始"]},
-            "claude": {"thinking": 42},  # 非法值须被清掉，但结构保留
+            "example-agent": {"thinking": 42},  # 非法值须被清掉，但结构保留
         },
     }
     cfg.set("dialogue_phrases", preset)
@@ -58,8 +58,8 @@ def test_unified_preset_phrases_survive_normalize(tmp_path):
     assert cleaned["global"]["start"] == ["全局开始"]
     assert isinstance(cleaned.get("agents"), dict)
     assert cleaned["agents"]["dsh"]["start"] == ["DSH 专属开始"]
-    # claude 仅含非法 42 → 该 agent 无任何有效覆盖，整键被清理（delta 空无意义）
-    assert "claude" not in cleaned["agents"]
+    # example-agent 仅含非法 42 → 该 agent 无任何有效覆盖，整键被清理（delta 空无意义）
+    assert "example-agent" not in cleaned["agents"]
 
 
 def test_legacy_placeholder_fields_migrate_to_new_names(tmp_path):
@@ -155,8 +155,8 @@ def test_phrase_lookup_prefers_agent_delta_over_global():
     }
     assert phrase_for_agent(preset, "dsh", "start") == ["DSH start"]
     assert phrase_for_agent(preset, "dsh", "thinking") == ["全局 thinking"]
-    assert phrase_for_agent(preset, "claude", "start") == ["全局 start"]
-    assert phrase_for_agent(preset, "claude", "missing_event") is None
+    assert phrase_for_agent(preset, "example-agent", "start") == ["全局 start"]
+    assert phrase_for_agent(preset, "example-agent", "missing_event") is None
 
 
 def test_phrase_lookup_accepts_flat_legacy_phrases():
@@ -165,7 +165,7 @@ def test_phrase_lookup_accepts_flat_legacy_phrases():
 
     flat = {"start": ["旧 start"], "thinking": ["旧 thinking"]}
     assert phrase_for_agent(flat, "dsh", "start") == ["旧 start"]
-    assert phrase_for_agent(flat, "claude", "thinking") == ["旧 thinking"]
+    assert phrase_for_agent(flat, "example-agent", "thinking") == ["旧 thinking"]
 
 
 def test_phrase_lookup_non_agent_only_reads_global():
@@ -202,9 +202,9 @@ def test_picker_custom_for_agent_renders_delta_then_global():
         },
     }
     assert picker.custom_for_agent(preset, "dsh", "start", "fb", name="DSH") == "DSH DSH start"
-    assert picker.custom_for_agent(preset, "claude", "start", "fb", name="Claude Code") == "全局 Claude Code start"
-    assert picker.custom_for_agent(preset, "claude", "thinking", "fb") == "全局 thinking"
-    assert picker.custom_for_agent(preset, "claude", "no_such_event", "回退") == "回退"
+    assert picker.custom_for_agent(preset, "example-agent", "start", "fb", name="Example Agent") == "全局 Example Agent start"
+    assert picker.custom_for_agent(preset, "example-agent", "thinking", "fb") == "全局 thinking"
+    assert picker.custom_for_agent(preset, "example-agent", "no_such_event", "回退") == "回退"
 
 
 def test_picker_custom_for_agent_non_agent_ignores_agents():

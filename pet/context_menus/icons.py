@@ -167,12 +167,30 @@ def vector_menu_icon(menu: QMenu, name: str, size: int | None = None) -> QIcon:
         painter.drawLine(QPointF(5.0, 11.5), QPointF(9.0, 11.5))
     elif name == "settings":
         gear = QPolygonF()
-        for index in range(24):
-            angle = -pi / 2 + index * pi / 12
-            radius = 6.2 if index % 3 == 1 else 5.15
-            gear.append(QPointF(8.0 + cos(angle) * radius, 8.0 + sin(angle) * radius))
+        for i in range(6):
+            theta = i * pi / 3 - pi / 2
+            for offset, r in (
+                (-pi / 9, 4.4),
+                (-pi / 16, 6.35),
+                (pi / 16, 6.35),
+                (pi / 9, 4.4),
+            ):
+                ang = theta + offset
+                gear.append(QPointF(8.0 + cos(ang) * r, 8.0 + sin(ang) * r))
         painter.drawPolygon(gear)
         painter.drawEllipse(QPointF(8.0, 8.0), 2.15, 2.15)
+    elif name in {"agent", "ai_agent"}:
+        painter.drawLine(QPointF(8.0, 3.8), QPointF(8.0, 2.2))
+        painter.setBrush(QBrush(color))
+        painter.drawEllipse(QPointF(8.0, 1.8), 0.9, 0.9)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(2.6, 3.8, 10.8, 9.4), 2.6, 2.6)
+        painter.drawLine(QPointF(1.3, 8.5), QPointF(2.6, 8.5))
+        painter.drawLine(QPointF(13.4, 8.5), QPointF(14.7, 8.5))
+        painter.setBrush(QBrush(color))
+        painter.drawEllipse(QPointF(5.7, 8.2), 0.95, 0.95)
+        painter.drawEllipse(QPointF(10.3, 8.2), 0.95, 0.95)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
     elif name == "play":
         painter.drawPolygon(QPolygonF([QPointF(4.0, 2.5), QPointF(13.0, 8.0), QPointF(4.0, 13.5)]))
     elif name == "pet":
@@ -226,9 +244,6 @@ def vector_menu_icon(menu: QMenu, name: str, size: int | None = None) -> QIcon:
         painter.drawLine(QPointF(3.0, 13.0), QPointF(13.0, 3.0))
         painter.drawLine(QPointF(3.0, 8.5), QPointF(3.0, 13.0)); painter.drawLine(QPointF(7.5, 13.0), QPointF(3.0, 13.0))
         painter.drawLine(QPointF(8.5, 3.0), QPointF(13.0, 3.0)); painter.drawLine(QPointF(13.0, 3.0), QPointF(13.0, 7.5))
-    elif name == "harness":
-        painter.drawRoundedRect(QRectF(1.5, 2.5, 13.0, 11.0), 1.5, 1.5)
-        painter.drawLine(QPointF(4.0, 6.0), QPointF(6.0, 8.0)); painter.drawLine(QPointF(6.0, 8.0), QPointF(4.0, 10.0)); painter.drawLine(QPointF(8.0, 10.0), QPointF(11.5, 10.0))
     elif name == "web":
         painter.drawEllipse(QPointF(8.0, 8.0), 6.0, 6.0)
         painter.drawEllipse(QPointF(8.0, 8.0), 2.7, 6.0)
@@ -328,18 +343,6 @@ def vector_menu_icon(menu: QMenu, name: str, size: int | None = None) -> QIcon:
     elif name in {"tools", "functions"}:
         painter.drawRoundedRect(QRectF(1.5, 2.0, 13.0, 12.0), 2.0, 2.0)
         painter.drawLine(QPointF(5.0, 5.0), QPointF(11.0, 11.0)); painter.drawEllipse(QPointF(4.5, 4.5), 1.5, 1.5); painter.drawEllipse(QPointF(11.5, 11.5), 1.5, 1.5)
-    elif name in {"sound", "speaker", "music"}:
-        # 扬声器图标
-        path.moveTo(3.0, 6.0)
-        path.lineTo(6.0, 6.0)
-        path.lineTo(9.5, 3.0)
-        path.lineTo(9.5, 13.0)
-        path.lineTo(6.0, 10.0)
-        path.lineTo(3.0, 10.0)
-        path.closeSubpath()
-        painter.drawPath(path)
-        painter.drawArc(QRectF(10.0, 5.5, 4.0, 5.0), -60 * 16, 120 * 16)
-        painter.drawArc(QRectF(9.0, 3.5, 7.0, 9.0), -60 * 16, 120 * 16)
     elif name == "exit":
         painter.drawLine(QPointF(3.0, 3.0), QPointF(13.0, 13.0)); painter.drawLine(QPointF(13.0, 3.0), QPointF(3.0, 13.0))
     else:

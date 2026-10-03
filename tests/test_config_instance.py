@@ -30,39 +30,22 @@ def test_default_config_still_uses_plain_file(tmp_path):
     assert instance.path.name == "config-pet3.json"
 
 
-def test_save_redacts_api_keys_from_disk(tmp_path):
-    """keyring 不可用时 key 只保留内存；写盘副本必须剔除明文 api_key/vision_api_key。"""
-    config = Config(base=tmp_path)
-    settings = config.chat_settings()
-    provider = settings.active_config
-    provider.api_key = "sk-plaintext"
-    provider.vision_api_key = "vk-plaintext"
-    config.set_chat_settings(settings)
-    assert config.save() is True
-
-    raw = json.loads(config.path.read_text(encoding="utf-8"))
-    disk_provider = raw["chat"]["providers"]["openai-main"]
-    assert "api_key" not in disk_provider
-    assert "vision_api_key" not in disk_provider
-    # 内存中保留，本次运行仍可用
-    assert config.chat_settings().active_config.api_key == "sk-plaintext"
-    assert config.chat_settings().active_config.vision_api_key == "vk-plaintext"
 
 
-def test_retired_balance_settings_do_not_persist_and_music_does(tmp_path):
+def test_retired_balance_settings_do_not_persist(tmp_path):
     config = Config(base=tmp_path)
     config.set("balance_tier_labels_mode", "liangwen")
     config.set("balance_tier_label_peak", "peak")
     config.set("balance_tier_label_idle", "idle")
     config.set("balance_tier_color_enabled", False)
-    config.set("music_sing_enabled", True)
+    config.set("self_talk_enabled", True)
     assert config.save()
 
     reloaded = Config(base=tmp_path)
     for key in ("balance_tier_labels_mode", "balance_tier_label_peak",
                 "balance_tier_label_idle", "balance_tier_color_enabled"):
         assert key not in reloaded.data
-    assert reloaded.get("music_sing_enabled") is True
+    assert reloaded.get("self_talk_enabled") is True
 
 
 
@@ -74,50 +57,61 @@ def test_save_returns_false_on_write_failure(tmp_path):
     assert config.save() is False
 
 
-def test_reload_preserves_memory_api_key_when_keyring_unavailable(tmp_path, monkeypatch):
-    """keyring 不可用时 key 只存内存：磁盘重载（config.reload()）不得冲掉内存 key。
 
-    回归背景：设置对话框保存前会调用 config.reload() 从磁盘重读以吸收外部改动，
-    而 _redacted_data() 写盘时剔除了明文 api_key/vision_api_key —— 磁盘文件里没有
-    key，reload() 于是把内存中的 key 覆盖成空，用户没重启就丢了 key。
-    """
-    # 模拟 keyring 不可用：set 恒失败、get 恒空；否则加载时明文迁移会把内存 key
-    # 搬进真实 keyring（见 Config._migrate_plaintext_keys_to_keyring），本测试
-    # 要固定的正是「不可用兜底」这条路径。
-    class _UnavailableStore:
-        def __init__(self, *args, **kwargs):
-            pass
 
-        def get(self, ref):
-            return ""
+def test_unmodified_save_does_not_overwrite_newer_disk_changes(tmp_path):
+    """F01 回归：无脏键时不全量覆盖较新磁盘配置。"""
+    cfg_a = Config(base=tmp_path)
+    cfg_a.set("scale", 0.72)
+    assert cfg_a.save()
 
-        def set(self, ref, value):
-            return False
+    cfg_b = Config(base=tmp_path)
+    assert cfg_b.get("scale") == 0.72
+    cfg_b.set("scale", 1.75)
+    assert cfg_b.save()
 
-    monkeypatch.setattr("pet.chat.models.SecretStore", _UnavailableStore)
+    # cfg_a 无任何脏键，此时 save() 不得用 cfg_a 的旧快照冲掉 1.75
+    assert cfg_a.save()
 
-    config = Config(base=tmp_path)
-    settings = config.chat_settings()
-    provider = settings.active_config
-    provider.api_key = "sk-plaintext"
-    provider.vision_api_key = "vk-plaintext"
-    config.set_chat_settings(settings)
-    assert config.save() is True
+    reloaded = Config(base=tmp_path)
+    assert reloaded.get("scale") == 1.75
 
-    # 磁盘文件确实不含明文 key（防回归）
-    raw = json.loads(config.path.read_text(encoding="utf-8"))
-    disk_provider = raw["chat"]["providers"]["openai-main"]
-    assert "api_key" not in disk_provider
-    assert "vision_api_key" not in disk_provider
 
-    # 模拟设置对话框保存前从磁盘重读：内存 key 必须仍在
-    config.reload()
-    reloaded = config.chat_settings().active_config
-    assert reloaded.api_key == "sk-plaintext"
-    assert reloaded.vision_api_key == "vk-plaintext"
+def test_save_redacts_legacy_keys_from_disk_raw(tmp_path):
+    """F03 回归：增量合并后最终写入磁盘前再次脱敏，旧磁盘明文 API 密钥不得被保留。"""
+    cfg = Config(base=tmp_path)
+    assert cfg.save()
 
-    # 磁盘依然没有明文（防回归：reload 不得把内存 key 写回磁盘）
-    raw_after = json.loads(config.path.read_text(encoding="utf-8"))
-    disk_after = raw_after["chat"]["providers"]["openai-main"]
-    assert "api_key" not in disk_after
-    assert "vision_api_key" not in disk_after
+    # 模拟磁盘历史遗留明文 key
+    disk_data = json.loads(cfg.path.read_text(encoding="utf-8"))
+    disk_data["chat"] = {
+        "providers": {
+            "openai-main": {"api_key": "LEAKED_KEY", "vision_api_key": "LEAKED_VK"}
+        }
+    }
+    cfg.path.write_text(json.dumps(disk_data), encoding="utf-8")
+
+    # 仅修改一个无关配置（如 on_top）
+    cfg2 = Config(base=tmp_path)
+    cfg2.set("on_top", False)
+    assert cfg2.save()
+
+    # 检查磁盘数据：合并后必须脱敏，不能保留 LEAKED_KEY
+    new_disk = json.loads(cfg2.path.read_text(encoding="utf-8"))
+    provider = new_disk.get("chat", {}).get("providers", {}).get("openai-main", {})
+    assert "api_key" not in provider
+    assert "vision_api_key" not in provider
+
+
+def test_set_click_talk_bindings_persists_with_prior_dirty_key(tmp_path):
+    """F04 回归：在已有脏键时保存点击动画台词绑定，台词不会丢失。"""
+    cfg = Config(base=tmp_path)
+    assert cfg.save()
+
+    cfg2 = Config(base=tmp_path)
+    cfg2.set("on_top", False)
+    cfg2.set_click_talk_bindings("demo_pet", {"click": ["hello world"]})
+
+    reloaded = Config(base=tmp_path)
+    assert reloaded.get("on_top") is False
+    assert reloaded.click_talk_texts_for("demo_pet", "click") == ["hello world"]
