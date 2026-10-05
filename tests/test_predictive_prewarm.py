@@ -50,7 +50,6 @@ class FakeClip(QObject):
         self.frame_count = max(1, frame_count)
         self.fps = max(0.1, float(fps))
         self.speed = 1.0
-        self.decode_throttle_divisor = 1
         self.warm_calls = 0
         self.stop_count = 0
         self.start_count = 0
@@ -95,8 +94,6 @@ class FakeClip(QObject):
     def warm_first_frame(self):
         self.warm_calls += 1
 
-    def set_decode_throttle(self, divisor):
-        self.decode_throttle_divisor = max(1, int(divisor))
 
     # 批11-B1 复审 P2-1：窗口→clip 的回收阈值推送回归用（记录调用值）。
     def set_recycle_minutes(self, minutes):
@@ -500,22 +497,6 @@ class TestWindowPredictivePrewarm:
         win.close()
         app.processEvents()
 
-    def test_e_divisor_lead_timing_window_path(self, app, tmp_path, monkeypatch):
-        win = _make_window(tmp_path)
-        # 挡住窗口层的节流同步（否则该路径会把 divisor 复位到 1），直测公式读取
-        monkeypatch.setattr(win, "_sync_movie_throttle", lambda reduced: None)
-        monkeypatch.setattr(win, "_idle_reduction_active", lambda: False)
-        _set_random(monkeypatch, 0.5)
-        self._switch_act(win, "写代码")
-        win.lib.movie("写代码").decode_throttle_divisor = 2  # 模拟闲置降帧 divisor=2
-        pp = win.predictive_prewarm
-        # fps=10, divisor=2 → wall=(9-n)/5；n=6 → 0.6s>0.35 不预测（未修正公式会触发）
-        win._on_frame("写代码", 6)
-        assert pp.prediction is None
-        win._on_frame("写代码", 8)
-        assert pp.prediction is not None
-        win.close()
-        app.processEvents()
 
     def test_f_hidden_invalidates_prediction(self, app, tmp_path, monkeypatch):
         win = _make_window(tmp_path)

@@ -160,25 +160,6 @@ class TestMainlineAgentLinkHardening:
         mgr.shutdown()
 
 
-    def test_state_and_activity_refresh_idle_activity_anchor(self, tmp_path):
-        class Win:
-            def __init__(self):
-                self.activity_count = 0
-
-            def isVisible(self):
-                return True
-
-            def mark_activity(self):
-                self.activity_count += 1
-
-        win = Win()
-        mgr = AgentLinkManager(win, Config(base=tmp_path), min_interval=0.0)
-        mgr._on_agent_state("codex", "working")
-        mgr._on_agent_activity("codex", "read")
-        assert win.activity_count == 2
-        mgr.shutdown()
-
-
 # ============================================================================
 # 1. ByteOffsetTailer 核心增量读取测试
 # ============================================================================
@@ -230,10 +211,6 @@ class TestByteOffsetTailer:
         lines = tailer.read_new_lines()
         assert len(lines) == 1
         assert json.loads(lines[0])["event"] == "fresh"
-
-
-
-
 
 
 class TestEventStateNormalization:
@@ -341,7 +318,7 @@ class TestRealFileTailEndToEnd:
 
         mgr._on_agent_state("cursor", "attention")
         # 等待用户输入时立即提醒，但不能提前宣布完成。
-        assert any("确认一下" in b for b in bubbles)
+        assert any("确认" in b for b in bubbles)
         assert "cursor" not in mgr._done_pending
         mgr._on_agent_state("cursor", "idle")
         assert "cursor" in mgr._done_pending
@@ -350,7 +327,7 @@ class TestRealFileTailEndToEnd:
 
         # 非 busy 后独立出现的 attention 仍立即提醒
         mgr._on_agent_state("codex", "attention")
-        assert any("需要你确认" in b for b in bubbles)
+        assert any("确认" in b for b in bubbles)
 
 
 # ============================================================================
@@ -504,8 +481,6 @@ class TestAgentMenuRebound:
 # ============================================================================
 
 
-
-
 class TestCooldownUnits:
     def test_seconds_and_minutes_conversion(self, tmp_path):
         """冷却间隔秒/分钟双单位：45 秒应存为 0.75 分钟。"""
@@ -537,10 +512,6 @@ class TestCooldownUnits:
             dlg.deleteLater()
 
 
-
-
-
-
 # ============================================================================
 # 12. ChatGPT profile 枚举（桥接插件安装/卸载目标）
 # ============================================================================
@@ -549,12 +520,6 @@ class TestCooldownUnits:
 # ============================================================================
 # 13. Agent 联动气泡测试（开始干活 / 完成通知 / 冷却 / 抖动 / 占用延后）
 # ============================================================================
-
-
-
-
-
-
 
 
 # ============================================================================
@@ -652,14 +617,14 @@ class TestAgentLinkChainingAndActivity:
         # 未知工具弹安全兜底文案，不泄露原始参数
         mgr._on_agent_activity("codex", "frobnicate")
         assert len(bubbles) == 1
-        assert "正在调用工具" in bubbles[-1]
+        assert "正在处理任务" in bubbles[-1]
         assert "frobnicate" not in bubbles[-1]
 
         # dsh bash → 弹「正在跑命令」
         clock[0] += 10.0
         mgr._on_agent_activity("codex", "bash")
         assert len(bubbles) == 2
-        assert "正在跑命令" in bubbles[-1]
+        assert "正在运行或测试" in bubbles[-1]
 
         # 10 秒内第二次任何工具不弹
         clock[0] += 5.0
@@ -678,12 +643,12 @@ class TestAgentLinkChainingAndActivity:
         # 换成 read 则弹「正在读文件」
         mgr._on_agent_activity("codex", "read")
         assert len(bubbles) == 3
-        assert "正在读文件" in bubbles[-1]
+        assert "读资料" in bubbles[-1]
 
         clock[0] += 10.0
         mgr._on_agent_activity("codex", "pwsh")
         assert len(bubbles) == 4
-        assert "pwsh" in bubbles[-1]  # activity.run 轮换到含工具名的变体
+        assert "ChatGPT" in bubbles[-1]  # 简短工作状态文案，不展示原始命令
         clock[0] += 10.0
         mgr._on_agent_activity("codex", "memory_search")
         assert len(bubbles) == 5
@@ -841,7 +806,6 @@ class TestAgentLinkChainingAndActivity:
         finally:
             win.close()
             win.deleteLater()
-
 
 
 # ============================================================================
@@ -1124,59 +1088,6 @@ class TestCustomAgentManager:
         assert mgr.agent_names["cursor"] == "Cursor"
 
 
-class TestCustomAgentMenu:
-    def test_menu_lists_custom_agent_and_toggle_routes(self, tmp_path):
-        """右键菜单动态渲染自定义 Agent（收进「自定义联动 Agent」三级子菜单），勾选走通用 _toggle_agent_link。"""
-        from PySide6.QtWidgets import QMenu
-        from pet.context_menus.shared import add_agent_link_menu
-
-        app = QApplication.instance() or QApplication([])
-        cfg = Config(base=tmp_path)
-        ag = dict(cfg.get("agent_link", {}))
-        ag["custom_agents"] = [
-            {"key": "gemini", "name": "Gemini CLI", "path": "~/gemini.jsonl"},
-        ]
-        cfg.set("agent_link", ag)
-        cfg.save()
-
-        toggles, options = [], []
-
-        class DummyPet:
-            def __init__(self):
-                self.cfg = cfg
-
-            def toggle_agent_link(self, key, on, action=None):
-                toggles.append((key, on))
-
-            def set_agent_link_option(self, key, on):
-                options.append((key, on))
-
-            _toggle_agent_link = toggle_agent_link
-            _set_agent_link_option = set_agent_link_option
-
-        menu = QMenu()
-        try:
-            add_agent_link_menu(menu, DummyPet())
-            sub = menu.actions()[0].menu()
-            texts = [a.text() for a in sub.actions()]
-            # 内置 Cursor 项在顶层，只列当前内置来源，自定义项收进三级子菜单「自定义联动 Agent」
-            assert "Cursor" in texts
-            assert "Gemini CLI" not in texts
-            custom_sub = next(a.menu() for a in sub.actions() if a.text() == "自定义联动 Agent")
-            custom_texts = [a.text() for a in custom_sub.actions()]
-            assert "Gemini CLI" in custom_texts
-            # Agent 联动子菜单不再带「台词风格」「循环检测/卡住检测」入口——
-            # 检测类配置已收敛到设置页（自动化与联动），仅保留联动相关设置
-            assert "台词风格" not in texts
-
-            gemini_act = next(a for a in custom_sub.actions() if a.text() == "Gemini CLI")
-            gemini_act.setChecked(True)
-            assert toggles == [("gemini", True)]
-        finally:
-            import shiboken6
-            shiboken6.delete(menu)
-
-
 # ============================================================================
 # 阻塞型交互气泡生命周期（审批 / 用户问题统一处理，一直挂到 resolved）
 # ============================================================================
@@ -1253,7 +1164,7 @@ class TestApprovalStickyBubble:
         assert self._agent_keys(mgr) == {"codex"}
         pending = self._single_pending(mgr, "codex")
         assert pending["kind"] == "approval"
-        assert pending["interactive"] is False
+        assert "interactive" not in pending
         assert mgr.win._sticky_bubble_active is True
         text, sticky = mgr.win.sticky_shown[-1]
         assert sticky is True
@@ -1326,10 +1237,10 @@ class TestApprovalStickyBubble:
         assert mgr._pending_interactions == {}
         assert mgr.win.hidden_calls == 1
 
-    def test_dismiss_all_approvals(self, tmp_path):
+    def test_dismiss_all_interactions(self, tmp_path):
         mgr = self._make_mgr(tmp_path)
         mgr._on_approval_request("codex", {"tool": "bash", "approvalId": "ap-all", "sessionId": "s-1"})
-        mgr.dismiss_all_approvals()
+        mgr.dismiss_all_interactions()
         assert mgr._pending_interactions == {}
         assert mgr.win.hidden_calls == 1
         assert mgr.win._sticky_bubble_active is False
@@ -1398,7 +1309,7 @@ class TestApprovalStickyBubble:
         assert pending, "应有至少一条 pending 交互"
         item = next(iter(pending.values()))
         assert item["kind"] == "question"
-        assert item["interactive"] is False
+        assert "interactive" not in item
         assert mgr.win._sticky_bubble_active is True
         text, sticky = mgr.win.sticky_shown[-1]
         assert sticky is True
@@ -1523,10 +1434,6 @@ class TestApprovalStickyBubble:
     # ---- 交互模式（带 rpcId，气泡内可直接点选） ----
 
 
-
-
-
-
     def test_question_no_options_needs_input_mentions_desktop(self, tmp_path):
         """单个自由文本问题：纯提示气泡，文案明确引导回 ChatGPT 界面输入文本。"""
         mgr = self._make_mgr(tmp_path)
@@ -1539,13 +1446,6 @@ class TestApprovalStickyBubble:
         assert "正在询问" in text
         assert "请到 ChatGPT 界面输入文本回答" in text
         assert mgr.win.shown_buttons == []
-
-
-
-
-
-
-
 
 
     def test_question_payload_keeps_custom_and_intent_per_question(self, tmp_path):
@@ -1562,7 +1462,6 @@ class TestApprovalStickyBubble:
             mgr._on_question_request("codex", {"questions": self.QUESTIONS, "rpcId": rpc, "sessionId": session})
         mgr._on_question_resolved("codex", {"rpcId": "r1", "sessionId": "s1"})
         assert set(mgr.pending_interactions_for("codex")) == {"question:r2"}
-
 
 
 # ============================================================================
@@ -1661,7 +1560,7 @@ class TestInteractionIdentityGate:
         pending = mgr.pending_interactions_for("codex")
         item = next(iter(pending.values()))
         assert item["kind"] == "approval"
-        assert item["interactive"] is False
+        assert "interactive" not in item
         assert item["approval_id"] == "ap-x"
         assert mgr.win.shown_buttons == [], "无 rpcId 时不得出按钮（纯提示）"
         mgr._on_approval_resolved("codex", {"approvalId": "ap-x"})
@@ -1721,14 +1620,10 @@ class TestInteractionIdentityGate:
         pending = mgr.pending_interactions_for("codex")
         item = next(iter(pending.values()))
         assert item["kind"] == "question"
-        assert item["interactive"] is False
+        assert "interactive" not in item
         assert mgr.win.shown_buttons == []
         mgr._on_question_resolved("codex", {"callId": "call-q", "sessionId": "s-1"})
         assert mgr.pending_interactions_for("codex") == {}
-
-
-
-
 
 
     def test_turn_end_clears_stale_pending(self, tmp_path):
@@ -1825,9 +1720,6 @@ class TestExecutionFailed:
         mgr = self._make_mgr(tmp_path, exec_failed=False)
         mgr._on_execution_failed("codex", {"failureType": "model_retry_exhausted", "retryExhausted": True})
         assert mgr.win.shown == []
-
-
-
 
 
 class TestModelAccessAlert:
@@ -2094,7 +1986,6 @@ class TestSessionNameTruthfulness:
         mgr._dialogue = lambda key, fallback, **kw: (captured.update(kw), fallback)[1]
         mgr._show_model_access_alert("session-abcdef12", 1)
         assert "sessionName" not in captured, "模型访问失败提醒无会话元数据时不得注入 sessionName"
-
 
 
 class TestDetectorAlertThrottle:

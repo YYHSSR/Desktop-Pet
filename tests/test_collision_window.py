@@ -753,8 +753,6 @@ def test_collision_impulse_hit_threshold_and_position_clamp(tmp_path, app, monke
     win.close()
 
 
-
-
 def _prediction_peer(win, runtime_id="pet_b", vx=0.0, flags=None):
     rect = win.collision_content_rect()
     own_circles = collision.circles_from_rect(rect.x(), rect.y(), rect.width(), rect.height())
@@ -1063,13 +1061,16 @@ def test_squash_paint_keeps_effects_rotation(tmp_path, app):
     if win._frame_pixmap is None:
         win._rebuild_frame()
 
-    class _FakeEgg:
+    class _FakeSpin:
         active = True
+
+        def cancel(self):
+            self.active = False
 
         def current_angle_deg(self):
             return 90.0
 
-    win._throw_egg = _FakeEgg()
+    win._golden_spin = _FakeSpin()
     win._squash_active = True
     win._squash_progress = 0.5
 
@@ -1083,50 +1084,6 @@ def test_squash_paint_keeps_effects_rotation(tmp_path, app):
     win._effects_paint = _spy
     win.grab()  # 触发 paintEvent（offscreen 可渲染，不经过 _rebuild_frame）
     assert calls, "squash 分支绘制未经过旋转管线（实机：头槌被撞闪回正）"
-    win.close()
-
-
-def test_probe_collision_throw_arms_egg_and_rotation_follows_velocity(tmp_path, app):
-    """批 D 集成：探头激活→真实撞击 arm 彩蛋→飞行整帧旋转跟随速度→落地停稳兜底恢复。"""
-    win, session = _make_pet_window(tmp_path, "pet_probe_egg")
-    avail = win.screen_available().availableGeometry()
-    # 摆位到左缘：经统一出口按身体框贴边（贴边改造后窗口被钳在工作区内、
-    # 角色由绘制偏移贴边；直接 move 窗口到负坐标不再代表"角色贴边"）。
-    win._move_window_towards(avail.left() - win._stable_body_local_rect().x(), 100)
-    win.cfg.set("edge_probe_enabled", True)
-    win.sync_optional_services()
-    probe = win._edge_probe
-    probe.on_release(was_dragging=True)
-    assert probe.active
-
-    egg = win._throw_egg
-    assert not egg.active
-
-    # 真实撞击：进入 throw 物理前取消探头会话并 arm 彩蛋（飞行中整帧旋转开始）。
-    msg = {"a": "pet_probe_egg", "b": "other", "pair": "other|pet_probe_egg",
-           "dvx_a": 400.0, "dvy_a": 0.0, "dx_a": 0.0, "dy_a": 0.0}
-    win._on_collision_impulse(msg)
-    assert probe.active is False
-    assert probe.mode == "OFF"
-    assert egg.active is True
-    assert egg.current_angle_deg() == 0.0
-
-    # 飞行中向右飞（900 px/s，高于批 F 上调后的恢复阈值 780）：_tick_throw_physics
-    # 每 tick 调 update → 角度跟随速度。
-    win._physics_mode = "throw"
-    win._interaction_state = THROWN
-    win._phys_pos[:] = [float(avail.center().x()), float(avail.center().y())]
-    win._phys_vel[:] = [900.0, 0.0]
-    win._tick_throw_physics(0.016)
-    assert egg.active
-    # 角度 = 90 + atan2(vy, vx)（含重力,实际速度方向为右下，略大于 90°）。
-    expected = 90.0 + math.degrees(math.atan2(win._phys_vel[1], win._phys_vel[0]))
-    assert egg.current_angle_deg() == pytest.approx(expected, abs=1e-6)
-
-    # 落地停稳兜底：_stop_physics 无条件调用 end()，恢复正常姿态。
-    win._stop_physics()
-    assert not egg.active
-    assert egg.current_angle_deg() == 0.0
     win.close()
 
 

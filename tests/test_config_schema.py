@@ -43,14 +43,11 @@ RELOAD_WHITELIST_SNAPSHOT = frozenset(
         "collision_mass_scale",
         "collision_restitution",
         "context_menu_appearance",
-        "context_menu_layout",
-        "context_menu_template",
         "cursor_hidden_passthrough",
         "dialogue_last_scope",
         "dialogue_mode",
         "dialogue_phrases",
         "drag_physics",
-        "dynamic_island",
         "edge_probe_enabled",
         "experimental_shared_decode",
         "experimental_single_process_spawn",
@@ -59,11 +56,8 @@ RELOAD_WHITELIST_SNAPSHOT = frozenset(
         "first_frame_cache_max_mb",
         "golden_spin_direct",
         "golden_spin_on_click",
-        "idle_low_fps_enabled",
-        "idle_low_fps_threshold",
         "lock_position",
         "media_prewarm",
-        "menu_easter_egg",
         "mouse_through",
         "no_move",
         "on_top",
@@ -90,14 +84,11 @@ RELOAD_WHITELIST_SNAPSHOT = frozenset(
         "shift_drag",
         "show_dock_icon",
         "slingshot_enabled",
-        "spawn_inherit_dynamic_island",
         "spawn_inherit_size",
         "spawn_scale",
         "stream_capture_mode",
         "system_notifications_enabled",
         "throw_strength",
-        "todo_reminder_enabled",
-        "todo_reminder_lead_minutes",
         "user_customized",
         "festival_custom_quotes_cn",
         "festival_custom_quotes_west",
@@ -215,7 +206,6 @@ def test_set_with_huge_integer_does_not_raise(tmp_path):
     cfg = Config(base=tmp_path)
     cfg.set("playback_speed", int("9" * 400))
     assert cfg.data["playback_speed"] == 1.0
-
 
 
 def test_config_persists_auto_hide(tmp_path):

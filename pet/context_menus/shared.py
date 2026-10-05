@@ -10,9 +10,7 @@ from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot
 from PySide6.QtGui import QActionGroup, QIcon, QPixmap
 from PySide6.QtWidgets import QMenu
 
-from .. import autostart as autostart_mod
 from .. import catalog
-from ..report_gates import REPORT_GATE_DEFAULTS
 from .icons import fitted_pet_pixmap_icon, pet_avatar_menu_icon, vector_menu_icon
 from .menu_styles.common import inherit_menu_style
 
@@ -291,59 +289,6 @@ def build_character_menu(menu: QMenu, pet, *, icons: bool = True) -> QMenu:
     return submenu
 
 
-
-
-def add_agent_link_menu(menu: QMenu, pet, *, icons: bool = True) -> QMenu:
-    """Agent 联动二级菜单（Cursor 开关 + 自定义 Agent 三级子菜单 + 气泡提醒选项，失败/拒绝自动回滚勾选）。"""
-    sub = add_submenu(menu, "Agent 联动", "agent" if icons else None)
-    agent_cfg = dict(pet.cfg.get('agent_link', {}))
-    for agent_key, agent_label in (
-        ('codex', 'ChatGPT 工作状态（Work / Codex）'),
-        ('cursor', 'Cursor'),
-    ):
-        act = sub.addAction(agent_label)
-        act.setCheckable(True)
-        act.setChecked(bool(agent_cfg.get(agent_key, False)))
-        if agent_key == 'codex':
-            act.setToolTip('只读本机 Work / Codex 会话，联动思考、工具执行与任务完成；默认关闭。')
-        act.toggled.connect(lambda on, k=agent_key, a=act: pet.toggle_agent_link(k, on, a))
-    # 自定义联动 Agent（config.json 的 agent_link.custom_agents，只读监听）：
-    # 收进三级子菜单，避免用户配了多个自定义通道后把联动菜单撑长。
-    custom_items = [
-        item for item in (agent_cfg.get('custom_agents') or [])
-        if str(item.get('key') or '')
-    ]
-    if custom_items:
-        custom_sub = add_submenu(sub, "自定义联动 Agent", None)
-        for item in custom_items:
-            key = str(item.get('key'))
-            act = custom_sub.addAction(str(item.get('name') or key))
-            act.setCheckable(True)
-            act.setChecked(bool(agent_cfg.get(key, False)))
-            act.toggled.connect(lambda on, k=key, a=act: pet.toggle_agent_link(k, on, a))
-    sub.addSeparator()
-    # 事件气泡触发概率：与设置页「事件气泡触发概率」同一份数据（agent_link.report_gates）。
-    # 菜单只做 0/1 两端快捷入口（勾选=1.0 全报，取消=0.0 静音），细粒度概率
-    # 由设置页滑块决定；勾选态按当前概率是否 > 0 呈现，并提示当前值。
-    gate_cfg = agent_cfg.get('report_gates')
-    if not isinstance(gate_cfg, dict):
-        gate_cfg = {}
-    for gate_key, opt_label in (
-        ('state', '开始干活气泡提醒'),
-        ('done', '任务完成气泡提醒'),
-        ('activity', '过程汇报气泡（正在读文件/跑命令…）'),
-    ):
-        probability = float(gate_cfg.get(gate_key, REPORT_GATE_DEFAULTS[gate_key]) or 0.0)
-        act = sub.addAction(opt_label)
-        act.setCheckable(True)
-        act.setChecked(probability > 0.0)
-        act.setToolTip(
-            f"当前通过概率 {probability:.2f}；设置页「事件气泡触发概率」可逐类调 0.00–1.00"
-        )
-        act.toggled.connect(lambda on, k=gate_key: pet.set_agent_link_option(k, on))
-    return sub
-
-
 def build_size_menu(menu: QMenu, pet, *, icons: bool = True) -> QMenu:
     submenu = add_submenu(menu, "大小", "size" if icons else None)
     group = QActionGroup(submenu)
@@ -370,15 +315,6 @@ def add_return_corner(menu: QMenu, pet, *, icons: bool = True):
     return add_action(menu, "回到右下角", "corner" if icons else None, pet.go_default_corner)
 
 
-def add_hide_pet(menu: QMenu, pet, *, icons: bool = True):
-    # close_on_trigger：隐藏后菜单随之关闭，避免菜单悬空无法找回桌宠
-    return add_action(menu, "隐藏桌宠", "hide" if icons else None, pet.hide, close_on_trigger=True)
-
-
-
-
-
-
 def add_no_move(menu: QMenu, pet, *, icons: bool = True):
     action = add_action(menu, "不移动", "pause" if icons else None)
     action.setCheckable(True)
@@ -387,34 +323,11 @@ def add_no_move(menu: QMenu, pet, *, icons: bool = True):
     return action
 
 
-def add_mouse_through(menu: QMenu, pet, *, icons: bool = True):
-    """鼠标穿透开关（上游重写时丢失的菜单入口，接回 set_mouse_through）。"""
-    action = add_action(menu, "鼠标穿透", "pin" if icons else None)
-    action.setCheckable(True)
-    action.setChecked(bool(getattr(pet, "mouse_through", False)))
-    action.toggled.connect(lambda enabled, pet=pet: pet.set_mouse_through(enabled))
-    return action
-
-
 def add_on_top(menu: QMenu, pet, *, icons: bool = True):
     action = add_action(menu, "窗口置顶", "pin" if icons else None)
     action.setCheckable(True)
     action.setChecked(bool(pet.cfg.get("on_top", True)))
     action.toggled.connect(lambda enabled, pet=pet: pet.set_on_top(enabled))
-    return action
-
-
-def add_autostart(menu: QMenu, pet=None, *, icons: bool = True):
-    action = add_action(menu, "开机自启", "autostart" if icons else None)
-    action.setCheckable(True)
-    action.setChecked(autostart_mod.is_enabled())
-    def toggle(enabled: bool) -> None:
-        autostart_mod.set_enabled(enabled)
-        if pet is not None:
-            pet.cfg.set("autostart_wanted", bool(enabled))
-            pet.cfg.save()
-
-    action.toggled.connect(toggle)
     return action
 
 
@@ -467,17 +380,6 @@ def add_edge_probe(menu: QMenu, pet, *, icons: bool = True):
         lambda enabled, pet=pet: pet.set_edge_probe_enabled(enabled)
     )
     return action
-
-
-
-def add_template_switch(menu: QMenu, pet, label: str, target: str, *, icons: bool = True):
-    def switch_and_reopen() -> None:
-        pet.set_context_menu_template(target)
-        reopen = getattr(pet, "reopen_context_menu", None)
-        if callable(reopen):
-            reopen(menu)
-
-    return add_action(menu, label, "template" if icons else None, switch_and_reopen)
 
 
 def add_quit(menu: QMenu, pet, *, icons: bool = True):

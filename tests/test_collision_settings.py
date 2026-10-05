@@ -53,8 +53,6 @@ def test_collision_config_defaults_and_normalization(tmp_path: Path):
     assert reloaded.get("collision_impulse_cap") == pytest.approx(1000.0)
 
 
-
-
 def test_modern_settings_dialog_collision_ui_and_round_trip(qapp, tmp_path: Path):
     """验证 ModernSettingsDialog 中的碰撞控件存在、修改并持久化到磁盘。"""
     cfg_file = tmp_path / "appdata"

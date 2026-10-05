@@ -163,10 +163,6 @@ class MultiWindowProxy:
             if hasattr(w, "request_link_idle"):
                 w.request_link_idle()
 
-    def mark_activity(self) -> None:
-        for w in self._windows():
-            if hasattr(w, "mark_activity"):
-                w.mark_activity()
 
     def clear_pending_link_anim(self) -> None:
         for w in self._windows():
@@ -250,14 +246,7 @@ class SharedAgentLinkManager(AgentLinkManager):
         super().__init__(proxy, config, **kw)
         self._stopped = False
 
-    @property
-    def presentation(self):
-        """Compatibility facade for callers of the pre-split presentation API."""
-        return self
 
-    def show_link_bubble(self, text: str, *, important: bool = False, duration_ms: int = 4500) -> None:
-        """Expose presentation's historical bubble entry point."""
-        self._show_link_bubble(text, important=important, duration_ms=duration_ms)
 
     def pause(self) -> None:
         # 单窗隐藏不停共享监视器；呈现扇出已按「可见窗」过滤
@@ -285,8 +274,6 @@ class SharedAgentLinkManager(AgentLinkManager):
             super().shutdown()
         except Exception:
             log.exception("关闭共享 Agent 管理器失败")
-
-
 
 
 class SharedFullscreenWatcher(QObject):

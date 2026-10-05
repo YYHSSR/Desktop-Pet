@@ -127,8 +127,6 @@ def test_exec_settings_exits_when_another_settings_process_holds_lock(tmp_path, 
     assert created == []
 
 
-
-
 def test_packaging_entries_route_settings_before_importing_app():
     """打包入口必须在 import pet.app 之前分流 --settings，否则子进程跑成桌宠。"""
     root = Path(__file__).resolve().parents[1]
@@ -229,7 +227,6 @@ def test_apply_external_config_change_fans_out_to_all_instances(tmp_path, monkey
     shell._instances = [_Inst(), _Inst()]
     shell._sync_dynamic_island = lambda: None
     shell._apply_balance_timer = lambda: None
-    shell._sync_todo_service = lambda: None
     shell._sync_chime_service = lambda: None
     shell._sync_festival_service = lambda: None
     monkeypatch.setattr(app_mod, "_mac_set_dock_icon_visible", lambda *a, **k: None)
@@ -269,10 +266,6 @@ def test_open_settings_process_disabled_by_config(tmp_path):
     assert shell.open_settings_process(object()) is False
     assert launched == []
     assert shell._config_watcher is None
-
-
-
-
 
 
 def test_launch_settings_process_uses_source_command(tmp_path, monkeypatch):

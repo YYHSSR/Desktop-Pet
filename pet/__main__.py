@@ -4,8 +4,6 @@
 import sys
 
 
-
-
 def _exec_settings(app, config) -> int:
     """独立设置进程主体：锁 + 独立对话框 + 事件循环。
 
@@ -60,7 +58,7 @@ def _run_settings(config=None) -> int:
 
     参照 --uninstall-cleanup 的免 GUI 分流范式，但设置页自身要 GUI：只拉起最小
     QApplication + Config + ModernSettingsDialog。**严禁**导入 pet.app——那会连带
-    载入素材库/ffmpeg/托盘/灵动岛，独立进程省内存的前提（也省启动时间）就没了。
+    载入素材库/ffmpeg/托盘，独立进程省内存的前提（也省启动时间）就没了。
     """
     from PySide6.QtWidgets import QApplication
 

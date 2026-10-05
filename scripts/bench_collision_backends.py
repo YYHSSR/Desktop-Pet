@@ -23,14 +23,14 @@ def scene(size: int, topology: str) -> list[collision.MemberState]:
     members = []
     for index in range(size):
         x, y = (index % 6) * step, (index // 6) * step
-        is_static = topology == "static" and index == 0
+        is_held = topology == "held" and index == 0
         members.append(collision.MemberState(
             runtime_id=f"pet-{index:02d}", x=x, y=y,
             radius_x=30, radius_y=30,
             vx=120 if index % 2 else -120, vy=20,
-            is_infinite_mass=is_static,
+            is_infinite_mass=is_held,
             flags=collision.FLAG_VISIBLE | collision.FLAG_COLLISION_ENABLED
-            | (collision.FLAG_STATIC if is_static else 0),
+            | (collision.FLAG_DRAGGING if is_held else 0),
             circles=([[x, y, 24], [x + 12, y, 12]] if topology == "circles" else None),
         ))
     return members
@@ -103,8 +103,8 @@ def main() -> None:
         result = metadata()
         result.update({"samples_per_round": args.samples, "rounds": args.rounds, "results": []})
         for size in (1, 3, 10, 30):
-            for topology in ("sparse", "dense", "circles", "static"):
-                if size == 1 and topology == "static":
+            for topology in ("sparse", "dense", "circles", "held"):
+                if size == 1 and topology == "held":
                     continue
                 result["results"].append({"members": size, "topology": topology,
                                           **measure(scene(size, topology), args.samples, args.rounds)})

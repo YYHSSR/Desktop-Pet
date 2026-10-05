@@ -93,12 +93,6 @@ def move_window_towards(host, x: float, y: float,
     # 1. 身体框（= 虚拟位置 + 局部偏移）钳进工作区
     xi = clamp_span(xi + sbr.x(), bounds.left(), bounds.right(), sbr.width()) - sbr.x()
     yi = clamp_span(yi + sbr.y(), bounds.top(), bounds.bottom(), sbr.height()) - sbr.y()
-    # 1b. 灵动岛同步硬墙（可选）：身体框不得进入岛碰撞区（像屏幕边界一样
-    #     同步钳制，杜绝 30Hz 采样下"钻进区→被弹→再钻回"的抽搐）。hook 由
-    #     岛碰撞体注册（IslandCollisionBody.start），无岛时是 no-op。
-    island_clamp = getattr(host, "_island_clamp_body", None)
-    if callable(island_clamp):
-        xi, yi = island_clamp(host, xi, yi, sbr)
     # 2. 窗口钳进工作区
     wx = clamp_span(xi, avail.left(), avail.right(), host._w)
     wy = clamp_span(yi, avail.top(), avail.bottom(), host._h)
@@ -322,14 +316,13 @@ def visible_content_rect(host) -> QRect:
 
 
 def bubble_anchor_rect(host) -> QRect:
-    """气泡定位锚点：碰撞稳定边界（当前动画各帧轮廓的并集）换算到全局坐标。
-
-    不能用当前帧轮廓（visible_content_rect 的 _mask_bounds 分支）做气泡
-    锚点——待机动画每帧的 alpha 包围盒都在小幅晃动，歌词气泡每秒重放
-    一次就会跟着每秒跳一次（实机探针实测：鱼静止时气泡每秒 ±10px 抖动、
-    偶发 40px 候选位跳变）。并集边界在同一段动画内恒定，气泡只在鱼真正
-    移动/换动画/缩放时才挪。轮廓还没算出来时回退当前帧轮廓。
-    """
+    """Attach speech to the stable body, excluding wide animation effects."""
+    body_rect = getattr(host, "_stable_body_local_rect", None)
+    if callable(body_rect):
+        body = body_rect()
+        if not body.isEmpty():
+            delta = getattr(host, "_draw_delta", QPoint())
+            return QRect(host.frameGeometry().topLeft() + body.topLeft() + delta, body.size())
     local = getattr(host, "_collision_local_bounds", None)
     if local is None or local.isEmpty():
         return host.visible_content_rect()

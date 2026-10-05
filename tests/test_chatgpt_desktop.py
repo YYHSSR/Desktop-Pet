@@ -63,8 +63,6 @@ def test_approval_and_questions_are_attention_not_completion():
     assert codex_line_state(event("task_failed")) == "error"
 
 
-
-
 def test_new_live_rollout_is_not_discarded_before_discovery(tmp_path):
     QApplication.instance() or QApplication([])
     sessions = tmp_path / "sessions"
@@ -95,10 +93,6 @@ def test_disabling_work_link_clears_busy_state(tmp_path):
         assert manager._next_busy_anim() is None
     finally:
         manager.shutdown()
-
-
-
-
 
 
 def test_large_tool_output_does_not_delay_recent_state_for_many_polls(tmp_path):

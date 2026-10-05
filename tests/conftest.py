@@ -6,10 +6,6 @@ import sys
 import pytest
 
 
-
-
-
-
 @pytest.fixture(autouse=True)
 def _no_modal_message_boxes(monkeypatch):
     from PySide6.QtWidgets import QMessageBox
@@ -26,12 +22,6 @@ def _no_modal_message_boxes(monkeypatch):
         "question",
         staticmethod(lambda *a, **k: QMessageBox.StandardButton.No),
     )
-
-
-
-
-
-
 
 
 @pytest.fixture(autouse=True)
@@ -67,7 +57,7 @@ def _close_qt_top_level_widgets():
         BaseAgentMonitor._shutdown_live_for_tests()
     except Exception:
         pass
-    # AppShell / 多窗共享子系统：待办服务的无主 QTimer 与共享 proactive 的
+    # AppShell / 多窗共享子系统：共享服务的 QTimer 与信号连接的
     # timer/bridge 从 Qt C++ 侧强引用住整个 shell 对象图（Python gc 回收不掉），
     # 解释器退出 GC 才最终化 → 原生访问违规（test_single_process_shared 的
     # flag_on 族逐用例单独跑亦复现，崩溃点 "Garbage-collecting / no Python

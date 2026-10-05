@@ -256,30 +256,6 @@ def test_loop_wrap_preserves_drop_slot_semantics():
     assert len(boundaries) == 2  # src2 与 src5 各是一圈末帧（无论是否被丢）
 
 
-def test_loop_wrap_throttled_never_drops_never_skips():
-    """节流路径在循环下：绝不丢帧、绝不虚推进，回绕照常。"""
-    class _FullThenRoom:
-        def __init__(self):
-            self.items = []
-            self._n = 0
-
-        def put(self, item, timeout=0):
-            self._n += 1
-            if self._n % 3:
-                raise queue.Full  # 每帧先两次队列满：必须阻塞重试同一帧
-            self.items.append(item)
-
-    q = _FullThenRoom()
-    boundaries = []
-    WebMClip._stamp_source_indices(
-        iter([b"f%d" % i for i in range(7)]), q, lambda: False,
-        throttled=lambda: True, loop_frame_count=3,
-        on_loop_boundary=lambda: boundaries.append(1) or True,
-    )
-    assert [i[1] for i in q.items] == [0, 1, 2, 0, 1, 2, 0]
-    assert len(boundaries) == 2
-
-
 def test_loop_disabled_when_frame_count_unknown():
     """loop_frame_count=0（元数据缺失兜底）：不回绕、不触发圈边界。"""
     q = queue.Queue(maxsize=16)
@@ -754,38 +730,6 @@ def test_rearm_mirrors_frames_to_rebuilt_sink(app, monkeypatch, tmp_path):
             gen.release()
         assert _consume_until(clip, lambda: len(finished) == 2)
         assert sink2.srcs == [0, 1, 2], "第二圈必须镜像到新 sink"
-    finally:
-        _close_all(spawns)
-        clip.cleanup()
-        app.processEvents()
-
-
-def test_throttled_loop_rearm_end_to_end(app, monkeypatch, tmp_path):
-    """节流（divisor=2）下的循环续圈（清单 #4）：边界/驻留/re-arm 语义不变。"""
-    clip = _make_clip(tmp_path, frame_count=3)
-    spawns = []
-    _install_fake_ffmpeg(monkeypatch, clip, spawns)
-    clip.set_decode_throttle(2)
-    srcs: list = []
-    finished: list = []
-    clip.frameChanged.connect(srcs.append)
-    clip.finished.connect(lambda: finished.append(True))
-    try:
-        assert clip.start() is True
-        assert clip._reader_ready.wait(5.0)
-        gen = spawns[0][1]
-        for _ in range(3):
-            gen.release()
-        assert _consume_until(clip, lambda: srcs == [0, 1, 2]), f"srcs={srcs}"
-        assert _wait_parked(clip)
-        clip.stop()
-        assert clip._soft_parked is True
-        assert clip.start() is True
-        assert clip.decode_throttle_divisor == 2  # 节流状态跨续圈保持
-        for _ in range(3):
-            gen.release()
-        assert _consume_until(clip, lambda: len(finished) == 1)
-        assert srcs == [0, 1, 2, 0, 1, 2], "节流路径第二圈帧号回绕"
     finally:
         _close_all(spawns)
         clip.cleanup()

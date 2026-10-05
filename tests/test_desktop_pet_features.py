@@ -651,20 +651,6 @@ def test_pet_app_assigns_distinct_offsets_to_spawned_pets(tmp_path, monkeypatch)
     assert offsets == [1, 2]
 
 
-def test_pet_click_restores_fun_windows_even_without_click_animation():
-    from pet.window import PetWindow
-
-    restored = []
-
-    class FakePet:
-        _just_dragged = False
-        clicks = []
-        on_restore_fun_windows = lambda self: restored.append(True)
-
-    PetWindow._on_click(FakePet())
-    assert restored == [True]
-
-
 def test_modern_pet_context_menu_has_spawn_action_with_avatar_icon(monkeypatch):
     from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
@@ -734,44 +720,6 @@ def test_modern_pet_context_menu_has_spawn_action_with_avatar_icon(monkeypatch):
     assert pet.clear_count == 1
     menu.close()
     app.processEvents()
-
-
-def test_context_menu_defaults_to_modern_and_keeps_migration_metadata(tmp_path):
-    from pet.config import Config
-    from pet.context_menu import load_menu_template
-
-    config = Config(tmp_path)
-    assert config.get("context_menu_template") == "modern"
-    legacy = load_menu_template("legacy")
-    modern = load_menu_template("modern")
-    assert legacy["switch_to"] == "modern"
-    assert modern["switch_to"] == "legacy"
-    assert legacy["switch_label"] == "切换到新版菜单"
-    assert modern["switch_label"] == "切换回旧版菜单"
-    assert [group["id"] for group in modern["groups"]] == [
-        "interaction",
-        "playback",
-        "functions",
-        "tools",
-        "settings",
-        "template",
-        "exit",
-    ]
-
-
-def test_context_menu_runtime_only_dispatches_modern_layout():
-    legacy_source = Path("pet/context_menus/legacy.py").read_text(encoding="utf-8")
-    modern_source = Path("pet/context_menus/modern.py").read_text(encoding="utf-8")
-    dispatcher_source = Path("pet/context_menu.py").read_text(encoding="utf-8")
-
-    assert "build_legacy_menu" in legacy_source
-    assert "build_modern_menu" not in legacy_source
-    assert "build_modern_menu" in modern_source
-    assert "build_legacy_menu" not in modern_source
-    # 分发器按 context_menu_template 配置选择两套模板（不再硬编码 modern）
-    assert "build_legacy_menu" in dispatcher_source
-    assert "build_modern_menu" in dispatcher_source
-    assert "context_menu_template" in dispatcher_source
 
 
 def test_pet_avatar_menu_icon_fills_native_slot_and_stays_centered(monkeypatch):
@@ -891,8 +839,6 @@ def test_modern_context_menu_has_compact_semantic_groups(monkeypatch):
         "桌宠控制",
         "快捷应用",
         "快捷网址",
-        "Agent 联动",
-        "待办提醒",
         "桌宠设置",
         "退出",
     ]
@@ -966,158 +912,6 @@ def test_pure_pet_context_menu_hides_retired_web_and_harness():
     app.processEvents()
 
 
-def test_context_menu_dispatches_style_by_template(monkeypatch):
-    from PySide6.QtWidgets import QApplication, QMenu, QStyle, QWidget
-
-    from pet.context_menu import populate_context_menu
-
-    class Config:
-        def __init__(self, template):
-            self.template = template
-
-        def get(self, key, default=None):
-            return {
-                "context_menu_template": self.template,
-                "character": "shenshen",
-                # 固定浅色主题，避免断言随系统深色模式翻转
-                "context_menu_appearance": {"theme": "light"},
-            }.get(key, default)
-
-    class Pet:
-        on_open_chat = on_open_chat_settings = None
-        on_open_legacy_settings = on_open_modern_settings = None
-        on_spawn_pet = None
-        idles = turns = moves = clicks = acts = []
-        playback_speed = scale = 1.0
-        drag_physics = no_move = False
-
-        def __init__(self, template):
-            self.cfg = Config(template)
-
-        def __getattr__(self, name):
-            return lambda *args, **kwargs: None
-
-    app = QApplication.instance() or QApplication([])
-    legacy_menu = QMenu()
-    modern_menu = QMenu()
-    populate_context_menu(legacy_menu, Pet("legacy"))
-    populate_context_menu(modern_menu, Pet("modern"))
-    # legacy 模板走 legacy 样式（无 modern 外观），modern 模板走 modern 样式
-    assert legacy_menu.objectName() != "modernContextMenu"
-    assert legacy_menu.styleSheet() == ""
-    assert modern_menu.objectName() == "modernContextMenu"
-    # The modern menu follows the compact macOS project-menu reference: a
-    # white hairline surface, small system text, outline icons and subtle rules
-    # between semantic groups.
-    assert "background-color: rgba(255, 255, 255, 240)" in modern_menu.styleSheet()
-    assert "border: none" in modern_menu.styleSheet()
-    hairline = modern_menu.findChild(QWidget, "modernHairlineBorder")
-    assert hairline is not None
-    assert hairline.property("physicalPixelWidth") == 1
-    assert "border-radius: 12px" in modern_menu.styleSheet()
-    assert "font-size: 13px" in modern_menu.styleSheet()
-    assert "icon-size: 18px" in modern_menu.styleSheet()
-    assert "background-color: #eeeeee" in modern_menu.styleSheet()
-    assert "min-height: 18px" in modern_menu.styleSheet()
-    assert "padding: 3px 29px 3px 13px" in modern_menu.styleSheet()
-    assert "margin-right: 10px" in modern_menu.styleSheet()
-    assert "QMenu::separator" in modern_menu.styleSheet()
-    separator_rule = modern_menu.styleSheet().split("QMenu::separator", 1)[1]
-    assert "height: 1px" in separator_rule
-    assert "background: #e5e5e5" in separator_rule
-    assert Path("pet/context_menus/menu_styles/common.py").is_file()
-    assert Path("pet/context_menus/menu_styles/legacy.py").is_file()
-    assert Path("pet/context_menus/menu_styles/modern.py").is_file()
-    for menu in (legacy_menu, modern_menu):
-        assert menu.style().styleHint(QStyle.StyleHint.SH_Menu_SubMenuPopupDelay, None, menu) == 60
-        assert menu.style().styleHint(QStyle.StyleHint.SH_Menu_SubMenuSloppyCloseTimeout, None, menu) == 120
-        assert menu.style().styleHint(QStyle.StyleHint.SH_Menu_SubMenuSloppySelectOtherActions, None, menu) == 1
-        assert menu.style().styleHint(QStyle.StyleHint.SH_Menu_SubMenuUniDirection, None, menu) == 0
-        menu.close()
-    app.processEvents()
-
-
-def test_context_menu_invalid_template_falls_back_to_modern_uniformly():
-    """非法/缺失模板 id：load_menu_template 与 populate_context_menu 统一回退 modern。
-
-    历史分歧：load_menu_template 曾把非法值回退 legacy、populate_context_menu 回退
-    modern——同一非法配置在两个入口结果不同。现在统一走 normalize_template_id，
-    非法值一律落到现行默认模板 modern。
-    """
-    from PySide6.QtWidgets import QApplication, QMenu
-    from pet.context_menu import load_menu_template, normalize_template_id, populate_context_menu
-
-    # normalize 是唯一的回退决策点
-    assert normalize_template_id("modern") == "modern"
-    assert normalize_template_id("legacy") == "legacy"
-    assert normalize_template_id("MODERN") == "modern"
-    assert normalize_template_id(None) == "modern"
-    assert normalize_template_id("") == "modern"
-    assert normalize_template_id("bogus") == "modern"
-    # 两个入口对同一非法值给出同一结果：modern 模板
-    assert load_menu_template("bogus")["id"] == "modern"
-    assert load_menu_template(None)["id"] == "modern"
-    assert load_menu_template("")["id"] == "modern"
-
-    class Config:
-        def get(self, key, default=None):
-            return "bogus" if key == "context_menu_template" else default
-
-    class Pet:
-        on_open_chat = on_open_chat_settings = None
-        on_open_legacy_settings = on_open_modern_settings = None
-        on_spawn_pet = None
-        idles = turns = moves = clicks = acts = []
-        playback_speed = scale = 1.0
-        drag_physics = no_move = False
-
-        def __init__(self):
-            self.cfg = Config()
-
-        def __getattr__(self, name):
-            return lambda *args, **kwargs: None
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    populate_context_menu(menu, Pet())
-    # 非法配置下分发器也走 modern（现行默认模板）
-    assert menu.objectName() == "modernContextMenu"
-    menu.close()
-    app.processEvents()
-
-    # PetWindow.set_context_menu_template 是第三个入口（历史旁路：非法值曾回退 legacy，
-    # 与 normalize 分歧）。现在同样走 normalize_template_id，持久化值与 normalize 结果一致。
-    from pet.window import PetWindow
-
-    class RecorderConfig:
-        def __init__(self):
-            self.values = {}
-
-        def set(self, key, value):
-            self.values[key] = value
-
-        def save(self):
-            return None
-
-    class PetWindowStub:
-        def __init__(self):
-            self.cfg = RecorderConfig()
-
-    def persisted_template(raw):
-        stub = PetWindowStub()
-        PetWindow.set_context_menu_template(stub, raw)
-        return stub.cfg.values["context_menu_template"]
-
-    for raw in (None, "bad", "LEGACY", "legacy", "modern"):
-        assert persisted_template(raw) == normalize_template_id(raw)
-    # 非法值 None/bad 落到现行默认模板 modern；合法值 legacy/modern 原样保留
-    # （'LEGACY' 是 'legacy' 的大小写变体，normalize 折叠为合法值 'legacy'）
-    assert persisted_template(None) == "modern"
-    assert persisted_template("bad") == "modern"
-    assert persisted_template("legacy") == "legacy"
-    assert persisted_template("modern") == "modern"
-
-
 def test_modern_menu_icons_are_crisp_outline_glyphs(monkeypatch):
     from PySide6.QtGui import QColor, QImage
     from PySide6.QtWidgets import QApplication, QMenu
@@ -1182,197 +976,6 @@ def test_modern_checked_action_is_painted_in_reserved_right_slot():
     app.processEvents()
 
 
-def test_modern_menu_starts_with_ojingjing_entry_and_uses_pet_avatar(monkeypatch):
-    from PySide6.QtCore import Qt
-    from PySide6.QtGui import QPixmap
-    from PySide6.QtWidgets import QApplication, QMenu, QWidget
-
-    from pet.context_menu import populate_context_menu
-
-    class Config(dict):
-        def get(self, key, default=None):
-            return super().get(key, default)
-
-    class Pet:
-        cfg = Config(context_menu_template="modern", character="shenshen", on_top=False)
-        on_open_chat = on_open_modern_settings = None
-        idles = turns = moves = clicks = acts = []
-        playback_speed = scale = 1.0
-        drag_physics = no_move = False
-        on_spawn_pet = lambda self: None
-
-        def icon_pixmap(self, size=64):
-            pixmap = QPixmap(size, size)
-            pixmap.fill(Qt.GlobalColor.blue)
-            return pixmap
-
-        def __getattr__(self, _name):
-            return lambda *_args, **_kwargs: None
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    pet = Pet()
-    populate_context_menu(menu, pet)
-    first_action = menu.actions()[0]
-    assert first_action.text() == "厉害了我的鲸"
-    entry = menu.findChild(QWidget, "ojingjingMenuEntry")
-    assert entry is not None
-    assert entry.height() == 39
-    assert entry.findChild(QWidget, "ojingjingAvatar") is not None
-    assert entry.findChild(QWidget, "ojingjingClickAccessory") is not None
-    controls = next(action.menu() for action in menu.actions() if action.text() == "桌宠控制")
-    spawn = next(action for action in controls.actions() if action.text() == "生小肥鱼")
-    pixmap = spawn.icon().pixmap(18, 18)
-    center = pixmap.toImage().pixelColor(pixmap.width() // 2, pixmap.height() // 2)
-    assert center.blue() > center.red() + 80
-    menu.close()
-    app.processEvents()
-
-
-def test_ojingjing_windows_are_frameless_stackable_and_closeable():
-    from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication, QPushButton
-
-    from pet.fun_image_popup import OjingjingWindowManager
-
-    app = QApplication.instance() or QApplication([])
-    manager = OjingjingWindowManager()
-    first = manager.open_window(show=False)
-    second = manager.open_window(show=False)
-    app.processEvents()
-    assert len(manager.windows) == 2
-    assert first.windowFlags() & Qt.WindowType.FramelessWindowHint
-    assert first.property("cascadeOffset") != second.property("cascadeOffset")
-    labels = {button.text() for button in second.findChildren(QPushButton)}
-    assert labels == {"关闭", "全部关闭"}
-    manager.close_all()
-    app.processEvents()
-    assert manager.windows == []
-
-
-def test_ojingjing_uses_popup_directory_random_images_and_drag_helpers(monkeypatch):
-    from PySide6.QtCore import QPoint
-    from PySide6.QtWidgets import QApplication
-
-    import pet.fun_image_popup as popup_mod
-
-    app = QApplication.instance() or QApplication([])
-    paths = popup_mod.popup_image_paths()
-    assert len(paths) >= 2
-    assert popup_mod.oijingjing_image_path() == Path("assets/big_blue_fat_fish/ojingjing.jpg").resolve()
-    picks = iter((paths[0], paths[1]))
-    monkeypatch.setattr(popup_mod.random, "choice", lambda _paths: next(picks))
-    manager = popup_mod.OjingjingWindowManager()
-    first = manager.open_window(show=False)
-    second = manager.open_window(show=False)
-    assert first.property("sourceImage") != second.property("sourceImage")
-    first.move(30, 40)
-    first.begin_drag_at(QPoint(100, 100))
-    first.drag_to(QPoint(125, 135))
-    assert first.pos() == QPoint(55, 75)
-    first.end_drag()
-    manager.close_all()
-    app.processEvents()
-
-
-def test_ojingjing_invalid_empty_or_unreadable_directory_falls_back(tmp_path):
-    import pet.fun_image_popup as popup_mod
-
-    fallback = popup_mod.oijingjing_image_path().parent
-    missing = tmp_path / "missing"
-    empty = tmp_path / "empty"
-    empty.mkdir()
-    unreadable = tmp_path / "unreadable"
-    unreadable.mkdir()
-    (unreadable / "broken.jpg").write_bytes(b"not-an-image")
-
-    for configured in (missing, empty, unreadable):
-        paths = popup_mod.popup_image_paths(configured)
-        assert paths
-        assert all(path.parent == fallback for path in paths)
-
-    assert popup_mod.resolve_fun_asset(missing, fallback) == fallback
-
-
-def test_ojingjing_menu_entry_defers_window_until_menu_exec_returns(monkeypatch):
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    import pet.context_menus.fun_entry as fun_entry
-    from pet.context_menus.shared import take_deferred_menu_callbacks
-
-    app = QApplication.instance() or QApplication([])
-    calls = []
-    monkeypatch.setattr(fun_entry, "open_ojingjing_window", lambda config: calls.append(config))
-    menu = QMenu()
-    entry = fun_entry.OjingjingMenuEntry(menu, {"title": "彩蛋"})
-    menu.show()
-    app.processEvents()
-
-    entry._activate()
-    assert calls == []
-    callbacks = take_deferred_menu_callbacks(menu)
-    assert len(callbacks) == 1
-    callbacks[0]()
-    assert calls == [{"title": "彩蛋"}]
-    entry.close()
-    menu.close()
-    app.processEvents()
-
-
-def test_ojingjing_menu_entry_reports_unexpected_open_error(monkeypatch):
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    import pet.context_menus.fun_entry as fun_entry
-
-    app = QApplication.instance() or QApplication([])
-    warnings = []
-
-    def fail(_config):
-        raise RuntimeError("图片解码失败")
-
-    monkeypatch.setattr(fun_entry, "open_ojingjing_window", fail)
-    monkeypatch.setattr(
-        fun_entry.QMessageBox,
-        "warning",
-        lambda _parent, title, message: warnings.append((title, message)),
-    )
-    menu = QMenu()
-    entry = fun_entry.OjingjingMenuEntry(menu)
-    entry._activate()
-    assert warnings == [("彩蛋图片不可用", "图片解码失败")]
-    entry.close()
-    app.processEvents()
-
-
-def test_popup_manager_restores_all_existing_windows_before_new_window():
-    from pet.fun_image_popup import OjingjingWindowManager
-
-    class FakeWindow:
-        def __init__(self):
-            self.calls = []
-
-        def show(self):
-            self.calls.append("show")
-
-        def raise_(self):
-            self.calls.append("raise")
-
-        def activateWindow(self):
-            self.calls.append("activate")
-
-    manager = OjingjingWindowManager()
-    first = FakeWindow()
-    second = FakeWindow()
-    manager.windows = [first, second]
-    manager.restore_all()
-    assert first.calls == ["show", "raise"]
-    assert second.calls == ["show", "raise", "activate"]
-
-
-
-
-
-
 def test_click_self_talk_rows_follow_their_own_toggle(tmp_path, monkeypatch):
     """点击侧的朗读 / 预缓存 / 台词绑定跟随「点击触发自言自语」，不被周期气泡开关藏起来。
 
@@ -1386,7 +989,7 @@ def test_click_self_talk_rows_follow_their_own_toggle(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     config = Config(tmp_path)
     assert config.get("click_show_self_talk") is False
     assert config.get("self_talk_enabled") is False
@@ -1421,19 +1024,13 @@ def test_modern_settings_toggle_dependencies_hide_complete_setting_groups(tmp_pa
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     dialog = settings_mod.ModernSettingsDialog(Config(tmp_path))
 
     def row(key):
         result = dialog.findChild(settings_mod.SettingRow, f"settingRow_{key}")
         assert result is not None
         return result
-
-    egg_children = [row(key) for key in ("egg_title", "egg_hint", "egg_avatar", "egg_image_dir")]
-    dialog.egg_enabled_check.setChecked(False)
-    assert all(child.isHidden() for child in egg_children)
-    dialog.egg_enabled_check.setChecked(True)
-    assert all(not child.isHidden() for child in egg_children)
 
     collision_children = [
         row(key) for key in (
@@ -1450,10 +1047,6 @@ def test_modern_settings_toggle_dependencies_hide_complete_setting_groups(tmp_pa
 
     dialog.close()
     app.processEvents()
-
-
-
-
 
 
 def test_quick_launch_editor_drag_order_and_checked_removal_drive_saved_menu_order(monkeypatch):
@@ -1690,7 +1283,6 @@ def test_quick_urls_opens_valid_urls_and_populates_menu(monkeypatch):
     assert all(not a.icon().isNull() for a in actions)
 
 
-
 def test_modern_settings_search_locates_rows_and_return_does_not_close(tmp_path, monkeypatch):
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
@@ -1700,7 +1292,7 @@ def test_modern_settings_search_locates_rows_and_return_does_not_close(tmp_path,
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     dialog = settings_mod.ModernSettingsDialog(Config(tmp_path))
     dialog.show()
     dialog.search_edit.setFocus()
@@ -1714,57 +1306,6 @@ def test_modern_settings_search_locates_rows_and_return_does_not_close(tmp_path,
     assert dialog.isVisible()
     assert dialog.result() == 0
     dialog.close()
-    app.processEvents()
-
-
-def test_legacy_config_value_dispatches_legacy_layout(monkeypatch):
-    from PySide6.QtGui import QPixmap
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    import pet.window as window_mod
-
-    class Config:
-        def get(self, key, default=None):
-            return {"context_menu_template": "legacy", "character": "shenshen"}.get(key, default)
-
-    class Pet:
-        cfg = Config()
-        on_open_chat = on_open_chat_settings = on_open_legacy_settings = None
-        on_open_modern_settings = None
-        on_spawn_pet = lambda self: None
-        idles = turns = moves = clicks = acts = []
-        playback_speed = scale = 1.0
-        drag_physics = no_move = False
-
-        @staticmethod
-        def icon_pixmap(size=64):
-            pixmap = QPixmap(size, size)
-            pixmap.fill()
-            return pixmap
-
-        def __getattr__(self, name):
-            return lambda *args, **kwargs: None
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(autostart_mod, "is_enabled", lambda: False)
-    monkeypatch.setattr(window_mod.catalog, "list_available_characters", lambda: ["shenshen"])
-    menu = QMenu()
-    window_mod._populate_context_menu(menu, Pet())
-    labels = [action.text() for action in menu.actions() if not action.isSeparator()]
-    # legacy 布局：无图标、无现代专属入口（看看屏幕/更新与帮助/生小肥鱼层级不同）
-    # Pet 无 on_open_chat，属于纯桌宠版：不显示 example Harness 子菜单或内置网址
-    assert labels.index("生小肥鱼") == labels.index("开机自启") + 1
-    assert "example Harness" not in labels
-    assert "停止服务" not in labels
-    assert "打开网页版 example" not in labels
-    assert menu.styleSheet() == ""
-    icon_actions = [action.text() for action in menu.actions() if not action.icon().isNull()]
-    assert icon_actions == []
-    assert "看看屏幕" not in labels
-    assert "更新与帮助" not in labels
-    assert "切换角色" in labels
-    assert "窗口置顶" in labels
-    menu.close()
     app.processEvents()
 
 
@@ -2179,219 +1720,6 @@ def test_representative_animation_frame_uses_the_later_middle():
     assert representative_frame_index(100) == 61
 
 
-def test_template_reopen_reuses_original_visible_menu_position(monkeypatch):
-    from PySide6.QtCore import QPoint
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    import pet.window as window_mod
-    from pet.window import PetWindow
-
-    class FakePet:
-        _context_menu_anchor = QPoint(320, 240)
-
-        def __init__(self):
-            self.shown_at = None
-
-        def _show_context_menu(self, point):
-            self.shown_at = QPoint(point)
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(window_mod.QTimer, "singleShot", lambda *args: args[-1]())
-    menu = QMenu()
-    menu.move(410, 260)
-    fake = FakePet()
-    PetWindow.reopen_context_menu(fake, menu)
-    assert fake.shown_at == QPoint(410, 260)
-    menu.close()
-    app.processEvents()
-
-
-def test_menu_easter_egg_and_modern_theme_fields_are_configurable(tmp_path):
-    from pet.config import Config
-
-    config = Config(tmp_path)
-    appearance = config.get("context_menu_appearance")
-    assert appearance["ui_font_size"] == 13
-    assert appearance["translucent"] is True
-    assert appearance["light_background"] == "#ffffff"
-    assert appearance["dark_background"] == "#252525"
-    egg = config.get("menu_easter_egg")
-    assert egg["enabled"] is True
-    assert egg["title"] == "厉害了我的鲸"
-    assert egg["avatar"] == "assets/big_blue_fat_fish/ojingjing.jpg"
-    assert egg["image_dir"] == "assets/big_blue_fat_fish"
-    config.set("menu_easter_egg", {"title": "秘密入口", "hint": "打开", "enabled": False})
-    config.set("context_menu_appearance", {
-        "theme": "dark", "ui_font": "PingFang SC", "ui_font_size": 16,
-        "translucent": False, "opacity": 0.7,
-        "light_background": "bad", "dark_background": "#111213",
-    })
-    assert config.get("menu_easter_egg")["title"] == "秘密入口"
-    assert config.get("menu_easter_egg")["enabled"] is False
-    assert config.get("context_menu_appearance")["ui_font_size"] == 16
-    assert config.get("context_menu_appearance")["light_background"] == "#ffffff"
-    assert config.get("context_menu_appearance")["dark_background"] == "#111213"
-
-
-def test_easter_egg_config_preserves_custom_paths(tmp_path):
-    from pet.config import Config
-
-    config = Config(tmp_path)
-    config.set("menu_easter_egg", {
-        "avatar": "/custom/avatar.png",
-        "image_dir": "/custom/images",
-    })
-    custom = config.get("menu_easter_egg")
-    assert custom["avatar"] == "/custom/avatar.png"
-    assert custom["image_dir"] == "/custom/images"
-
-
-def test_easter_egg_path_and_color_controls_use_native_pickers(tmp_path, monkeypatch):
-    from PySide6.QtGui import QColor
-    from PySide6.QtWidgets import QApplication
-
-    import pet.modern_settings_dialog as settings_mod
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    image = (tmp_path / "avatar.webp").resolve()
-    image.write_bytes(b"image")
-    image_dir = tmp_path.resolve()
-    monkeypatch.setattr(settings_mod.QFileDialog, "getOpenFileName", lambda *args, **kwargs: (str(image), ""))
-    monkeypatch.setattr(settings_mod.QFileDialog, "getExistingDirectory", lambda *args, **kwargs: str(image_dir))
-    monkeypatch.setattr(settings_mod.QColorDialog, "getColor", lambda *args, **kwargs: QColor("#123456"))
-    dialog = settings_mod.ModernSettingsDialog(Config(tmp_path / "cfg"))
-    dialog.egg_avatar_picker.choose()
-    dialog.egg_image_dir_picker.choose()
-    dialog.light_background_picker.choose()
-    assert dialog.egg_avatar_picker.text() == str(image)
-    assert dialog.egg_image_dir_picker.text() == str(image_dir)
-    assert dialog.light_background_picker.text() == "#123456"
-    assert "*.webp" in dialog.egg_avatar_picker.name_filter
-    dialog.close()
-    app.processEvents()
-
-
-def test_easter_egg_menu_text_elides_when_content_is_too_long():
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    from pet.context_menus.fun_entry import OjingjingMenuEntry
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    entry = OjingjingMenuEntry(menu, {"title": "非常长的彩蛋标题" * 10, "hint": "非常长的提示" * 8})
-    entry.resize(224, 39)
-    app.processEvents()
-    assert entry.title_label.displayText().endswith("…")
-    assert entry.click_accessory.displayText().endswith("…")
-    entry.close()
-    menu.close()
-    app.processEvents()
-
-
-def test_easter_egg_first_row_font_tracks_modern_menu_ui_size():
-    from PySide6.QtGui import QFont
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    from pet.context_menus.fun_entry import OjingjingMenuEntry
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    font = QFont(menu.font())
-    font.setPixelSize(17)
-    menu.setFont(font)
-    entry = OjingjingMenuEntry(menu, {})
-    assert entry.title_label.font().pixelSize() == 17
-    assert entry.click_accessory.font().pixelSize() == 15
-    entry.close()
-    menu.close()
-    app.processEvents()
-
-
-def test_easter_egg_text_remains_readable_in_the_dark_menu_theme():
-    from PySide6.QtGui import QPalette
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    from pet.context_menus.fun_entry import OjingjingMenuEntry
-    from pet.context_menus.menu_styles.modern import apply_modern_menu_style
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    apply_modern_menu_style(menu, {"theme": "dark"})
-    entry = OjingjingMenuEntry(menu, {"title": "彩蛋入口", "hint": "请点击"})
-    entry.show()
-    app.processEvents()
-
-    title_color = entry.title_label.palette().color(QPalette.ColorRole.WindowText)
-    accessory_image = entry.click_accessory.grab().toImage()
-    accessory_lightness = max(
-        accessory_image.pixelColor(x, y).lightness()
-        for x in range(accessory_image.width())
-        for y in range(accessory_image.height())
-    )
-    assert title_color.lightness() >= 180
-    assert accessory_lightness >= 160
-
-    entry.close()
-    menu.close()
-    app.processEvents()
-
-
-def test_easter_egg_hover_surface_stays_dark_in_the_dark_menu_theme():
-    from PySide6.QtCore import QPointF
-    from PySide6.QtGui import QEnterEvent
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    from pet.context_menus.fun_entry import OjingjingMenuEntry
-    from pet.context_menus.menu_styles.modern import apply_modern_menu_style
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    apply_modern_menu_style(menu, {"theme": "dark", "dark_hover": "#3a3a3a"})
-    entry = OjingjingMenuEntry(menu, {"title": "彩蛋入口", "hint": "请点击"})
-    entry.show()
-    QApplication.sendEvent(
-        entry,
-        QEnterEvent(QPointF(1, 1), QPointF(1, 1), QPointF(1, 1)),
-    )
-    app.processEvents()
-
-    image = entry.grab().toImage()
-    hover_surface = image.pixelColor(4, entry.height() // 2)
-    assert hover_surface.lightness() < 100
-
-    entry.close()
-    menu.close()
-    app.processEvents()
-
-
-def test_template_switch_requests_immediate_menu_reopen():
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    from pet.context_menus.shared import add_template_switch
-
-    class Pet:
-        def __init__(self):
-            self.template = None
-            self.reopened = None
-
-        def set_context_menu_template(self, template):
-            self.template = template
-
-        def reopen_context_menu(self, menu):
-            self.reopened = menu
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    pet = Pet()
-    action = add_template_switch(menu, pet, "切换到新版菜单", "modern")
-    action.trigger()
-    assert pet.template == "modern"
-    assert pet.reopened is menu
-    menu.close()
-    app.processEvents()
-
-
 def test_color_picker_uses_stable_painted_swatch_instead_of_border_hack():
     from PySide6.QtWidgets import QApplication
 
@@ -2416,7 +1744,7 @@ def test_dock_icon_visibility_defaults_on_and_is_saved_by_modern_settings(tmp_pa
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.sys, "platform", "darwin")
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     config = Config(tmp_path)
     assert config.get("show_dock_icon") is True
     dialog = settings_mod.ModernSettingsDialog(config)
@@ -2585,8 +1913,6 @@ def test_pet_app_binds_about_to_quit_once_to_current_window(tmp_path, monkeypatc
     assert old.saved == 0  # 旧窗口不再被保存
 
 
-
-
 def test_external_character_dirs_uses_variant_then_legacy_fallback(tmp_path, monkeypatch):
     """外部角色目录应优先变体目录，并保留旧 dsh-pet-standalone 目录兜底。"""
     import sys
@@ -2737,9 +2063,8 @@ def test_settings_image_directories_offer_preview(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     dialog = settings_mod.ModernSettingsDialog(Config(tmp_path))
     assert dialog.self_talk_image_dir_picker.preview_button is not None
-    assert dialog.egg_image_dir_picker.preview_button is not None
     dialog.reject()
     app.processEvents()

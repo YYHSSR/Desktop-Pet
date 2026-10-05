@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """PetWindow 可选后台服务/效果控制器的懒装配 mixin（Phase 1 门控）。
 
-把主动识屏 / Agent 联动 / 文件投喂 / 黄金回旋 / 边缘探头等“配置关闭就不构造”
+把ChatGPT 联动 / 文件投喂 / 黄金回旋 / 边缘探头等“配置关闭就不构造”
 的生命周期逻辑从 window.py 拆出，避免继续撑大 window.py（架构红线：行数预算）。
 """
 from __future__ import annotations
@@ -24,16 +24,9 @@ class WindowFeatureGateMixin:
     cfg: Any
     agent_link_manager: Any = None
     _file_eater: Any = None
-    # 桌宠隐藏时的气泡改道面（AppShell 注入 → 灵动岛反馈气泡），见
-    # window_alerts.redirect_hidden_bubble；None = 维持原丢弃行为。
-    hidden_bubble_redirect: Any = None
-    # 桌宠隐藏期间灵动岛反馈面是否可用（AppShell 注入 → _island_chat_available）。
-    island_feedback_available: Any = None
-
     _broker_facade: Any = None
     _golden_spin: Any = None
     _edge_probe: Any = None
-    _throw_egg: Any = None
 
     # ------------------------------------------------------------ 判定
 
@@ -74,11 +67,7 @@ class WindowFeatureGateMixin:
         if self._golden_spin is None:
             from .golden_spin import GoldenSpinController
             self._golden_spin = GoldenSpinController(self)
-        if self._throw_egg is None:
-            from .throw_egg import ThrowEggController
-            self._throw_egg = ThrowEggController(self)
         return self
-
 
 
     def trigger_golden_spin(self) -> None:
@@ -104,9 +93,6 @@ class WindowFeatureGateMixin:
     def _effects_current_angle(self) -> float:
         if self._effects_probe_active():
             return float(self._edge_probe.current_angle_deg())
-        egg = getattr(self, "_throw_egg", None)
-        if egg is not None and egg.active:
-            return float(egg.current_angle_deg())
         spin = getattr(self, "_golden_spin", None)
         if spin is not None and spin.active:
             return float(spin.current_angle_deg())
@@ -128,11 +114,9 @@ class WindowFeatureGateMixin:
         return unrotate_point(point, rect, self._effects_current_angle())
 
     def _effects_filter_switch(self, name: str) -> str:
-        """边缘探头/彩蛋飞行会话期间只允许待机/转向动画；其它请求降级到随机待机。"""
+        """边缘探头期间只允许待机/转向动画；其它请求降级到随机待机。"""
         if not self._effects_probe_active():
-            egg = getattr(self, "_throw_egg", None)
-            if egg is None or not egg.active:
-                return name
+            return name
         idles = list(getattr(self, "idles", ()) or ())
         turns = list(getattr(self, "turns", ()) or ())
         if name in idles or name in turns or not idles:

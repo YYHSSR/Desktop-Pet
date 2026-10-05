@@ -162,7 +162,6 @@ def test_all_advertised_fields_reach_presentation_layer():
     assert "balance.query" not in entries
 
 
-
 def test_render_template_exposes_future_upstream_fields_and_nested_payload():
     from pet.persona_phrases import render_template
 

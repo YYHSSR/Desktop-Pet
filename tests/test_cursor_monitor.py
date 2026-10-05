@@ -173,3 +173,75 @@ def test_cursor_two_sessions_do_not_clear_each_other(tmp_path: Path):
         assert mgr._last_raw["cursor"] == "working"
     finally:
         mgr.shutdown()
+
+
+def test_new_cursor_transcript_is_read_from_the_start(tmp_path: Path):
+    """启用后新建的转写，发现前已经写上的行也要读到。"""
+    _ensure_app()
+    projects = tmp_path / "projects"
+    projects.mkdir()
+    mon = CursorMonitor(tmp_path, base_dir=projects)
+    events = []
+    mon.state_event.connect(events.append)
+    mon._poll(gen=mon._emit_gen)
+    session_id = "new-session"
+    folder = projects / "slug" / "agent-transcripts" / session_id
+    folder.mkdir(parents=True)
+    path = folder / f"{session_id}.jsonl"
+    path.write_text(json.dumps({
+        "role": "assistant",
+        "message": {"content": [{"type": "tool_use", "name": "Shell"}]},
+    }) + "\n", encoding="utf-8")
+    mon._last_scan = 0
+    mon._poll(gen=mon._emit_gen)
+    assert [(item.session_id, item.turn_id, item.state) for item in events] == [
+        (session_id, "", "working")]
+
+
+def test_large_transcript_line_does_not_delay_the_following_state(tmp_path: Path):
+    _ensure_app()
+    projects = tmp_path / "projects"
+    session_id = "sess-large"
+    folder = projects / "slug" / "agent-transcripts" / session_id
+    folder.mkdir(parents=True)
+    path = folder / f"{session_id}.jsonl"
+    path.write_text("", encoding="utf-8")
+    mon = CursorMonitor(tmp_path, base_dir=projects)
+    events = []
+    mon.state_event.connect(events.append)
+    mon._poll(gen=mon._emit_gen)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({
+            "role": "assistant",
+            "message": {"content": [{"type": "text", "text": "x" * 400000}]},
+        }) + "\n")
+        handle.write(json.dumps({
+            "role": "assistant",
+            "message": {"content": [{"type": "tool_use", "name": "Shell"}]},
+        }) + "\n")
+    mon._poll(gen=mon._emit_gen)
+    assert [(item.state, item.turn_id) for item in events] == [("working", "")]
+
+
+def test_removed_busy_transcript_releases_to_sleeping(tmp_path: Path):
+    _ensure_app()
+    projects = tmp_path / "projects"
+    session_id = "sess-gone"
+    folder = projects / "slug" / "agent-transcripts" / session_id
+    folder.mkdir(parents=True)
+    path = folder / f"{session_id}.jsonl"
+    path.write_text("", encoding="utf-8")
+    mon = CursorMonitor(tmp_path, base_dir=projects)
+    events = []
+    mon.state_event.connect(events.append)
+    mon._poll(gen=mon._emit_gen)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({
+            "role": "assistant",
+            "message": {"content": [{"type": "tool_use", "name": "Shell"}]},
+        }) + "\n")
+    mon._poll(gen=mon._emit_gen)
+    path.unlink()
+    mon._last_scan = 0
+    mon._poll(gen=mon._emit_gen)
+    assert [item.state for item in events] == ["working", "sleeping"]

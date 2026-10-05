@@ -269,8 +269,6 @@ def test_modern_settings_dialog_py_line_budget():
     )
 
 
-
-
 def test_settings_widgets_orphan_cluster_guard():
     """孤儿簇（批6-7 拆分被上游合并静默回退的死文件）防再发：settings_widgets.py
     与 settings_styles*.qss 不允许「存在且零引用」态——要么已删除，要么被

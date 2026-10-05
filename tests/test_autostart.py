@@ -33,6 +33,9 @@ class FakeWinreg:
     def SetValueEx(self, key, name, reserved, value_type, value):
         self.values[name] = value
 
+    def CreateKeyEx(self, hive, key, reserved=0, access=0):
+        return self.OpenKey(hive, key, 0, access)
+
     def DeleteValue(self, key, name):
         if name not in self.values:
             raise FileNotFoundError(name)
@@ -129,28 +132,3 @@ def test_linux_disable_removes_desktop_file(monkeypatch, tmp_path: Path):
     assert autostart_mod.is_enabled() is False
     desktop = tmp_path / "autostart" / f"{autostart_mod.PLIST_LABEL}.desktop"
     assert not desktop.exists()
-
-
-def test_modern_settings_dialog_disables_autostart_on_sub_slot(tmp_path):
-    from PySide6.QtWidgets import QApplication
-    from pet.config import Config
-    from pet.modern_settings_dialog import ModernSettingsDialog
-
-    _app = QApplication.instance() or QApplication([])
-
-    # 主槽（instance_id 为空）
-    master_cfg = Config(base=tmp_path)
-    d_master = ModernSettingsDialog(master_cfg)
-    try:
-        assert d_master.autostart_check.isEnabled() is True
-    finally:
-        d_master.close()
-
-    # 副槽（instance_id="slot-1"）
-    slot1_cfg = Config(base=tmp_path, instance_id="slot-1")
-    d_slot1 = ModernSettingsDialog(slot1_cfg)
-    try:
-        assert d_slot1.autostart_check.isEnabled() is False
-        assert d_slot1.autostart_check.toolTip() == "仅主桌宠可设置"
-    finally:
-        d_slot1.close()

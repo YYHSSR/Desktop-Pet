@@ -209,6 +209,7 @@ if (-not $SkipBuild) {
         @nativeBinaries `
         --add-data $datas `
         --add-data "assets\big_blue_fat_fish;assets\big_blue_fat_fish" `
+        --add-data "assets\icon.ico;assets" `
         --add-data "pet\persona_presets;pet\persona_presets" `
         --add-data "pet\menu_templates;pet\menu_templates" `
         @excludes `
@@ -391,8 +392,11 @@ if (-not $SkipCheck) {
 
 # ---------- exe smoke test（启动成功才继续打包） ----------
 # 注意：PyInstaller --windowed 在 import 失败时会弹错误对话框且进程存活，
-# 只看"进程 8 秒没退出"是假阳性。这里先做确定性加载链验证（从 bundle 布局
-# 真实加载 Shiboken/QtCore/QtGui/QtWidgets），再启动 exe 检查主窗口出现。
+# 只看"进程没退出"是假阳性。这里先做确定性加载链验证（从 bundle 布局
+# 真实加载 Shiboken/QtCore/QtGui/QtWidgets），再按窗口类确认桌宠真的出现。
+# 桌宠默认是 Tool 窗口（WS_EX_TOOLWINDOW），Process.MainWindowHandle 会把它
+# 当成没有主窗口。全屏自动隐藏后这个窗口还在，只是不可见。改用 EnumWindows
+# 认 Qt QWindow（含隐藏后的），并仍把引导错误框判失败。
 $exePath = Join-Path $appDir "$name.exe"
 if (-not (Test-Path $exePath)) { throw "Build exe missing: $exePath" }
 
@@ -408,6 +412,10 @@ if ($LASTEXITCODE -ne 0) { throw "[smoke] pet_core native bundle verification fa
 if ($LASTEXITCODE -ne 0) { throw "[smoke] frozen native self-test failed" }
 
 if (-not $SkipGuiSmoke) {
+# 父进程若把 QT_QPA_PLATFORM 设成 offscreen，打包出的桌面程序不会创建 Win32 窗口，
+# 冒烟会把正常产物判失败。GUI 冒烟必须走真实桌面平台，结束后恢复原值。
+$petSmokeOriginalQpa = $env:QT_QPA_PLATFORM
+Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
 Write-Host "[smoke] Launching $exePath ..." -ForegroundColor Cyan
 $petSmokeBase = Join-Path $env:TEMP ("pet-build-smoke-" + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $petSmokeBase -Force | Out-Null
@@ -420,9 +428,10 @@ if ($proc.HasExited) {
     throw "[smoke] exe exited early (code $($proc.ExitCode)) - runtime dependency broken"
 }
 $proc.Refresh()
-if ($proc.MainWindowHandle -eq 0) {
+& $PythonExe scripts\verify_pet_window.py --pid $proc.Id
+if ($LASTEXITCODE -ne 0) {
     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-    throw "[smoke] exe running but no main window appeared - startup failed (likely 'Failed to execute script')"
+    throw "[smoke] exe running but pet window missing - startup failed (likely 'Failed to execute script')"
 }
 Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
 Write-Host "[smoke] exe started OK" -ForegroundColor Green
@@ -460,6 +469,11 @@ try {
     $resolvedTemp = [System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
     if (-not $resolvedSmoke.StartsWith($resolvedTemp, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe smoke cleanup path: $resolvedSmoke" }
     Remove-Item -LiteralPath $resolvedSmoke -Recurse -Force -ErrorAction SilentlyContinue
+}
+if ($null -eq $petSmokeOriginalQpa) {
+    Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
+} else {
+    $env:QT_QPA_PLATFORM = $petSmokeOriginalQpa
 }
 Write-Host "[smoke] --settings started OK" -ForegroundColor Green
 }

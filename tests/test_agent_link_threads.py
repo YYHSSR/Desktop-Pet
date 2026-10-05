@@ -388,8 +388,6 @@ class TestCloseEventStopsMonitors:
         assert not mon._worker.is_alive()
 
 
-
-
 class TestOutboxPolicy:
     def test_outbox_never_drops_state_events(self, tmp_path):
         """pause 期间 outbox 满：丢最旧的 activity；状态事件绝不丢
@@ -427,8 +425,6 @@ class TestOutboxPolicy:
         mon.resume()
         app.processEvents()
         assert received == ["working"]
-
-
 
 
 class TestManagerDeterministicTeardown:

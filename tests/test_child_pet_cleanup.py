@@ -28,7 +28,7 @@ def test_clear_spawned_pets_kills_processes_and_keeps_slot_data(tmp_path, monkey
     # 子槽数据
     (root / "config-slot-1.json").write_text("{}", encoding="utf-8")
     (root / "config-slot-2.json").write_text("{}", encoding="utf-8")
-    (root / "todo_items-slot-2.json").write_text("{}", encoding="utf-8")
+    (root / "custom-data-slot-2.json").write_text("{}", encoding="utf-8")
     (root / "sessions-slot-1").mkdir()
     (root / "sessions-slot-1" / "s1.json").write_text("{}", encoding="utf-8")
 
@@ -64,10 +64,10 @@ def test_clear_spawned_pets_kills_processes_and_keeps_slot_data(tmp_path, monkey
     assert terminated == [222]
     assert not dead_marker.exists()
     assert not live_marker.exists()
-    # 批 F 起只退出进程：slot 配置/会话/待办数据全部保留（占位语义靠它们恢复）
+    # 批 F 起只退出进程：slot 配置/会话/用户数据全部保留（占位语义靠它们恢复）
     assert (root / "config-slot-1.json").exists()
     assert (root / "config-slot-2.json").exists()
-    assert (root / "todo_items-slot-2.json").exists()
+    assert (root / "custom-data-slot-2.json").exists()
     assert (root / "sessions-slot-1").is_dir()
     # 主数据必须保留
     assert (root / "config.json").exists()

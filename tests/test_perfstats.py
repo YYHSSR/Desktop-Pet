@@ -135,29 +135,6 @@ class TestWebmClipInstrumentation:
         assert snap["webm.queue_wait"]["count"] == 6
         assert snap["webm.queue_drop"]["count"] == 3
 
-    def test_throttled_reader_records_queue_wait_never_drops(self):
-        perfstats.enable()
-        attempts = {"n": 0}
-
-        class _FullThenRoom:
-            def __init__(self):
-                self.items = []
-
-            def put(self, item, timeout=0):
-                attempts["n"] += 1
-                if attempts["n"] < 3:
-                    raise queue_mod.Full
-                self.items.append(item)
-
-        q = _FullThenRoom()
-        WebMClip._stamp_source_indices(
-            iter([b"f0", b"f1"]), q, lambda: False, throttled=lambda: True,
-        )
-        snap = perfstats.snapshot()
-        assert [item[0] for item in q.items] == [b"f0", b"f1"]
-        assert snap["webm.decode"]["count"] == 2
-        assert snap["webm.queue_wait"]["count"] == 2  # 节流路径：背压入队等待
-        assert "webm.queue_drop" not in snap  # 节流路径绝不丢帧
 
     def test_process_frame_records_consume(self):
         _qapp()

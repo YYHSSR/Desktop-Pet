@@ -19,12 +19,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import autostart as autostart_mod
 from . import catalog
 from .agent_link import AgentLinkManager
 from .config import (
     DEFAULT_CONTEXT_MENU_APPEARANCE,
-    DEFAULT_MENU_EASTER_EGG,
     DEFAULT_SELF_TALK_BUBBLE_STYLE,
     DEFAULT_SELF_TALK_DURATION_SECONDS,
     DEFAULT_SELF_TALK_IMAGE_CHANCE,
@@ -33,7 +31,6 @@ from .config import (
     DEFAULT_SELF_TALK_TEXTS,
     _float_or_default,
 )
-from .fun_image_popup import oijingjing_image_path, resolve_fun_asset
 from .persona_phrases import PUBLIC_DIALOGUE_EVENTS, phrase_keys
 from .persona_template import build_persona_template
 from .report_gates import REPORT_GATE_DEFAULTS, REPORT_GATE_KEYS
@@ -46,19 +43,11 @@ from .settings_widgets import (
     ResourcePathPicker,
     SettingRow,
     ToggleSwitch,
-    _line_edit,
 )
 from .speech_bubble import BUBBLE_STYLE_PRESETS
 
 def build_pet_controls(host) -> None:
     from .modern_settings_dialog import dialogue_params_hint
-    host.scale_combo = ModernSelect(host, width=132)
-    current_scale = float(host.config.get("scale", catalog.DEFAULT_SCALE))
-    scales = sorted(set([*catalog.SCALE_STEPS, current_scale]))
-    for value in scales:
-        host.scale_combo.addItem(f"{int(round(catalog.CANVAS_W * value))} px", value)
-    host.scale_combo.setCurrentData(current_scale)
-
     # 生小肥鱼尺寸策略：默认继承主肥鱼大小；关闭后使用 spawn_scale 独立选择。
     host.spawn_inherit_size_check = ToggleSwitch(host)
     host.spawn_inherit_size_check.setChecked(bool(host.config.get("spawn_inherit_size", True)))
@@ -71,23 +60,11 @@ def build_pet_controls(host) -> None:
     for scale in spawn_scales:
         host.spawn_scale_combo.addItem(f"{int(round(catalog.CANVAS_W * scale))} px", scale)
     host.spawn_scale_combo.setCurrentIndex(host.spawn_scale_combo.findData(current_spawn_scale))
-    host.spawn_inherit_dynamic_island_check = ToggleSwitch(None)
-    host.spawn_inherit_dynamic_island_check.setChecked(
-        bool(host.config.get("spawn_inherit_dynamic_island", False))
-    )
-    host.on_top_check = ToggleSwitch(None)
-    host.on_top_check.setChecked(bool(host.config.get("on_top", True)))
-    host.no_move_check = ToggleSwitch(None)
-    host.no_move_check.setChecked(bool(host.config.get("no_move", False)))
-    host.mouse_through_check = ToggleSwitch(None)
-    host.mouse_through_check.setChecked(bool(host.config.get("mouse_through", False)))
     # Windows 专属的光标隐藏穿透仅在 Windows 创建，避免非 Windows 未入布局时游离到窗口左上角。
     host.cursor_hidden_passthrough_check = None
     if sys.platform == "win32":
         host.cursor_hidden_passthrough_check = ToggleSwitch(host)
         host.cursor_hidden_passthrough_check.setChecked(bool(host.config.get("cursor_hidden_passthrough", True)))
-    host.drag_physics_check = ToggleSwitch(None)
-    host.drag_physics_check.setChecked(bool(host.config.get("drag_physics", False)))
     # 「单进程多开」开关不再创建（拓扑收口 Phase A：设置页隐藏；
     # 游离 ToggleSwitch 会被孤儿开关测试拦截）。
 
@@ -136,12 +113,6 @@ def build_pet_controls(host) -> None:
     host.pet_opacity_spin.setRange(10, 100)
     host.pet_opacity_spin.setSuffix(" %")
     host.pet_opacity_spin.setValue(int(_float_or_default(host.config.get("pet_opacity", 100), 100, 10, 100)))
-    host.autostart_check = ToggleSwitch(None)
-    host._autostart_initial = autostart_mod.is_enabled()
-    host.autostart_check.setChecked(host._autostart_initial)
-    if host.config.instance_id:
-        host.autostart_check.setEnabled(False)
-        host.autostart_check.setToolTip("仅主桌宠可设置")
     host.dock_icon_check = None
     if sys.platform == "darwin":
         host.dock_icon_check = ToggleSwitch(host)
@@ -149,22 +120,11 @@ def build_pet_controls(host) -> None:
 
     host.click_self_talk_check = ToggleSwitch(host)
     host.click_self_talk_check.setChecked(bool(host.config.get("click_show_self_talk", False)))
-    host.edge_probe_check = ToggleSwitch(None)
-    host.edge_probe_check.setChecked(bool(host.config.get("edge_probe_enabled", False)))
     host.auto_hide_fullscreen_check = None
     if sys.platform == "win32":
         host.auto_hide_fullscreen_check = ToggleSwitch(host)
         host.auto_hide_fullscreen_check.setChecked(bool(host.config.get("auto_hide_fullscreen", True)))
 
-    host.speed_select = ModernSelect(None, width=112)
-    current_speed = float(host.config.get("playback_speed", 1.0))
-    speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0]
-    if not any(abs(current_speed - value) < 0.001 for value in speeds):
-        speeds.append(current_speed)
-        speeds.sort()
-    for speed in speeds:
-        host.speed_select.addItem(f"{speed:g}x", speed)
-    host.speed_select.setCurrentData(current_speed)
     host.gap_spin = BrowserDoubleSpinBox(host)
     host.gap_spin.setRange(0.0, 3600.0)
     host.gap_spin.setSingleStep(0.5)
@@ -174,8 +134,6 @@ def build_pet_controls(host) -> None:
 
     host.self_talk_check = ToggleSwitch(host)
     host.self_talk_check.setChecked(bool(host.config.get("self_talk_enabled", False)))
-    host.idle_low_fps_check = ToggleSwitch(None)
-    host.idle_low_fps_check.setChecked(bool(host.config.get("idle_low_fps_enabled", False)))
     host.self_talk_duration_spin = BrowserDoubleSpinBox(host)
     host.self_talk_duration_spin.setRange(1.0, 300.0)
     host.self_talk_duration_spin.setSingleStep(0.5)
@@ -230,6 +188,8 @@ def build_pet_controls(host) -> None:
     agent_link_cfg = host.config.get("agent_link", {})
     host.codex_link_check = ToggleSwitch(host)
     host.codex_link_check.setChecked(bool(agent_link_cfg.get("codex", False)))
+    host.cursor_link_check = ToggleSwitch(host)
+    host.cursor_link_check.setChecked(bool(agent_link_cfg.get("cursor", False)))
 
     host.dialogue_mode_select = ModernSelect(host, width=190)
     for label, value in (("默认模式", "legacy"), ("鲸鱼娘女仆模式", "whale_maid"), ("自定义台词", "custom")):
@@ -338,14 +298,6 @@ def build_pet_controls(host) -> None:
         host.report_gate_sliders[gate] = slider
 
 
-    # 待办提醒：偏好两键（条目在右键菜单「待办提醒」面板中管理）
-    host.todo_reminder_check = ToggleSwitch(host)
-    host.todo_reminder_check.setChecked(bool(host.config.get("todo_reminder_enabled", True)))
-    host.todo_reminder_lead_spin = BrowserSpinBox(host)
-    host.todo_reminder_lead_spin.setRange(0, 60)
-    host.todo_reminder_lead_spin.setSuffix(" 分钟")
-    host.todo_reminder_lead_spin.setValue(int(host.config.get("todo_reminder_lead_minutes", 5) or 0))
-
     appearance = host.config.get("context_menu_appearance", DEFAULT_CONTEXT_MENU_APPEARANCE)
     host.menu_theme_select = ModernSelect(host, width=132)
     for label, value in (("跟随系统", "system"), ("浅色", "light"), ("深色", "dark")):
@@ -393,61 +345,8 @@ def build_pet_controls(host) -> None:
     host.dark_foreground_picker = color_picker("dark_foreground")
     host.dark_hover_picker = color_picker("dark_hover")
 
-    egg = host.config.get("menu_easter_egg", DEFAULT_MENU_EASTER_EGG)
-    host.egg_enabled_check = ToggleSwitch(host)
-    host.egg_enabled_check.setChecked(bool(egg.get("enabled", True)))
-    host.egg_title_edit = _line_edit(str(egg.get("title") or "厉害了我的鲸"), width=240)
-    host.egg_hint_edit = _line_edit(str(egg.get("hint") or "请点击"), width=160)
-    avatar = resolve_fun_asset(egg.get("avatar"), oijingjing_image_path())
-    image_dir = resolve_fun_asset(egg.get("image_dir"), oijingjing_image_path().parent)
-    host.egg_avatar_picker = ResourcePathPicker(str(avatar.resolve()), parent=host)
-    host.egg_image_dir_picker = ResourcePathPicker(
-        str(image_dir.resolve()), directory=True, image_preview=True, parent=host,
-    )
 
 # ------------------------------------------------------------ 主动识屏
-
-
-# ------------------------------------------------------------ 灵动岛联动控制器
-
-
-def _update_island_controls(host, enabled: bool) -> None:
-    host._set_setting_rows_visible((
-        "dynamic_island_icon", "dynamic_island_name", "dynamic_island_info",
-        "dynamic_island_status", "dynamic_island_info_mode",
-        "dynamic_island_style", "dynamic_island_opacity", "dynamic_island_accent",
-        "dynamic_island_icon_value",
-        "dynamic_island_custom_text", "dynamic_island_click_action",
-        "dynamic_island_event_effects", "dynamic_island_edge_dock",
-        "dynamic_island_collision",
-    ), enabled, dependency="island_enabled")
-    _update_island_icon_controls(host, host.island_icon_check.isChecked())
-    _update_island_info_controls(host, host.island_info_check.isChecked())
-
-
-def _update_island_icon_controls(host, enabled: bool) -> None:
-    host._set_setting_rows_visible(
-        ("dynamic_island_icon_value",),
-        enabled,
-        dependency="island_show_icon",
-    )
-
-
-def _update_island_info_controls(host, enabled: bool) -> None:
-    host._set_setting_rows_visible(
-        ("dynamic_island_info_mode", "dynamic_island_custom_text"),
-        enabled,
-        dependency="island_show_info",
-    )
-    _update_island_custom_text(host)
-
-
-def _update_island_custom_text(host, _index: int | None = None) -> None:
-    host._set_setting_rows_visible(
-        ("dynamic_island_custom_text",),
-        host.island_info_mode_select.currentData() == "custom",
-        dependency="island_info_mode",
-    )
 
 
 # ------------------------------------------------------------ 台词模板控制器

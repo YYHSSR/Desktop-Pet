@@ -145,7 +145,7 @@ def test_default_scale_keeps_label_and_font_pixel_identical():
     try:
         assert plain.text_scale == 1.0
         assert plain.label.size() == scaled.label.size()
-        assert plain.label.font().pixelSize() == 13
+        assert plain.label.font().pixelSize() == 14
     finally:
         plain.close()
         scaled.close()
@@ -157,7 +157,7 @@ def test_scale_grows_bubble_and_font_together():
     big = _bubble(2.0, "这是一句用来量宽的话。")
     try:
         assert big.text_scale == 2.0
-        assert big.label.font().pixelSize() == 26
+        assert big.label.font().pixelSize() == 28
         assert big.label.width() > normal.label.width()
         assert big.label.height() > normal.label.height()
         assert big.width() > normal.width()
@@ -317,6 +317,6 @@ def test_show_text_without_scale_keeps_legacy_hardcoded_font():
     bubble.label.ensurePolished()
     try:
         assert bubble.text_scale == 1.0
-        assert bubble.label.font().pixelSize() == 13
+        assert bubble.label.font().pixelSize() == 14
     finally:
         bubble.close()

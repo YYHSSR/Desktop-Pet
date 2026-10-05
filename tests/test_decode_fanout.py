@@ -37,19 +37,10 @@ class _FakeMovie:
         self.playback_speed = speed
         self._publish_sink = None
         self._feed_source = None
-        self.decode_throttle_divisor = 1
-        self.decode_pace_external = False
         self.throttle_calls: list = []
         # 发布者存活判定输入（F2 复审 nit-3）：默认存活（运行中、未驻留）
         self._running = True
         self._soft_parked = False
-
-    def set_decode_throttle(self, divisor: int) -> None:
-        self.decode_throttle_divisor = max(1, int(divisor))
-        self.throttle_calls.append(self.decode_throttle_divisor)
-
-    def set_decode_pace_external(self, value: bool) -> None:
-        self.decode_pace_external = bool(value)
 
 
 class _NoCapabilityMovie(_FakeMovie):
@@ -338,61 +329,17 @@ class TestLifecycle:
         hub.stop_all()
         assert not hub._sources
 
-    def test_shutdown_is_noop(self, hub):
-        pub = _FakeMovie(PATH)
-        hub.shareable_start("idle", pub)
-        sub = _FakeMovie(PATH)
-        hub.shareable_start("idle", sub)
-        hub.shutdown()  # 单窗关闭：hub 不动（进程级共享）
-        assert PATH in hub._sources
-        assert sub._feed_source is not None
 
 
 # ---------------------------------------------------------------------------
 # 节流 / pace 调和
 # ---------------------------------------------------------------------------
 class TestPace:
-    def test_effective_divisor_is_min(self, hub):
-        pub = _FakeMovie(PATH)
-        assert hub.shareable_start("idle", pub) == "publish"
-        sub = _FakeMovie(PATH)
-        assert hub.shareable_start("idle", sub) == "feed"
-        source = hub._sources[PATH]
-        # 首订阅者接管 pace：source window 变外部 pace，有效 = min(1,1) = 1
-        assert source.publisher.decode_pace_external is True
-        assert pub.decode_throttle_divisor == 1
-        # 发布窗期望 2（闲置降帧）时有效仍受订阅者 1 压制 → 1
-        hub._report_desired_throttle(pub, 2)
-        assert pub.decode_throttle_divisor == 1
-        # 订阅者也期望 2 → 有效 = min(2,2) = 2
-        hub._report_desired_throttle(sub, 2)
-        assert pub.decode_throttle_divisor == 2
-        # 订阅者变活跃（期望 1）→ 任一窗活跃 → 有效回落 1
-        hub._report_desired_throttle(sub, 1)
-        assert pub.decode_throttle_divisor == 1
 
     def test_no_subscriber_does_not_manage_pace(self, hub):
         pub = _FakeMovie(PATH)
         hub.shareable_start("idle", pub)
         source = hub._sources[PATH]
-        assert source.publisher.decode_pace_external is False
-
-
-def test_handover_resets_old_publisher_pace_external(hub):
-    """P1-1 回归：handover 后旧发布者的 decode_pace_external 必须复位——
-    否则它日后以订阅者身份再进场时 divisor 永久卡在旧值（半速不自愈）。"""
-    pub = _FakeMovie(PATH)
-    hub.shareable_start("idle", pub)
-    sub = _FakeMovie(PATH)
-    hub.shareable_start("idle", sub)
-    assert pub.decode_pace_external is True, "发布者 pace 应被 hub 接管"
-
-    hub.shareable_end("idle", pub, natural=False)  # 中途打断 → handover 扶正 sub
-
-    assert hub._sources[PATH].publisher is sub
-    assert pub.decode_pace_external is False, \
-        "旧发布者 pace 标志必须复位（P1-1）"
-    assert sub.decode_pace_external is True, "新发布者接管 pace"
 
 
 # ---------------------------------------------------------------------------

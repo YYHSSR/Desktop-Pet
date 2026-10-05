@@ -667,53 +667,6 @@ def test_interactive_long_option_stays_inside_bubble():
     assert button.geometry().right() <= row.width()
 
 
-
-def test_lyric_width_lock_reuses_first_line_column():
-    """歌词锁宽：同首歌后续长句必须沿用第一句的列宽，不逐句改宽。
-
-    回归：锁宽分支过去只拿 max(当句列宽, TITLE_FIRST_COLUMN) 做下限，
-    长句仍会撑宽气泡（15 字→248px、80 字→264px），每换一句歌词气泡
-    就横向伸缩一次，实机看起来一直在跳。
-    """
-    _get_app()
-    bubble = PetSpeechBubble(style_id="classic_top")
-    anchor = QRect(0, 0, 120, 120)
-    # 第一句（新歌，未锁宽）：记下这句的列宽
-    bubble.show_text("短句歌词", anchor, 5000, subtitle="歌名", title_first=True, width_locked=False)
-    first_width = bubble.label.width()
-    # 同首歌后续长句（锁宽）：必须沿用第一句的宽度
-    bubble.show_text("这是一句明显更长的歌词" * 6, anchor, 5000, subtitle="歌名", title_first=True, width_locked=True)
-    assert bubble.label.width() == first_width, (
-        f"锁宽后长句不应改宽：首句 {first_width}px vs 长句 {bubble.label.width()}px"
-    )
-    bubble.dismiss()
-
-
-def test_lyric_height_lock_ratchet_keeps_top_edge_stable():
-    """歌词锁高：换句后行数回落时气泡高度不许缩回去（顶边不跳）。
-
-    回归：锁宽只锁了列宽，高度仍按当句行数算——长句（2 行）→短句（1 行）
-    时气泡底边锚着鱼头顶不动、顶边往下掉一行，每换一句歌词气泡就上下
-    跳一次。现在行数锁只单向往大涨，回落时保持已涨到的行数。
-    """
-    _get_app()
-    bubble = PetSpeechBubble(style_id="classic_top")
-    anchor = QRect(0, 0, 120, 120)
-    # 新歌首句（未锁宽）：一行短歌词
-    bubble.show_text("短句歌词", anchor, 5000, subtitle="歌名", title_first=True, width_locked=False)
-    one_line_height = bubble.label.height()
-    # 换成长句（锁宽）：折成多行，高度涨上去
-    bubble.show_text("这是一句明显更长的歌词" * 6, anchor, 5000, subtitle="歌名", title_first=True, width_locked=True)
-    multi_line_height = bubble.label.height()
-    assert multi_line_height > one_line_height
-    # 再换回短句（锁宽）：高度必须保持涨到的值，不许缩回一行高
-    bubble.show_text("短句歌词", anchor, 5000, subtitle="歌名", title_first=True, width_locked=True)
-    assert bubble.label.height() == multi_line_height, (
-        f"锁高后短句不应缩高：多行 {multi_line_height}px vs 短句 {bubble.label.height()}px"
-    )
-    bubble.dismiss()
-
-
 def test_bubble_move_glides_after_first_show():
     """气泡二次定位走滑动动画而非瞬移（首次显示仍直接落位）。
 

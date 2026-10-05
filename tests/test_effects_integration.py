@@ -92,31 +92,16 @@ def test_modern_menu_has_golden_spin_and_edge_probe_in_pet_controls():
     app.processEvents()
 
 
-def test_legacy_menu_has_golden_spin_and_edge_probe():
-    app = _qapp()
-    menu = QMenu()
-    pet = _Pet(template="legacy")
-    populate_context_menu(menu, pet)
-    assert _find_action(menu, "黄金回旋") is not None
-    edge = _find_action(menu, "边缘探头")
-    assert edge.isCheckable()
-    assert not edge.isChecked()
-    edge.setChecked(True)
-    assert pet.edge_toggles == [True]
-    menu.close()
-    app.processEvents()
-
-
 def test_settings_dialog_has_effect_toggles_and_writes_config(tmp_path, monkeypatch):
     app = _qapp()
     cfg = Config(tmp_path)
     dialog = ModernSettingsDialog(cfg)
-    assert dialog.edge_probe_check is not None
+    assert dialog.findChild(SettingRow, "settingRow_edge_probe") is None
     direct_row = dialog.findChild(SettingRow, "settingRow_golden_spin_direct")
     assert direct_row is None
-    dialog.edge_probe_check.setChecked(True)
+    dialog.slingshot_check.setChecked(False)
     assert dialog._write_config() is True
-    assert cfg.get("edge_probe_enabled") is True
+    assert cfg.get("slingshot_enabled") is False
     dialog.reject()
     app.processEvents()
 

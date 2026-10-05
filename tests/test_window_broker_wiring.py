@@ -47,14 +47,7 @@ class FakeClip(QObject):
         # 批5.3：hub（DecodeFanoutHub）fan-out 接缝所需的最小属性
         self.path = str(Path("assets/characters/shenshen/videos/idle/待机呼吸休闲.webm"))
         self.playback_speed = 1.0
-        self.decode_throttle_divisor = 1
-        self.decode_pace_external = False
 
-    def set_decode_throttle(self, divisor):
-        self.decode_throttle_divisor = max(1, int(divisor))
-
-    def set_decode_pace_external(self, value):
-        self.decode_pace_external = bool(value)
 
     def stop(self):
         self._running = False
@@ -119,7 +112,6 @@ class FakeBrokerFacade:
         self._role = role
         self.started = []
         self.ended = []
-        self.unbind_calls = 0
 
     def shareable_start(self, name, movie):
         self.started.append(name)
@@ -127,9 +119,6 @@ class FakeBrokerFacade:
 
     def shareable_end(self, name, movie, natural=True):
         self.ended.append((name, natural))
-
-    def unbind(self):
-        self.unbind_calls += 1
 
 
 @pytest.fixture
@@ -197,14 +186,13 @@ def test_register_local_role_does_not_record_identity(app, tmp_path):
 
 
 def test_detach_collision_session_tears_down_broker_first(app, tmp_path):
-    """detach（运行期关碰撞路径）先按身份收尾 broker 会话再 unbind。"""
+    """detach按注册身份收尾共享解码；不再调用旧的IPC绑定接口。"""
     win = _make_window(tmp_path)
     facade = FakeBrokerFacade()
     win._broker_facade = facade
     win._broker_register(win.idle, win.movie)
     win.detach_collision_session()
     assert facade.ended == [(win.idle, False)]
-    assert facade.unbind_calls == 1
     assert win._broker_registered is None
     # movie 钩子摘除：broker 停用期间复用旧 clip 不得误用上一轮 sink/feed
     assert win.movie._publish_sink is None

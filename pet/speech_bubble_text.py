@@ -53,9 +53,8 @@ BUBBLE_TEXT_SCALE_MIN = 0.5
 BUBBLE_TEXT_SCALE_MAX = 3.0
 # 各形态的基础字号（px），也是缩放前的原值：正文 13 / 副标题与页码 10 /
 # 标题态副标题 11。绘制侧按同一系数取整，度量侧从 label.font() 读回。
-BUBBLE_BODY_FONT_PX = 13
+BUBBLE_BODY_FONT_PX = 14
 BUBBLE_SUBTITLE_FONT_PX = 10
-BUBBLE_TITLE_FONT_PX = 11
 
 
 def clamp_bubble_text_scale(scale: float) -> float:
@@ -366,7 +365,7 @@ def bubble_rect_for_anchor(
     bubble_size: QSize,
     available: QRect,
     placement: str = "top",
-    gap: int = 12,
+    gap: int = 8,
 ) -> QRect:
     """Return an on-screen bubble rectangle that never covers the pet if space permits."""
     width, height = bubble_size.width(), bubble_size.height()

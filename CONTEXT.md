@@ -12,8 +12,10 @@ vary without changing this contract.
 _Avoid_: Pixel parity, identical native chrome
 
 **Settings System**:
-The single product surface that owns every persistent user preference. Legacy
-settings may temporarily redirect into it but do not define a second contract.
+Detailed pet, bubble, collision and work-link preferences. Every preference has
+one owner: the tray owns visibility, mouse passthrough and autostart; the pet
+menu owns size, playback speed, topmost, roaming and drag-physics shortcuts.
+Settings do not duplicate these controls (exit may appear on both menus).
 _Avoid_: Modern settings, legacy settings
 
 **Menu Action Model**:
@@ -23,26 +25,22 @@ presentation.
 _Avoid_: Modern menu behavior, legacy menu behavior
 
 **Menu Layout Tree**:
-A versioned tree of stable action IDs and one-level submenus. It owns order and
-user visibility, explicit separators, and optional alias/icon presentation
-overrides, while the Menu Action Model owns canonical presentation, callbacks,
-runtime state, and platform capability. Missing actions from newer versioned
-defaults are inserted beside their nearest template sibling; explicit hidden
-nodes and user ordering remain authoritative.
+A bundled fixed tree of action IDs and one-level submenus in
+`pet/menu_templates/modern-default-v1.json`. Capability checks omit unavailable
+actions. User layout editing, alternate templates and Easter-egg entries were
+removed on 2026-10-04. The greeting header ("请点击") invokes the pet's
+response animation and a short bubble; it does not open an image window.
+Behavior repetition uses built-in thresholds, and Todo reminders are retired.
+The tray and all pet menu items reuse the historical modern appearance and
+visible checked-state layer. The tray's stable icon/name is 鲸鱼娘.
 _Avoid_: Serialized QAction, platform-specific menu order
 
 **Menu Presentation Override**:
-An optional Menu Layout Tree decoration. Aliases replace canonical labels only
-at runtime while the editor retains the canonical label for orientation. Icon
-overrides may select a semantic icon, suppress the icon, or reference a
-validated local image with contain/cover rendering; an unreadable local image
-falls back to the Menu Action Model icon.
+Retired on 2026-10-04. Menu commands use canonical labels and semantic icons.
 _Avoid_: Renamed command, embedded image bytes
 
 **Capability Unavailable**:
-An action cannot exist on the current platform or build. The Menu Layout Tree
-retains its position for cross-platform editing, while the current runtime may
-omit it and the editor explains the capability reason.
+An action cannot exist on the current platform or build; the runtime omits it.
 _Avoid_: Disabled feature, hidden action
 
 **Runtime Disabled**:

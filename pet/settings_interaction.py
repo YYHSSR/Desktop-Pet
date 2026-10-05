@@ -32,7 +32,7 @@ def build_self_talk_rows(dialog) -> list[SettingRow]:
         SettingRow(
             "self_talk_images",
             "图片目录",
-            "从目录中的常见图片格式随机选择；默认使用内置彩蛋图片池，留空时只显示文本。",
+            "从目录中的常见图片格式随机选择；默认使用内置配图，留空时只显示文本。",
             dialog.self_talk_image_dir_picker,
             stacked=True,
         ),

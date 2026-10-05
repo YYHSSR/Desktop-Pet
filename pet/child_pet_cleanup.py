@@ -2,7 +2,7 @@
 """一键退出子肥鱼：关闭所有小肥鱼进程并清理 runtime 标记。
 
 只退出子肥鱼进程/窗口（相当于一键退出其他所有子肥鱼），**不删除**它们的
-slot 配置、会话与待办数据——子肥鱼的设置（含 user_customized 占位）全部
+slot 配置与会话数据——子肥鱼的设置（含 user_customized 占位）全部
 保留，下次生成时按占位语义恢复。主肥鱼（slot-0/config.json）不受影响。
 """
 from __future__ import annotations
@@ -159,7 +159,7 @@ def _slot_lock_pids(root: Path) -> list[int]:
 def clear_spawned_pets(config_dir: Path | str) -> dict:
     """关闭所有小肥鱼（slot-N）进程并清理其 runtime 标记。
 
-    只退出进程，**不删除** slot 配置/会话/待办数据（子肥鱼设置保留，
+    只退出进程，**不删除** slot 配置/会话数据（子肥鱼设置保留，
     下次生成按占位语义恢复）。只处理非当前进程的 runtime 标记；
     slot-0 主肥鱼不受影响。
     返回 {"killed_pids": [...], "failed_pids": [...]}。

@@ -157,7 +157,6 @@ def test_capture_child_interactive_bubble_is_non_transparent_hit_target():
     assert PetWindow._is_transparent_at(fake, QPoint(10, 2)) is False
 
 
-
 class _FakeQuickBubble:
     """子模式气泡：geometry 是父坐标，mapToGlobal 模拟父窗口偏移。"""
 
@@ -172,12 +171,6 @@ class _FakeQuickBubble:
 
     def size(self):
         return QRect(0, 0, 120, 50).size()
-
-
-
-
-
-
 
 
 def test_pet_window_capture_headroom_preserves_bottom(tmp_path):
@@ -217,8 +210,6 @@ class _FakeQuickCaptureWidget:
 
     def set_capture_compat(self, on, host=None):
         self.calls.append((on, host))
-
-
 
 
 def test_pet_window_runtime_capture_mode_syncs_bubble(tmp_path):

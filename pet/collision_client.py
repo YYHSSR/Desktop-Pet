@@ -291,20 +291,6 @@ class CollisionClient(QObject):
                 member['_received_at'] = now
                 peers[peer_id] = member
         self.peer_snapshots = peers
-        # 灵动岛几何复制（远端硬墙）：快照中的静态布景成员回喂本进程岛碰撞体。
-        # 快照缺席不撤墙（stale-keep，碰撞体本地 TTL 兜底，见 island_collision）。
-        body = getattr(self._win, '_island_collision_body', None)
-        feed = getattr(body, 'on_remote_snapshot', None)
-        if callable(feed):
-            island_member = next((m for m in peers.values()
-                                  if int(m.get('flags', 0)) & collision.FLAG_STATIC), None)
-            if collision_debug.ENABLED:
-                collision_debug.log(str(getattr(self.session, 'runtime_id', '')),
-                                    'island_feed', has_body=True,
-                                    found=island_member is not None,
-                                    members=len(peers))
-            feed(island_member)
-
     def _prune_collision_prediction_state(self, now: float) -> None:
         self.peer_snapshots = {
             runtime_id: member for runtime_id, member in self.peer_snapshots.items()
@@ -338,14 +324,6 @@ class CollisionClient(QObject):
             if not self.impulse_watermarks.should_apply(epoch, pair_for_watermark, tick_int):
                 discard('watermark')
                 return
-        # 撞岛冲量的归属：本进程持有岛 widget 时撞岛反应走本进程直连业务链
-        # （island_collision._apply_hit），协调者转发的岛冲量必须丢弃——
-        a_str, b_str = str(message.get('a') or ''), str(message.get('b') or '')
-        if collision.ISLAND_MEMBER_ID in (a_str, b_str):
-            body = getattr(win, '_island_collision_body', None)
-            if getattr(body, 'has_local_island', False):
-                discard('island_local_owned')
-                return
         if win._interaction_state == self._dragging or win._physics_mode == 'drag':
             discard('dragging')
             return
@@ -369,15 +347,7 @@ class CollisionClient(QObject):
         radius_x = max(1.0, rect.width() / 2.0)
         radius_y = max(1.0, rect.height() / 2.0)
         hit_dv = math.hypot(dvx, dvy)
-        # 撞静态布景（灵动岛果冻墙）放宽命中阈值：岛的语义就是"撞上去会弹"，
-        # 漫游/走路蹭到（dv 常在 60~300 之间）也该有看得见的反弹，
-        # 而不是被 300 的通用阈值吃掉只剩缓慢推出。
-        other_id = str(message.get('b') if message.get('a') == runtime_id
-                       else message.get('a') or '')
-        other = self.peer_snapshots.get(other_id) or {}
-        hit_floor = 60.0 if int(other.get('flags', 0)) & collision.FLAG_STATIC \
-            else self._hit_min_dv
-        is_real_hit = hit_dv >= hit_floor
+        is_real_hit = hit_dv >= self._hit_min_dv
         has_velocity_impulse = abs(dvx) > 1e-9 or abs(dvy) > 1e-9
         # 偏差豁免的本意是"协调者眼中的我已经过期就别瞬移我"——直接比较
         # 协调者 tick 时认定的我方中心（ax/ay 或 bx/by）与当前实际中心，
@@ -405,9 +375,6 @@ class CollisionClient(QObject):
         if speed > win._throw_speed_cap:
             clamped = physics_mod.soft_clamp_speed(speed, win._throw_speed_cap)
             win._phys_vel[:] = [win._phys_vel[0] * clamped / speed, win._phys_vel[1] * clamped / speed]
-        egg = getattr(win, '_throw_egg', None)
-        if egg is not None and egg.active:
-            egg.on_pet_contact(math.hypot(*win._phys_vel))
         if abs(dx) > 1e-9 or abs(dy) > 1e-9:
             # 边缘探头会话期间位置归探头控制器管（PEEKING 稳态无 timer，
             # 被位移顶偏后不会自动归位，会"卡"在错误的露出量上），软撞的
@@ -549,7 +516,7 @@ class CollisionClient(QObject):
                     radius_x, radius_y,
                     scale=float(raw_peer.get('scale', collision.DEFAULT_BASE_SCALE) or collision.DEFAULT_BASE_SCALE),
                     collision_mass_scale=float(win.cfg.get('collision_mass_scale', 1.0))),
-                is_infinite_mass=bool(flags & (collision.FLAG_DRAGGING | collision.FLAG_LOCK_POSITION | collision.FLAG_STATIC)),
+                is_infinite_mass=bool(flags & (collision.FLAG_DRAGGING | collision.FLAG_LOCK_POSITION)),
                 flags=flags,
                 circles=peer_circles,
             )
@@ -565,9 +532,6 @@ class CollisionClient(QObject):
                 clamped = physics_mod.soft_clamp_speed(speed, win._throw_speed_cap)
                 win._phys_vel[:] = [win._phys_vel[0] * clamped / speed,
                                      win._phys_vel[1] * clamped / speed]
-            egg = getattr(win, '_throw_egg', None)
-            if egg is not None and egg.active:
-                egg.on_pet_contact(math.hypot(*win._phys_vel))
             self.predicted_bounces[pair] = now
             self.pending_predicted_bounce = (float(bounce_vx), float(bounce_vy))
             self.pending_predicted_contact = (

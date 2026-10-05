@@ -174,7 +174,6 @@ class ToggleSwitch(QAbstractButton):
 IMAGE_NAME_FILTER = "图片文件 (*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff)"
 
 
-
 class MasonryLayout(QLayout):
     """A true shortest-column layout whose cards retain their image ratios."""
 

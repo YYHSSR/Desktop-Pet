@@ -227,7 +227,7 @@ def seed_slot_config_from_main(config_dir: Path | str, slot_id: int) -> bool:
     """新 slot 的初始配置跟随主设置；对目标 slot 三分支（批 C）：
 
     - slot 配置文件不存在 → 按当前主设置落种（含 spawn_inherit_size /
-      spawn_scale / spawn_inherit_dynamic_island 逻辑）；
+      spawn_scale 逻辑）；
     - slot 存在但 ``user_customized`` 为假（含旧存档无此键）→ 按当前主设置
       重新刷新一遍（仍保留该 slot 自己拖动后自存的位置键）；
     - slot 存在且 ``user_customized`` 为真 → 整个跳过，一个键都不碰。
@@ -276,18 +276,9 @@ def seed_slot_config_from_main(config_dir: Path | str, slot_id: int) -> bool:
             seed["scale"] = float(seed.get("spawn_scale", catalog.DEFAULT_SCALE))
         except (TypeError, ValueError):
             seed["scale"] = catalog.DEFAULT_SCALE
-    # 生小肥鱼灵动岛策略：默认不继承 → 小肥鱼不开启自己的灵动岛；
-    # 开启继承 → 保留主配置的 dynamic_island（含是否启用）。
-    inherit_island = _bool_or_default(seed.get("spawn_inherit_dynamic_island"), False)
-    seed["spawn_inherit_dynamic_island"] = inherit_island
-    island = seed.get("dynamic_island")
-    if isinstance(island, dict):
-        island["enabled"] = bool(inherit_island)
-    else:
-        seed["dynamic_island"] = {"enabled": bool(inherit_island)}
     from .config import Config
     Config._clean_retired_data(seed)
-    # 落种/刷新永不写位置键：剔除从主配置继承的位置键，再还原本 slot 自存的位置。
+    # Preserve each slot's position instead of inheriting the primary pet's location.
     for key in _SEED_EXCLUDE_KEYS:
         seed.pop(key, None)
     for key, value in existing_position.items():

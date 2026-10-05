@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from PySide6.QtWidgets import QApplication, QMenu, QPushButton
 
 from pet.config import Config
-from pet.context_menus.shared import add_agent_link_menu
 from pet.modern_settings_dialog import ModernSettingsDialog, SettingRow, SettingsTabContainer
 
 
@@ -29,18 +28,6 @@ def test_retired_audio_fields_are_removed_on_reload_and_save(tmp_path):
         assert data["collision_enabled"] is True
 
 
-def test_link_menu_has_status_preferences_without_app_launch(tmp_path):
-    app = QApplication.instance() or QApplication([])
-    cfg = Config(tmp_path)
-    menu = QMenu()
-    pet = SimpleNamespace(cfg=cfg, toggle_agent_link=lambda *args: None)
-    sub = add_agent_link_menu(menu, pet)
-    assert any("Work / Codex" in action.text() for action in sub.actions())
-    assert not any("打开" in action.text() and "ChatGPT" in action.text() for action in sub.actions())
-    menu.close()
-    app.processEvents()
-
-
 def test_settings_group_active_pet_preferences_and_save_them(tmp_path):
     app = QApplication.instance() or QApplication([])
     cfg = Config(tmp_path)
@@ -52,32 +39,20 @@ def test_settings_group_active_pet_preferences_and_save_them(tmp_path):
         pet_page = dialog.pages.widget(1)
         tabs = pet_page.findChild(SettingsTabContainer, "settingsTaskTabs")
         assert tabs.keys() == ("appearance", "movement", "companions")
-        for setting_id in ("scale", "playback_speed", "no_move", "lock_position", "collision_enabled"):
+        for setting_id in ("pet_opacity", "animation_gap", "lock_position", "collision_enabled"):
             assert pet_page.isAncestorOf(dialog.findChild(SettingRow, "settingRow_" + setting_id))
         assert not any(any(word in row.objectName() for word in ("sound", "voice", "speak")) for row in dialog.findChildren(SettingRow))
         dialog.lock_position_check.setChecked(True)
-        for control in (dialog.shift_drag_check, dialog.drag_physics_check, dialog.slingshot_check, dialog.throw_strength_select):
+        for control in (dialog.shift_drag_check, dialog.slingshot_check, dialog.throw_strength_select):
             assert not control.isEnabled()
         dialog.lock_position_check.setChecked(False)
         assert dialog.shift_drag_check.isEnabled()
-        dialog.speed_select.setCurrentData(1.5)
-        dialog.no_move_check.setChecked(True)
+        dialog.gap_spin.setValue(2.0)
+        dialog.pet_opacity_spin.setValue(85)
         assert dialog._write_config()
         reloaded = Config(tmp_path)
-        assert reloaded.get("playback_speed") == 1.5
-        assert reloaded.get("no_move") is True
+        assert reloaded.get("animation_gap_seconds") == 2.0
+        assert reloaded.get("pet_opacity") == 85
     finally:
         dialog.close()
-        app.processEvents()
-
-
-def test_island_card_only_offers_pet_and_settings(tmp_path):
-    from pet.dynamic_island import DynamicIsland
-    app = QApplication.instance() or QApplication([])
-    island = DynamicIsland(Config(tmp_path))
-    try:
-        assert {button.text() for button in island._card_box.findChildren(QPushButton)} == {"隐藏桌宠", "设置"}
-    finally:
-        island.close()
-        island.deleteLater()
         app.processEvents()

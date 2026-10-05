@@ -377,6 +377,8 @@ def test_tray_menu_syncs_mouse_through_from_config(tmp_path):
     win = Win(config)
     win._speech_bubble = QWidget()
     manager = AppShell(app, config)
+    manager.instance.win = win
+    win.hide_speech_bubble = win._speech_bubble.hide
     tray = manager._build_tray(win)
     menu = tray.contextMenu()
     labels = [action.text() for action in menu.actions() if not action.isSeparator()]
@@ -392,13 +394,8 @@ def test_tray_menu_syncs_mouse_through_from_config(tmp_path):
     # 反向：托盘里点掉 → config 落盘
     action.setChecked(False)
     assert config.get("mouse_through") is False
-    # “回到右下角”应路由到该窗的 go_default_corner
-    home = next(a for a in menu.actions() if a.text() == "回到右下角")
-    home.trigger()
-    assert win.corner_calls == 1
     tray.hide()
     app.processEvents()
-
 
 
 def test_go_default_corner_cancels_active_edge_probe(app, tmp_path):

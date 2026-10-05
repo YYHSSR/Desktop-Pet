@@ -51,10 +51,10 @@ def test_native_pair_geometry_and_history():
     _compare_case([a, b], tick=13, restitution=0.4, friction=0.2, impulse_cap=100)
 
 
-def test_native_coincident_circle_chain_and_static_body():
+def test_native_coincident_circle_chain_and_held_pet():
     a = collision.MemberState("鱼a", 0, 0, 50, 50, circles=[[0, 0, 20], [15, 0, 20]], vx=200)
     b = collision.MemberState("鱼b", 0, 0, 50, 50, circles=[[0, 0, 20]],
-                              is_infinite_mass=True, flags=collision.FLAG_VISIBLE | collision.FLAG_COLLISION_ENABLED | collision.FLAG_STATIC)
+                              is_infinite_mass=True, flags=collision.FLAG_VISIBLE | collision.FLAG_COLLISION_ENABLED | collision.FLAG_DRAGGING)
     _compare_case([a, b], overlap_history={"鱼a|鱼b": 2})
 
 

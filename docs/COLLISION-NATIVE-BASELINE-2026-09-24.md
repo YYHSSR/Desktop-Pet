@@ -1,6 +1,6 @@
 # Collision native stage: baseline and validation (2026-09-24)
 
-This records the first collision stage in [项目重构说明](../C++-Python/项目重构说明.md). The Python solver remains the default. Set `PET_COLLISION_BACKEND=native` to require the C++ DLL or `auto` to try it and fall back on load/ABI failure.
+This records the first collision stage in 项目重构说明（历史材料见Git记录）. The Python solver remains the default. Set `PET_COLLISION_BACKEND=native` to require the C++ DLL or `auto` to try it and fall back on load/ABI failure.
 
 ## Scope
 

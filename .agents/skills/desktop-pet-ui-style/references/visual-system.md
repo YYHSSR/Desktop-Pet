@@ -31,9 +31,24 @@ settings window
 
 Keep the sidebar domains stable: 常规、桌宠、互动、菜单、自动化与联动. A platform changes availability inside a domain, not the domain list.
 
+As of 2026-10-04, the tray owns visibility, mouse passthrough and autostart.
+The pet menu owns size, speed, topmost, roaming and drag-physics shortcuts.
+Settings own detailed preferences and never duplicate those controls. Menu
+editing, Easter eggs, power saving and Dynamic Island are retired. Show the
+ChatGPT Work/Codex controls first; collapse lengthy text customization.
+
+The greeting header responds through the pet, without a separate image popup.
+The tray reuses menu typography, background and visible check marks; its icon
+is assets/icon.ico and its tooltip is 鲸鱼娘. Repetition thresholds are internal,
+and Todo rows do not exist. Use the Windows font stack on Windows.
+
 ## Typography
 
 Use the Qt system general font. The window establishes 13 px body text; component roles override only when hierarchy requires it.
+
+Pet bubbles use 14 px text, with Microsoft YaHei UI / Microsoft YaHei on
+Windows. Attach them to the stable character body with an 8 px placement gap;
+mirror thought-bubble tails when the screen edge forces a side change.
 
 | Role | Size | Weight | Color, light | Color, dark |
 | --- | ---: | ---: | --- | --- |

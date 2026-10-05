@@ -121,8 +121,6 @@ def app():
     return QApplication.instance() or QApplication([])
 
 
-
-
 def test_auto_hide_keeps_fullscreen_watcher_alive(app, tmp_path, monkeypatch):
     """全屏自动隐藏时 watcher 线程必须保持运行——它是退出全屏后 show() 回来的唯一路径。"""
     lib = FakeLibrary()

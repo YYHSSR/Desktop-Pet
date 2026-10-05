@@ -31,10 +31,8 @@ RUNTIME_ID_MAX_LENGTH = 128
 CHARACTER_MAX_LENGTH = 512
 MAX_COLLISION_CIRCLES = 3
 ACTIVE_MEMBER_MAX_AGE = 1.2
-# 静态布景（灵动岛）的新鲜度宽限：位置不变、保活在 GUI 线程，宽限内
 # 最多成为 3s 的"残影墙"（进程崩溃场景），远小于甩丢一只鱼的体感代价。
-STATIC_MEMBER_MAX_AGE = 3.0
-_KNOWN_FLAGS_MASK = (1 << 12) - 1  # 含 FLAG_STATIC(2048)：静态布景果冻墙
+_KNOWN_FLAGS_MASK = (1 << 11) - 1
 
 
 def _bounded_text(value: Any, max_bytes: int) -> str:
@@ -445,9 +443,6 @@ class _CollisionWorker(QObject):
         is_new = self.runtime_id not in self.members
         if not is_new:
             self.previous_members[self.runtime_id] = dict(self.members[self.runtime_id])
-        elif int(member.get("flags", 0)) & collision.FLAG_STATIC:
-            # 同另两条路径：静态布景（岛）首帧用当前帧垫底，保住 swept 覆盖
-            self.previous_members[self.runtime_id] = dict(member)
         self.members[self.runtime_id] = member
         self._membership_dirty = self._membership_dirty or is_new
 
@@ -471,19 +466,11 @@ class _CollisionWorker(QObject):
         return {k: v for k, v in member.items() if k != "last_seen"}
 
     def _fresh_member_values(self, now: float) -> list[dict[str, Any]]:
-        """Return members inside the shared solver/publication freshness window.
-
-        FLAG_STATIC 成员（灵动岛）放宽到 STATIC_MEMBER_MAX_AGE：它的位置只随
-        用户拖拽变化，保活定时器又跑在繁忙的 GUI 线程——一次事件循环卡顿
-        不该让岛瞬间从碰撞世界消失（"甩上去直接穿过"的根因）。
-        """
+        """Return members inside the shared solver/publication freshness window."""
         fresh = []
         for value in self.members.values():
             age = now - float(value.get("last_seen", now))
-            max_age = STATIC_MEMBER_MAX_AGE \
-                if int(value.get("flags", 0)) & collision.FLAG_STATIC \
-                else ACTIVE_MEMBER_MAX_AGE
-            if age <= max_age:
+            if age <= ACTIVE_MEMBER_MAX_AGE:
                 fresh.append(value)
         return fresh
 
@@ -558,19 +545,11 @@ class _CollisionWorker(QObject):
                     self._welcomed_peers.add(socket)
                     self._send(socket, self._welcome())
             elif kind == "state":
-                # member_id 覆盖（第二成员通道：灵动岛静态布景）仅限已登记的
-                # 静态布景成员（当前仅 ISLAND_MEMBER_ID）且报文带 FLAG_STATIC；
-                # 其余 member_id 一律回退到连接自身 runtime_id——防止意外或
-                # 恶意的成员状态冒名覆写（评审加固项）。
+                # 只接受连接握手所登记的桌宠，防止成员冒名覆盖。
                 state = _normalize_state(message)
                 if state is None:
                     return
-                claimed = _valid_runtime_id(message.get("member_id"))
-                if claimed == collision.ISLAND_MEMBER_ID and (
-                        int(state.get("flags", 0)) & collision.FLAG_STATIC):
-                    runtime_id = claimed
-                else:
-                    runtime_id = _valid_runtime_id(self.peers.get(socket, ""))
+                runtime_id = _valid_runtime_id(self.peers.get(socket, ""))
                 if not runtime_id:
                     return
                 seq = int(state["seq"])
@@ -593,11 +572,6 @@ class _CollisionWorker(QObject):
                 is_new = runtime_id not in self.members
                 if not is_new:
                     self.previous_members[runtime_id] = dict(self.members[runtime_id])
-                elif int(member.get("flags", 0)) & collision.FLAG_STATIC:
-                    # 静态布景（岛）首帧没有"上一帧"：用当前帧垫底，swept
-                    # 退化为静态检测——否则岛（重）加入的头两帧内高速甩来的
-                    # 桌宠会隧道穿透（预留链路，见 collision.FLAG_STATIC 注释）
-                    self.previous_members[runtime_id] = dict(member)
                 self.members[runtime_id] = member
                 self._membership_dirty = self._membership_dirty or is_new
             elif kind == "leave":
@@ -732,9 +706,6 @@ class _CollisionWorker(QObject):
             is_new = self.runtime_id not in self.members
             if not is_new:
                 self.previous_members[self.runtime_id] = dict(self.members[self.runtime_id])
-            elif int(member.get("flags", 0)) & collision.FLAG_STATIC:
-                # 同 peer 侧：静态布景（岛）首帧用当前帧垫底，保住 swept 覆盖
-                self.previous_members[self.runtime_id] = dict(member)
             self.members[self.runtime_id] = member
             self._membership_dirty = self._membership_dirty or is_new
             if collision_debug.ENABLED:
@@ -745,52 +716,6 @@ class _CollisionWorker(QObject):
         elif self.socket:
             self._send(self.socket, dict(normalized, type="state"))
 
-    @Slot(object)
-    def submit_static_state(self, state: dict[str, Any]) -> None:
-        """登记/广播一个静态布景成员（灵动岛）的状态（第二成员通道）。
-
-        与 submit_state 的区别：不碰 latest_state / _participating——这是
-        「以另一个成员 id 说话」的通道，自身成员状态不受影响。岛几何由此
-        复制给远端进程（远端本地硬墙），并沿既有 FLAG_STATIC 分支参与
-        静态结算（弹床反弹）。state 必须带 ``member_id`` 与自维护的单调
-        ``seq``；缺 member_id 或规范化失败一律丢弃。
-        """
-        if self._stopping:
-            return
-        member_id = _valid_runtime_id(state.get("member_id"))
-        if not member_id:
-            return
-        normalized = _normalize_state(state)
-        if normalized is None:
-            return
-        if self.server is not None:
-            member = self._member_from_state(
-                member_id,
-                normalized,
-                self.instance_id,
-            )
-            if member is None:
-                return
-            seq = int(normalized["seq"])
-            old = self.members.get(member_id, {})
-            if seq <= int(old.get("seq", -1)):
-                return
-            is_new = member_id not in self.members
-            if not is_new:
-                self.previous_members[member_id] = dict(self.members[member_id])
-            elif int(member.get("flags", 0)) & collision.FLAG_STATIC:
-                # 与 peer/自身路径同口径：静态布景首帧用当前帧垫底，保住 swept
-                self.previous_members[member_id] = dict(member)
-            self.members[member_id] = member
-            self._membership_dirty = self._membership_dirty or is_new
-            if collision_debug.ENABLED:
-                collision_debug.log(self.runtime_id, 'static_state_arrive',
-                                    member_id=member_id, seq=seq, is_new=is_new)
-        elif self.socket:
-            self._send(self.socket, dict(normalized, type="state", member_id=member_id))
-            if collision_debug.ENABLED:
-                collision_debug.log(self.runtime_id, 'static_state_forward',
-                                    member_id=member_id)
 
     @Slot(object)
     def set_policy(self, policy: dict[str, Any]) -> None:
@@ -919,11 +844,8 @@ class _CollisionWorker(QObject):
                 keys = ("runtime_id", "x", "y", "radius_x", "radius_y", "vx", "vy", "mass",
                          "is_infinite_mass", "flags", "instance_id", "character", "scale", "w", "h", "circles")
                 values = {key: state.get(key, defaults.get(key, 0.0)) for key in keys}
-                # 无限质量认"被拖拽中"（用户手里握着）与 FLAG_STATIC 静态布景
-                # （灵动岛果冻墙）；lock_position 只是防拖拽，仍可被撞飞（碰碰车/台球需要）。
-                # 两者的弹性差异由 solve_collision_impulse 按 FLAG_STATIC 区分。
                 values["is_infinite_mass"] = bool(
-                    int(values["flags"]) & (collision.FLAG_DRAGGING | collision.FLAG_STATIC))
+                    int(values["flags"]) & collision.FLAG_DRAGGING)
                 values["mass"] = collision.calculate_mass(
                     values["radius_x"], values["radius_y"],
                     scale=float(values.get("scale", 0.72) or 0.72),
@@ -955,7 +877,7 @@ class _CollisionWorker(QObject):
             if bounce_vx is None or bounce_vy is None:
                 continue
             pred_flags = int(snap.get("flags", 0))
-            pred_is_inf = bool(pred_flags & (collision.FLAG_DRAGGING | collision.FLAG_STATIC))
+            pred_is_inf = bool(pred_flags & collision.FLAG_DRAGGING)
             pred_rx = float(snap.get("radius_x", 0.0))
             pred_ry = float(snap.get("radius_y", 0.0))
             pred_x = float(snap.get("bounce_x", snap.get("x", 0.0)))
@@ -1220,7 +1142,6 @@ def _stop_live_sessions_for_tests() -> None:
 class CollisionIpcSession(QObject):
     """GUI 线程持有的 IPC facade；不暴露任何 socket 或成员表。"""
     state_submitted = Signal(object)
-    static_state_submitted = Signal(object)
     policy_submitted = Signal(object)
     leave_submitted = Signal()
     impulse_ready = Signal(object)
@@ -1250,7 +1171,6 @@ class CollisionIpcSession(QObject):
         self._worker.policy_changed.connect(self.policy_changed, Qt.ConnectionType.QueuedConnection)
         self._worker.role_changed.connect(self.role_changed, Qt.ConnectionType.QueuedConnection)
         self.state_submitted.connect(self._worker.submit_state, Qt.ConnectionType.QueuedConnection)
-        self.static_state_submitted.connect(self._worker.submit_static_state, Qt.ConnectionType.QueuedConnection)
         self.policy_submitted.connect(self._worker.set_policy, Qt.ConnectionType.QueuedConnection)
         self.leave_submitted.connect(self._worker.submit_leave, Qt.ConnectionType.QueuedConnection)
 
@@ -1260,13 +1180,6 @@ class CollisionIpcSession(QObject):
     def submit_state(self, state: dict[str, Any]) -> None:
         self.state_submitted.emit(dict(state))
 
-    def submit_static_state(self, state: dict[str, Any]) -> None:
-        """以第二成员 id（如灵动岛 collision.ISLAND_MEMBER_ID）登记/广播状态。
-
-        与 submit_state 的区别：不影响自身成员状态，用于静态布景的几何复制
-        与静态结算。state 必须带 ``member_id`` 与自维护的单调 ``seq``。
-        """
-        self.static_state_submitted.emit(dict(state))
 
     def update_policy(self, policy: dict[str, Any]) -> None:
         """运行中更新碰撞策略：经 queued 调用到 worker 线程，线程安全。"""

@@ -2,11 +2,16 @@
 """Shared style tokens and submenu inheritance without layout assumptions."""
 from __future__ import annotations
 
+import sys
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QMenu, QProxyStyle, QStyle
 
-SYSTEM_FONT_STACK = '"SF Pro Text", ".AppleSystemUIFont", "PingFang SC"'
+SYSTEM_FONT_STACK = (
+    '"Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI"' if sys.platform == "win32"
+    else '"SF Pro Text", ".AppleSystemUIFont", "PingFang SC"' if sys.platform == "darwin"
+    else '"Noto Sans CJK SC", "Noto Sans", "sans-serif"'
+)
 
 
 class ResponsiveMenuStyle(QProxyStyle):
@@ -89,7 +94,4 @@ def inherit_menu_style(parent: QMenu, submenu: QMenu) -> None:
             **dict(parent.property("modernAppearance") or {}),
         })
     else:
-        from .legacy import apply_legacy_menu_style
-
-        apply_legacy_menu_style(submenu)
         submenu.setFont(parent.font())

@@ -4,24 +4,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QMenu, QWidgetAction
+from PySide6.QtWidgets import QMenu
 
-from ..config import DEFAULT_MENU_EASTER_EGG
-from .fun_entry import add_ojingjing_entry
-from .icons import custom_file_menu_icon, vector_menu_icon
+from .icons import vector_menu_icon
 from .quick_launch import add_quick_launch_menu
 from .quick_urls import add_quick_urls_menu
+from .pet_header import add_pet_greeting
 from .shared import (
     add_action,
-    add_agent_link_menu,
-    add_autostart,
     add_clear_spawned_pets,
     add_drag_physics,
     add_edge_probe,
     add_golden_spin,
-    add_hide_pet,
-    add_mouse_through,
     add_no_move,
     add_on_top,
     add_quit,
@@ -35,68 +29,31 @@ from .shared import (
 )
 
 
-ACTION_LABELS = {
-    "ojingjing": "厉害了我的鲸",
-    "animations_hub": "播放动画", "character": "切换角色", "playback_speed": "播放速率",
-    "size": "大小", "drag_physics": "拖动物理", "no_move": "不移动",
-    "mouse_through": "鼠标穿透", "on_top": "窗口置顶", "autostart": "开机自启",
-    "return_corner": "回到右下角", "hide_pet": "隐藏桌宠",
-    "spawn_pet": "生小肥鱼", "clear_spawned_pets": "退出子肥鱼",
-    "golden_spin": "黄金回旋", "edge_probe": "边缘探头",
-    "quick_launch": "快捷应用",
-    "quick_urls": "快捷网址",
-    "agent_link": "Agent 联动",
-    "todo_panel": "待办提醒",
-    "modern_settings": "桌宠设置", "quit": "退出",
-}
-
-
 Builder = Callable[[QMenu, object], object]
 Availability = Callable[[object], bool]
-Enablement = Callable[[object], bool]
 
 
 ACTION_ICONS = {
-    "ojingjing": "pet",
     "animations_hub": "play", "character": "character", "playback_speed": "speed",
     "size": "size", "drag_physics": "physics", "no_move": "pause",
-    "mouse_through": "interaction", "on_top": "pin", "autostart": "autostart",
-    "return_corner": "corner", "hide_pet": "hide",
+    "on_top": "pin",
+    "return_corner": "corner",
     "spawn_pet": "spawn", "clear_spawned_pets": "clear",
     "golden_spin": "play", "edge_probe": "corner",
     "pet_controls": "pet",
     "quick_launch": "application",
     "quick_urls": "web",
-    "agent_link": "agent",
-    "todo_panel": "todo",
     "modern_settings": "settings", "quit": "quit",
-    "festival_now": "todo", "festival_toggle": "todo",
 }
-
-CUSTOM_ICON_CHOICES = (
-    ("默认图标", "default"), ("无图标", "none"),
-    ("对话", "chat"), ("屏幕", "screen"), ("播放", "play"),
-    ("角色", "character"), ("速度", "speed"), ("尺寸", "size"),
-    ("桌宠", "pet"), ("交互", "interaction"), ("置顶", "pin"),
-    ("隐藏", "hide"), ("应用", "application"),
-    ("清除", "clear"), ("网页", "web"), ("智能体", "agent"),
-    ("下载", "download"), ("更新", "update"),
-    ("自动化", "automation"), ("设置", "settings"), ("待办", "todo"),
-)
-
 
 @dataclass(frozen=True)
 class MenuActionSpec:
     build: Builder
     available: Availability = lambda _pet: True
-    enabled: Enablement = lambda _pet: True
-    disabled_reason: str = "当前功能未启用"
 
 
 def _callback_available(name: str) -> Availability:
     return lambda pet: callable(getattr(pet, name, None))
-
-
 
 
 def _build_animations(menu, pet):
@@ -109,67 +66,20 @@ def _build_settings(menu, pet):
     return add_action(menu, "桌宠设置", "settings", pet.on_open_modern_settings, close_on_trigger=True)
 
 
-def _build_todo_panel(menu, pet):
-    return add_action(menu, "待办提醒", "todo", pet.on_open_todo_panel, close_on_trigger=True)
-
-
-
-
-def _flag_toggle_spec(key: str, on_label: str, off_label: str, icon: str,
-                      callback: str):
-    """布尔开关菜单项的规约工厂：按配置当前值翻转标签，点击回回调。
-
-    节日提醒开关，这里把「读配置 → 选标签 →
-    add_action」收成一处；标签翻转、图标、回调与 close_on_trigger 语义逐点
-    不变。注意 `enabled` 只影响展示标签，不影响回调可用性（可用性仍由
-    `MenuActionSpec.available` 的 `_callback_available` 判定）。
-    """
-    def _build(menu, pet):
-        cfg = getattr(pet, "cfg", None)
-        enabled = bool(cfg.get(key, False)) if cfg is not None else False
-        return add_action(
-            menu, on_label if enabled else off_label, icon,
-            getattr(pet, callback), close_on_trigger=True,
-        )
-
-    return _build
-
-
-_build_festival_toggle = _flag_toggle_spec(
-    "festival_reminder_enabled", "关闭节日提醒", "启用节日提醒", "todo",
-    "on_toggle_festival",
-)
-
-
-def _build_festival_now(menu, pet):
-    return add_action(menu, "今日节日", "todo", pet.on_festival_now, close_on_trigger=True)
-
-
 class MenuActionRegistry:
     """Resolve capability-aware action IDs and render a resolved menu tree."""
 
     def __init__(self) -> None:
         self._specs = {
-            "ojingjing": MenuActionSpec(
-                lambda menu, pet: add_ojingjing_entry(
-                    menu, pet.cfg.get("menu_easter_egg", DEFAULT_MENU_EASTER_EGG)
-                ),
-                enabled=lambda pet: bool(
-                    pet.cfg.get("menu_easter_egg", DEFAULT_MENU_EASTER_EGG).get("enabled", True)
-                ),
-                disabled_reason="彩蛋入口已在设置中停用",
-            ),
+            "pet_greeting": MenuActionSpec(add_pet_greeting, _callback_available("respond_to_menu_click")),
             "animations_hub": MenuActionSpec(_build_animations),
             "character": MenuActionSpec(lambda menu, pet: build_character_menu(menu, pet)),
             "playback_speed": MenuActionSpec(lambda menu, pet: build_speed_menu(menu, pet)),
             "size": MenuActionSpec(lambda menu, pet: build_size_menu(menu, pet)),
             "drag_physics": MenuActionSpec(add_drag_physics),
             "no_move": MenuActionSpec(add_no_move),
-            "mouse_through": MenuActionSpec(add_mouse_through),
             "on_top": MenuActionSpec(add_on_top),
-            "autostart": MenuActionSpec(lambda menu, pet: add_autostart(menu, pet)),
             "return_corner": MenuActionSpec(add_return_corner),
-            "hide_pet": MenuActionSpec(add_hide_pet, available=lambda _pet: False),
             "spawn_pet": MenuActionSpec(add_spawn_pet, _callback_available("on_spawn_pet")),
             "clear_spawned_pets": MenuActionSpec(
                 add_clear_spawned_pets,
@@ -186,25 +96,12 @@ class MenuActionRegistry:
             "quick_urls": MenuActionSpec(
                 lambda menu, pet: add_quick_urls_menu(menu, pet),
             ),
-            "agent_link": MenuActionSpec(add_agent_link_menu),
             "modern_settings": MenuActionSpec(
                 _build_settings, _callback_available("on_open_modern_settings")
-            ),
-            "todo_panel": MenuActionSpec(
-                _build_todo_panel, _callback_available("on_open_todo_panel")
-            ),
-            "festival_now": MenuActionSpec(
-                _build_festival_now, _callback_available("on_festival_now")
-            ),
-            "festival_toggle": MenuActionSpec(
-                _build_festival_toggle, _callback_available("on_toggle_festival")
             ),
             "quit": MenuActionSpec(add_quit),
         }
 
-    @property
-    def ids(self) -> frozenset[str]:
-        return frozenset(self._specs)
 
     def available_ids(self, pet) -> frozenset[str]:
         return frozenset(
@@ -213,92 +110,25 @@ class MenuActionRegistry:
             if spec.available(pet)
         )
 
-    def enabled_ids(self, pet) -> frozenset[str]:
-        return frozenset(
-            action_id
-            for action_id, spec in self._specs.items()
-            if spec.available(pet) and spec.enabled(pet)
-        )
 
-    def disabled_reason(self, action_id: str) -> str:
-        spec = self._specs.get(action_id)
-        return spec.disabled_reason if spec is not None else "当前不可用"
-
-    def default_icon(self, action_id: str) -> str:
-        return ACTION_ICONS.get(action_id, "")
-
-    def label(self, action_id: str) -> str:
-        return ACTION_LABELS.get(action_id, action_id)
-
-    def icon(self, widget, action_id: str, override=None) -> QIcon:
-        """Resolve semantic or local-file presentation with a safe fallback."""
-        if isinstance(override, dict) and override.get("kind") == "file":
-            custom = custom_file_menu_icon(widget, override)
-            if not custom.isNull():
-                return custom
-            override = None
-        if override == "none":
-            return QIcon()
-        name = str(override or self.default_icon(action_id) or "")
-        return vector_menu_icon(widget, name) if name else QIcon()
-
-    def populate(self, menu: QMenu, pet, nodes, *, enabled_actions=None) -> None:
-        enabled = frozenset(enabled_actions) if enabled_actions is not None else self.enabled_ids(pet)
-        explicit_separators = any(node.get("type") == "separator" for node in nodes)
-        previous_section = None
-        rendered = 0
+    def populate(self, menu: QMenu, pet, nodes) -> None:
         for node in nodes:
-            if node.get("type") == "separator":
-                if rendered and menu.actions() and not menu.actions()[-1].isSeparator():
+            kind = node.get("type")
+            if kind == "separator":
+                if menu.actions() and not menu.actions()[-1].isSeparator():
                     menu.addSeparator()
-                previous_section = None
-                continue
-            section = node.get("section")
-            if (
-                not explicit_separators
-                and rendered and section and previous_section and section != previous_section
-            ):
-                menu.addSeparator()
-            built = None
-            if node.get("type") == "submenu":
-                submenu = add_submenu(
-                    menu,
-                    str(node.get("alias") or node.get("label") or ""),
-                )
-                self.populate(
-                    submenu, pet, node.get("children", ()), enabled_actions=enabled,
-                )
-                built = submenu
-                node_id = str(node.get("id") or "")
-                icon_choice = node.get("icon") if "icon" in node else self.default_icon(node_id)
-                if icon_choice and icon_choice != "none":
-                    icon = self.icon(menu, node_id, icon_choice)
-                    if not icon.isNull():
-                        submenu.menuAction().setIcon(icon)
+            elif kind == "submenu":
+                submenu = add_submenu(menu, node.get("label", ""))
+                name = ACTION_ICONS.get(node.get("id"), "")
+                if name:
+                    submenu.menuAction().setIcon(vector_menu_icon(menu, name))
+                self.populate(submenu, pet, node.get("children", []))
             else:
-                action_id = str(node.get("id") or "")
-                spec = self._specs.get(action_id)
-                if spec is not None:
-                    built = spec.build(menu, pet)
-                    action = built.menuAction() if isinstance(built, QMenu) else built
-                    alias = str(node.get("alias") or "").strip()
-                    if alias and action is not None:
-                        action.setText(alias)
-                        if isinstance(action, QWidgetAction):
-                            widget = action.defaultWidget()
-                            setter = getattr(widget, "set_title", None)
-                            if callable(setter):
-                                setter(alias)
-                    if action is not None and "icon" in node:
-                        action.setIcon(self.icon(menu, action_id, node.get("icon")))
-                    if action is not None and action_id not in enabled:
-                        action.setEnabled(False)
-                        action.setToolTip(self.disabled_reason(action_id))
-                        if isinstance(action, QWidgetAction) and action.defaultWidget() is not None:
-                            action.defaultWidget().setEnabled(False)
-            rendered += 1
-            if section:
-                previous_section = section
+                spec = self._specs.get(node.get("id"))
+                if spec is not None and spec.available(pet):
+                    spec.build(menu, pet)
+        if menu.actions() and menu.actions()[-1].isSeparator():
+            menu.removeAction(menu.actions()[-1])
 
 
 MENU_ACTIONS = MenuActionRegistry()

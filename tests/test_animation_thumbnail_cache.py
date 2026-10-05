@@ -87,8 +87,6 @@ def test_decode_failure_falls_back_without_cache_entry(monkeypatch, tmp_path):
     assert list((tmp_path / "thumbs").glob("*.png")) == []
 
 
-
-
 def test_decode_result_is_bounded_to_thumbnail_size(monkeypatch, tmp_path):
     """代表帧入缓存/落盘前必须收成 128px 缩略图。
 

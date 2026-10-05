@@ -21,8 +21,6 @@ def qapp():
     return app
 
 
-
-
 def test_modern_settings_dialog_round_trip(qapp, tmp_path: Path):
     """验证现代设置面板：初始化正确读取 Config，修改后 _write_config 写入 Config 并能准确读回。"""
     cfg_root = tmp_path / "appdata"
@@ -34,14 +32,12 @@ def test_modern_settings_dialog_round_trip(qapp, tmp_path: Path):
         assert dialog.slingshot_check.isChecked() is True
         assert dialog.throw_strength_select.currentData() == "standard"
         assert dialog.spawn_inherit_size_check.isChecked() is True
-        assert dialog.spawn_inherit_dynamic_island_check.isChecked() is False
 
         # 2. 模拟用户修改各个设置项
         dialog.slingshot_check.setChecked(False)
         dialog.throw_strength_select.setCurrentData("crazy")
         dialog.spawn_inherit_size_check.setChecked(False)
         dialog.spawn_scale_combo.setCurrentData(0.5)
-        dialog.spawn_inherit_dynamic_island_check.setChecked(True)
 
 
         # 3. 触发写入
@@ -56,7 +52,6 @@ def test_modern_settings_dialog_round_trip(qapp, tmp_path: Path):
     assert reloaded_cfg.get("throw_strength") == "crazy"
     assert reloaded_cfg.get("spawn_inherit_size") is False
     assert abs(reloaded_cfg.get("spawn_scale") - 0.5) < 1e-6
-    assert reloaded_cfg.get("spawn_inherit_dynamic_island") is True
 
     agent_cfg = reloaded_cfg.get("agent_link")
 
@@ -125,7 +120,6 @@ def test_spawn_size_controls_visibility(qapp, tmp_path: Path):
         assert row.isHidden() is True
     finally:
         dialog.deleteLater()
-
 
 
 def test_dialogue_key_params_match_runtime_call_sites():
@@ -228,8 +222,8 @@ def test_automation_domain_name_stays_stable(qapp, tmp_path):
         nav = _nav_item_indexes(dialog)
         assert "自动化与联动" in nav
         agent_page = dialog.pages.widget(nav["自动化与联动"])
-        # 非 Agent 组（待办提醒/主动感知/循环检测）仍保留：抽查关键 setting 行存在
-        for row_id in ("todo_reminder_enabled",):
+        # 循环检测的有效偏好仍保留：抽查关键 setting 行存在
+        for row_id in ("watchdog_enabled",):
             assert agent_page.findChild(SettingRow, f"settingRow_{row_id}") is not None
     finally:
         dialog.deleteLater()

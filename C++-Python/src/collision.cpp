@@ -10,9 +10,7 @@ namespace {
 constexpr uint32_t visible = 1u << 0;
 constexpr uint32_t paused = 1u << 8;
 constexpr uint32_t enabled = 1u << 9;
-constexpr uint32_t static_body = 1u << 11;
 constexpr double min_approach_speed = 80.0;
-constexpr double static_restitution = 1.3;
 
 struct Contact {
     bool collided = false;
@@ -125,9 +123,7 @@ Impulse solve_impulse(const PetMember& a, const PetMember& b, const Contact& c,
     if (vn >= 0) return {};
     double e = std::max(0.0, std::min(1.0, options.restitution));
     if (a.infinite_mass || b.infinite_mass) {
-        const bool is_static = (a.infinite_mass && (a.flags & static_body)) ||
-                               (b.infinite_mass && (b.flags & static_body));
-        e = is_static ? static_restitution : 0.0;
+        e = 0.0;
     }
     if (vn >= -min_approach_speed) e = 0.0;
     const double inv_sum = inv_a + inv_b;

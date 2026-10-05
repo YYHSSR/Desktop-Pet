@@ -99,11 +99,6 @@ def _pythonw_path() -> str:
     return exe
 
 
-def _win_command_is_current(command: str) -> bool:
-    """判断 Windows 自启命令是否已是“先切工作目录再启动”的新格式。"""
-    return "cmd /c start" in command.lower()
-
-
 def _iter_known_win_values() -> list[tuple[str, str]]:
     """读取注册表里所有已知 dsh-pet 自启值，返回 [(name, command), ...]。"""
     try:
@@ -169,25 +164,8 @@ def is_enabled() -> bool:
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
                 command, _ = winreg.QueryValueEx(key, VALUE_NAME)
-                # 兼容旧版：已开启但仍是旧命令（直接指向 exe，未切工作目录）时，
-                # 自动升级为新命令，避免开机自启因 CWD 不可写而解压失败。
-                if (
-                    getattr(sys, "frozen", False)
-                    and isinstance(command, str)
-                    and not _win_command_is_current(command)
-                ):
-                    try:
-                        with winreg.OpenKey(
-                            winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE
-                        ) as write_key:
-                            winreg.SetValueEx(
-                                write_key, VALUE_NAME, 0, winreg.REG_SZ, _win_command()
-                            )
-                    except OSError:
-                        # 只读场景（如权限异常）不强求升级，仍视为已启用
-                        pass
-                return True
-        except FileNotFoundError:
+                return bool(str(command or "").strip())
+        except OSError:
             # 只认当前变体自己的值；其他变体的自启状态互不影响。
             return False
     if _IS_MAC:
@@ -222,12 +200,12 @@ def enable() -> bool:
     if _IS_WIN:
         try:
             # 只写当前变体自己的值，不影响其他 Chat/无 Chat 变体的自启状态。
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
                 winreg.SetValueEx(key, VALUE_NAME, 0, winreg.REG_SZ, _win_command())
             # 回读验证，防止写入被安全软件/策略静默拦截
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
                 value, _ = winreg.QueryValueEx(key, VALUE_NAME)
-            return bool(value)
+            return value == _win_command()
         except OSError:
             return False
     elif _IS_MAC:

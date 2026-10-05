@@ -1,44 +1,10 @@
 # -*- coding: utf-8 -*-
-"""批5.3：同角色共享解码链（进程内帧扇出）。
+"""Share one video decoder between equal-speed pets in the same process.
 
-设计（BATCH53_DESIGN_glm53.md §2.3 / §3 / 附录）：
-- ``DecodeFanoutHub`` 是**进程级**一个编排器（AppShell 持有；对窗口实现
-  BrokerFacade 同形接口，调用点/参数名零改，仅换实现——改名留给 5.4/5.5）。
-- 窗口侧 ``shareable_start``/``shareable_end`` 调用点、clip 侧
-  ``_publish_sink``（发布镜像，每帧回调 ``on_frame(data, src_idx)``）与
-  ``_feed_source``（消费：先有界 grant → 取帧入队 → 'end'/'abort' → 回退
-  本地帧 0）钩子全部原样复用；**webm_clip.py 核心零改动**。
-- **谁持有 clip**：各窗仍各自持有 MovieLibrary 与 clip（呈现对象不动）。hub
-  持有「asset path → 源」映射；**谁起 reader**：同素材**首发窗**的 reader 兼任
-  发布者（经 ``_publish_sink`` 每帧镜像）；后续同速窗的 reader 走
-  ``_feed_source`` 进食，**不拉 ffmpeg**。
-- **发布源**（``_Source``）持有一个 ``_SourceSink``，其 ``on_frame`` 把解码
-  帧扇出到各订阅者环形缓冲（``_RingBuffer``, cap=4, drop-oldest）。帧对象
-  （不可变 bytes）只存引用，零拷贝；环自带锁（跨线程安全），hub 的 GUI 线程
-  只做挂/摘订阅者，不碰帧。
-- **订阅者**（``_Subscription``)的 feed 会话（``_FanoutFeedSession.poll()``）
-  返回 ``('frame'|'end'|'abort'|'none', data, src, reason)``，消费协议与
-  ``_reader_feed`` 完全兼容（reason 仅在 abort 非 None，F1 透传）。源帧号回绕
-  （-stream_loop 从 N-1 回 0）即合成一次 ``('end')``；消费侧看门狗（覆盖叠加链：
-  park 宽限 1s + re-arm ack 0.15s + fresh 拉起 ~0.25s，取 1900ms 偏保守）无帧且无 end →
-  ``('abort', ..., reason='watchdog')``
-  → 同一 reader 线程回退本地 ffmpeg（R2 承重）。
-- **handover**：发布者离开且有订阅者时，摘旧 sink，把最老订阅者扶正为**新**
-  发布者（``_publish_sink=source.sink`` + abort 其 feed 会话 → 其 reader 在
-  ``_reader_feed`` 返回 False 后落回本地 ffmpeg 帧 0 起播，其 ``on_frame`` 开始
-  喂源 → 其余订阅者环续到回绕帧为止，随后按圈末语义正常切走）。
-- **F2 自然圈末解散**：发布者**自然播完**（natural=True，shareable_end 已透传）
-  且仍有订阅者时不做 handover，改标记 ``source.draining``——订阅者随自身 is_last
-  自行 unregister，最后一个离开时 ``_release_source``（零 abort、零浪费回退
-  spawn）；中途打断（natural=False）保留原 handover 语义。
-- **节流/速度调和**（§2.4）：有效解码 divisor = min(在挂消费者期望值)；hub
-  把有效值经 ``movie.set_decode_throttle`` 推给源 clip；源窗自身视觉降帧走
-  ``_on_frame`` 既有跳帧分支（``decode_pace_external`` 标志置位后源窗
-  ``_sync_movie_throttle`` 不再直接推、改经 ``_report_desired_throttle`` 上报
-  hub）。播放速度**相等才共享**；不等 → 本地解码。
-
-生命周期哲学（对齐批5.2a 共享子系统）：单窗 ``pause/shutdown`` = no-op，
-进程级 ``stop_all`` 才是真收口（aboutToQuit）。
+The GUI thread owns source/subscriber membership. Reader threads publish
+immutable frame bytes into bounded ring buffers; subscribers consume the
+original source indices. Publisher exit transfers ownership to a subscriber,
+while shutdown closes feeds before releasing sources.
 """
 
 from __future__ import annotations
@@ -325,8 +291,6 @@ class _Subscription:
         self.ring = _RingBuffer()
         self.session = _FanoutFeedSession(self.ring)
         self.feed = FanoutFeed(self.session)
-        # 本窗期望解码 divisor（窗口经 _report_desired_throttle 上报；1=全速）
-        self.desired = int(getattr(movie, 'decode_throttle_divisor', 1) or 1)
 
     def abort(self, reason: str) -> None:
         """让本订阅者 feed 会话下一次 poll 立即返回 'abort'（handover/disband/收口用）。
@@ -354,11 +318,6 @@ class _Source:
         self.publisher = publisher_movie
         self.sink = _SourceSink()
         self.subscriptions: list[_Subscription] = []  # FIFO（最老在前 → handover 选它）
-        # 发布窗期望解码 divisor（一旦 hub 接管 pace，源窗不再直接推 divisor，
-        # 改经 _report_desired_throttle 上报）。默认读取源窗当前推送值。
-        self.publisher_desired = int(
-            getattr(publisher_movie, 'decode_throttle_divisor', 1) or 1)
-        self._pace_external = False
         # F2：源发布者**自然圈末解散**标记（natural=True 且仍有订阅者）。置位后
         # 不做 handover——订阅者随自身 is_last 自行 unregister（最后一个离开时
         # _release_source）；shareable_start 见到 draining 或发布者已停 → 释放
@@ -376,11 +335,10 @@ class DecodeFanoutHub:
     ``experimental_single_process_spawn``（多窗）双门快照决定。门关 = 每窗
     独立解码（批5.2 形态），``shareable_start`` 恒返回 ``'local'``。
 
-    线程模型：``shareable_start``/``shareable_end``/``_report_desired_throttle``
+    线程模型：``shareable_start``/``shareable_end``
     全在 GUI 线程（单进程单 GUI 线程）；``_SourceSink.on_frame`` 在源窗 reader
     线程；``_FanoutFeedSession.poll`` 在订阅者 reader 线程。hub 不碰帧，只挂/摘
-    订阅者与推 pace。``bind``/``unbind`` 为 no-op（无 shm/QLocal 会话可绑，
-    保留签名平稳窗口调用点）。
+    订阅者。共享解码不绑定碰撞IPC会话；仅进程退出时由stop_all收口。
     """
 
     def __init__(self, *, enabled: bool = True) -> None:
@@ -392,12 +350,7 @@ class DecodeFanoutHub:
     def enabled(self) -> bool:
         return self._enabled
 
-    # ---- 绑定 / 解绑（hub 无会话可绑；保留签名平稳窗口调用点）---------------
-    def bind(self, ipc_session) -> None:
-        pass
 
-    def unbind(self) -> None:
-        pass
 
     # ---- 窗口层入口（window._switch 在 shareable movie start/end 时调用）-----
     def shareable_start(self, name, movie, path=None, fps=None,
@@ -427,7 +380,6 @@ class DecodeFanoutHub:
             self._sources[asset] = source
             self._set_publish_sink(movie, source.sink)
             self._set_feed_source(movie, None)
-            self._set_pace_external(movie, False)
             return 'publish'
         # F2：发布者已停（未运行且未软停驻留）或源处于自然圈末解散（draining）
         # → 不订阅已死的源：释放它并按「无源首发窗」建新源（本窗起 reader）。
@@ -439,7 +391,6 @@ class DecodeFanoutHub:
             self._sources[asset] = source
             self._set_publish_sink(movie, source.sink)
             self._set_feed_source(movie, None)
-            self._set_pace_external(movie, False)
             return 'publish'
         if abs(float(getattr(movie, 'playback_speed', 1.0))
                - float(getattr(source.publisher, 'playback_speed', 1.0))) > SPEED_EPSILON:
@@ -453,7 +404,6 @@ class DecodeFanoutHub:
         source.sink.attach(sub)
         self._set_feed_source(movie, sub.feed)
         self._set_publish_sink(movie, None)
-        self._recompute_pace(source)
         return 'feed'
 
     def shareable_end(self, name, movie, natural: bool = True) -> None:
@@ -495,15 +445,10 @@ class DecodeFanoutHub:
         source.publisher = sub.movie
         sub.movie._publish_sink = source.sink
         sub.movie._feed_source = None
-        self._set_pace_external(sub.movie, True)
         # 新发布者（曾被订阅窗扇出）的期望 divisor 由其窗直接推（尚未被外部
         # pace 接管前），此处刷新以避免 handover 后第一拍用旧发布者的期望值。
-        source.publisher_desired = int(
-            getattr(sub.movie, 'decode_throttle_divisor', 1) or 1)
-        self._recompute_pace(source)
         # 复审 P1-1：handover 后旧发布者的外部 pace 标志必须复位——否则它日后
         # 以订阅者身份再进场时 divisor 永久卡在旧值（交互中画面半速不自愈）。
-        self._set_pace_external(movie, False)
         self._cleanup_movie_hooks(movie)
 
     def _subscriber_leave(self, asset: str, source: _Source, movie) -> None:
@@ -518,57 +463,11 @@ class DecodeFanoutHub:
         if not source.subscriptions:
             # 最后订阅者离开：摘发布者 sink，源独播（发布窗继续自己 reader）
             self._release_source(asset, source, source.publisher)
-        else:
-            self._recompute_pace(source)
 
     # ---- 节流 / pace 调和 --------------------------------------------------
-    def _recompute_pace(self, source: _Source) -> None:
-        """有效解码 divisor = min(在挂消费者期望值)（任一窗活跃 → 1）。推给
-        源 clip；源窗视觉降帧由其 ``_on_frame`` 既有跳帧分支保住（窗口层零新
-        逻辑）。只在有订阅者时接管 pace（无订阅者 = 源窗独播，原窗自管）。"""
-        if not source.subscriptions:
-            return
-        if not source._pace_external:
-            # 首次接管：把发布窗当前期望刷新（其窗口仍直接管理 divisor 时读取）
-            source.publisher_desired = int(
-                getattr(source.publisher, 'decode_throttle_divisor', 1) or 1)
-            self._set_pace_external(source.publisher, True)
-            source._pace_external = True
-        effective = source.publisher_desired
-        for sub in source.subscriptions:
-            if sub.desired < effective:
-                effective = sub.desired
-        effective = max(1, int(effective))
-        setter = getattr(source.publisher, 'set_decode_throttle', None)
-        if callable(setter):
-            try:
-                setter(effective)
-            except Exception:
-                logger.exception('fanout pace 推送给源 clip 失败: %s', source.asset)
 
-    def _report_desired_throttle(self, movie, divisor: int) -> None:
-        """窗口上报本窗期望解码 divisor（源窗被 pace_external 接管后也走这里
-        而非直接推 movie）。hub 据此重算源 pace。"""
-        if not self._enabled:
-            return
-        divisor = max(1, int(divisor))
-        for source in self._sources.values():
-            if source.publisher is movie:
-                source.publisher_desired = divisor
-                self._recompute_pace(source)
-                return
-            for sub in source.subscriptions:
-                if sub.movie is movie:
-                    sub.desired = divisor
-                    self._recompute_pace(source)
-                    return
 
     # ---- 收口 ---------------------------------------------------------------
-    def shutdown(self) -> None:
-        """单窗关闭/切角色 close：hub 为进程级，单窗退出不关它（no-op）。
-        各窗的源/订阅早已由 ``shareable_end``（window closeEvent/_switch）逐素材
-        收口，此处什么都不做。真收口只在进程级 ``stop_all()``。"""
-        pass
 
     def stop_all(self) -> None:
         """进程级收口（aboutToQuit）：摘全部 sink/关闭全部 feed/清空源表。幂等。"""
@@ -598,19 +497,6 @@ class DecodeFanoutHub:
         except Exception:
             pass
 
-    @staticmethod
-    def _set_pace_external(movie, value: bool) -> None:
-        setter = getattr(movie, 'set_decode_pace_external', None)
-        if callable(setter):
-            try:
-                setter(bool(value))
-            except Exception:
-                pass
-        elif hasattr(movie, 'decode_pace_external'):
-            try:
-                movie.decode_pace_external = bool(value)
-            except Exception:
-                pass
 
     @staticmethod
     def _cleanup_movie_hooks(movie) -> None:
@@ -641,7 +527,6 @@ class DecodeFanoutHub:
         if self._sources.get(asset) is source:
             del self._sources[asset]
         self._cleanup_movie_hooks(publisher_movie)
-        self._set_pace_external(publisher_movie, False)
         source.sink.close()
         for sub in source.subscriptions:
             # 复审 P1-1：释放存量订阅者必须先 abort 再 close——只 close 会让其
@@ -659,7 +544,6 @@ class DecodeFanoutHub:
             source = self._sources[asset]
             try:
                 self._cleanup_movie_hooks(source.publisher)
-                self._set_pace_external(source.publisher, False)
                 source.sink.close()
                 for sub in source.subscriptions:
                     sub.abort('stop_all')

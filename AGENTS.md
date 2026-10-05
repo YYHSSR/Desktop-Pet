@@ -167,7 +167,7 @@ exact breakpoint there; see `docs/agents/handoff.md`.
 找文档先查 `docs/INDEX.md`（全文档入口索引：每条一句话 + 何时必读）；
 新文档入场必须按其中的规则登记并互链。高频专项指针：
 
-- Read `docs/ISSUE-42-POSIX-COLLISION-IPC-2026-08-31.md` when changing collision
+- Read `docs/COLLISION-NATIVE-BASELINE-2026-09-24.md` when changing collision
   election, QLocal IPC, coordinator locking, or their process-level tests.
 - Read `docs/ISSUE-111-WINDOWS-SESSION-END-FFMPEG-2026-09-12.md` when changing
   ffmpeg spawning (`webm_clip` reader/first-frame/meta/exe probes), warm
@@ -188,11 +188,6 @@ exact breakpoint there; see `docs/agents/handoff.md`.
   conflicts after squashing the parent, budget/red-line changes that only break
   when two PRs combine, and timing-test flake discipline (poll state with a wide
   budget instead of fixed sleeps).
-- Read `docs/NETWORK-PROXY-AND-VPN-2026-09-22.md` when touching any networked
-  feature (edge-tts voice, updater, balance, vision, chat) or when
-  a report sounds like "X worked yesterday and now it doesn't": the Windows
-  system proxy / VPN is a first-class suspect — jsdelivr update checks only
-  work *through* the proxy while other features may have different routing requirements.
 - Treat `assets/characters/<id>/videos/` plus its manifest as one character
   package; preserve relative paths and case because packaged platforms differ.
   The manifest may declare `body_box` (`[x1, y1, x2, y2]` in source pixels,

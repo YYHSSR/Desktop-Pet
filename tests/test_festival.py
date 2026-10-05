@@ -511,8 +511,6 @@ class _Win:
         return True
 
 
-
-
 class _App:
     def __init__(self, config) -> None:
         self.config = config
@@ -537,12 +535,6 @@ def _cfg_with(tmp_path, **overrides):
     for key, value in overrides.items():
         cfg.set(key, value)
     return cfg
-
-
-
-
-
-
 
 
 def test_service_stays_silent_when_speak_disabled(tmp_path):
@@ -611,11 +603,6 @@ def test_remind_now_speaks_and_bubbles(tmp_path):
     service.apply_config()
 
     service.remind_now()
-
-
-
-
-
 
 
 # ---------------------------------------------------------------- 设置页「立即预览」

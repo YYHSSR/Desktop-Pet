@@ -604,12 +604,12 @@ class BaseAgentMonitor(QObject):
 
 
 class CursorMonitor(BaseAgentMonitor):
-    """Cursor 桌面端监视器。
+    """只读 Cursor 官方转写，语义与 ChatGPT Work 监视器对齐。
 
-    只读 tail ``~/.cursor/projects/**/agent-transcripts/`` 下的官方转写：
-    现行是 ``<会话 id>/<会话 id>.jsonl``，同时保留旧的平铺 ``*.jsonl``。
-    子代理目录 ``subagents/`` 不读。每个文件一个会话 id，交给管理器做多会话聚合。
-    转写正文（用户提示、助手回复、工具参数）不进入统一事件，只留状态和工具名。
+    路径是 ``~/.cursor/projects/**/agent-transcripts/`` 下的现行
+    ``<会话>/<会话>.jsonl``，并兼容旧的平铺文件。``subagents/`` 不读。
+    启用前已有的内容不回放；启用后新建的会话会把发现前已经写上的行读进来。
+    提示、回复和工具参数不进入事件，只留状态和工具名。
     """
 
     _TRANSCRIPT_GLOBS = (
@@ -621,106 +621,119 @@ class CursorMonitor(BaseAgentMonitor):
         super().__init__("cursor", config_dir, parent)
         self.cursor_base = base_dir or (Path.home() / ".cursor" / "projects")
         self._tailers: dict[str, ByteOffsetTailer] = {}
-        self._turn_seq: dict[str, int] = {}
-        self._turn_current: dict[str, str] = {}
-        self._scan_interval = 15.0  # 目录发现降频：15s 一次（tail 仍 1.5s）
+        self._contexts: dict[str, dict] = {}
+        self._scan_interval = 15.0
         self._last_scan = 0.0
+        self._activated_at = time.time()
+        self._discovered_once = False
 
-    def _discover_transcripts(self, now: float) -> None:
-        one_day_ago = now - 86400
-        found: list[tuple[float, Path]] = []
-        seen: set[str] = set()
-        for pattern in self._TRANSCRIPT_GLOBS:
-            for path in self.cursor_base.glob(pattern):
-                if path.parent.name == "subagents":
-                    continue
-                key = str(path)
-                if key in seen:
-                    continue
-                seen.add(key)
-                try:
-                    st = path.stat()
-                except OSError:
-                    continue
-                if st.st_mtime >= one_day_ago:
-                    found.append((st.st_mtime, path))
-        found.sort(key=lambda item: item[0], reverse=True)
-        candidates = {str(path) for _, path in found[:50]}
-        for stale in [key for key in self._tailers if key not in candidates]:
-            del self._tailers[stale]
-            self._turn_seq.pop(stale, None)
-            self._turn_current.pop(stale, None)
-        for key in candidates:
-            if key not in self._tailers:
-                self._tailers[key] = ByteOffsetTailer(key)
+    def _worker_started(self) -> None:
+        self._tailers.clear()
+        self._contexts.clear()
+        self._last_scan = 0.0
+        self._activated_at = time.time()
+        self._discovered_once = False
 
-    def _turn_id_for(self, file_key: str, data: dict) -> str:
-        """同一转写文件里，每条 user 行开启新回合；后续行沿用该回合 id。"""
-        if str(data.get("role", "") or "").lower() == "user":
-            seq = self._turn_seq.get(file_key, 0) + 1
-            self._turn_seq[file_key] = seq
-            self._turn_current[file_key] = str(seq)
-        return self._turn_current.get(file_key, "")
+    def _discover_transcripts(self, now: float, emit_gen: int) -> None:
+        import heapq
+
+        def recent_files():
+            seen: set[str] = set()
+            for pattern in self._TRANSCRIPT_GLOBS:
+                for path in self.cursor_base.glob(pattern):
+                    if path.parent.name == "subagents":
+                        continue
+                    key = str(path)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    try:
+                        stat = path.stat()
+                    except OSError:
+                        continue
+                    if stat.st_mtime >= now - 86400:
+                        yield (stat.st_mtime, key, stat.st_ctime)
+
+        candidates = {key: created for _, key, created in heapq.nlargest(50, recent_files())}
+        for stale in set(self._tailers) - candidates.keys():
+            context = self._contexts.pop(stale, {})
+            self._tailers.pop(stale, None)
+            if context.get("state") in ("working", "thinking", "attention"):
+                self._emit_state(
+                    "sleeping", emit_gen,
+                    str(context.get("session") or ""),
+                    str(context.get("turn") or ""),
+                )
+        for key, created in candidates.items():
+            if key in self._tailers:
+                continue
+            tailer = ByteOffsetTailer(key)
+            if self._discovered_once and created >= int(self._activated_at):
+                tailer._initial_backfill_done = True
+            self._tailers[key] = tailer
+            path = Path(key)
+            project = ""
+            parts = path.parts
+            if "projects" in parts:
+                index = parts.index("projects")
+                if index + 1 < len(parts):
+                    project = parts[index + 1]
+            self._contexts[key] = {
+                "session": cursor_transcript_session_id(path),
+                "turn": "",
+                "state": "",
+                "project": project,
+            }
+        self._discovered_once = True
 
     def _poll(self, gen: int | None = None) -> None:
-        # 统一 jsonl 通道（agent-events/cursor.jsonl）
         super()._poll(gen=gen)
         emit_gen = self._emit_gen if gen is None else gen
-
         if not self.cursor_base.is_dir():
             return
-
         now = time.time()
-        # 目录发现降频：避免每 1.5s 递归 glob 整个 projects 目录。
-        # 新转写文件最长一个扫描间隔才被纳入 tail，backfill 会跳到文件末尾，
-        # 发现间隙内写入的事件会错过。
-        if now - self._last_scan >= self._scan_interval:
+        if not self._discovered_once or now - self._last_scan >= self._scan_interval:
             self._last_scan = now
             try:
-                self._discover_transcripts(now)
-            except Exception as exc:
-                log.debug("Cursor monitor 扫描异常: %s", exc)
+                self._discover_transcripts(now, emit_gen)
+            except OSError:
+                log.debug("Cursor transcript discovery failed", exc_info=True)
 
-        for file_key, tailer in list(self._tailers.items()):
-            session_id = cursor_transcript_session_id(Path(file_key))
-            for line in tailer.read_new_lines():
+        for key, tailer in tuple(self._tailers.items()):
+            context = self._contexts[key]
+            for line in CodexDesktopMonitor._rollout_lines(tailer):
                 try:
                     data = json.loads(line)
-                    if not isinstance(data, dict):
-                        continue
-                    tool = cursor_line_tool(data)
-                    turn_id = self._turn_id_for(file_key, data)
-                    role = str(data.get("role", "") or "").lower()
-                    if tool:
-                        event_name = "tool/call"
-                        payload: dict = {"tool": tool}
-                    elif role == "user":
-                        event_name = "UserPromptSubmit"
-                        payload = {}
-                    elif role == "assistant":
-                        event_name = "assistant/message"
-                        payload = {}
-                    else:
-                        event_name = str(data.get("type") or data.get("event") or "")
-                        payload = {}
-                    if event_name:
-                        self._emit_unified_event({
-                            "source": "cursor",
-                            "agentName": "Cursor",
-                            "sessionId": session_id,
-                            "turn": turn_id,
-                            "event": event_name,
-                            "data": payload,
-                            "timestamp": time.time(),
-                        })
-                    if tool:
-                        self._emit_tool(tool, emit_gen, session_id=session_id)
-                    norm = cursor_line_state(data)
-                    if not norm:
-                        continue
-                    self._emit_state(norm, emit_gen, session_id=session_id, turn_id=turn_id)
-                except Exception:
-                    pass
+                except ValueError:
+                    continue
+                if not isinstance(data, dict):
+                    continue
+                role = str(data.get("role") or "").lower()
+                if role == "user":
+                    context["turn"] = str(int(context["turn"] or "0") + 1)
+                tool = cursor_line_tool(data)
+                state = cursor_line_state(data)
+                if not tool and not state:
+                    continue
+                session = str(context["session"])
+                turn = str(context["turn"])
+                adapted = {
+                    "source": "cursor",
+                    "agentName": "Cursor",
+                    "sessionId": session,
+                    "turn": turn,
+                    "event": "tool/call" if tool else ("UserPromptSubmit" if role == "user" else "assistant/message"),
+                    "tool": tool,
+                    "projectName": context["project"],
+                    "timestamp": now,
+                }
+                self._emit(self.raw_record, (self.agent_key, adapted))
+                self._emit_unified_event(adapted)
+                if tool:
+                    self._emit_tool(tool, emit_gen, session_id=session)
+                if state:
+                    context["state"] = state
+                    self._emit_state(state, emit_gen, session_id=session, turn_id=turn)
 
 
 class CodexDesktopMonitor(BaseAgentMonitor):
@@ -1113,9 +1126,8 @@ class AgentLinkManager(QObject):
         # 卡住检测：开关 + 阈值/窗口/冷却参数同步（ChatGPT 联动开启才有效）
         self._stuck_detector.set_enabled(bool(agent_cfg.get("stuck_detect", True)))
         self._stuck_detector.get_config_overrides(agent_cfg if isinstance(agent_cfg, dict) else {})
-        # 行为模式检测：开关 + 双窗口/step/冷却参数同步
-        self._behavior_detector.set_enabled(bool(agent_cfg.get("pattern_detect", True)))
-        self._behavior_detector.get_config_overrides(agent_cfg if isinstance(agent_cfg, dict) else {})
+        # 行为重复检测使用内置阈值，仅随整体联动启停。
+        self._behavior_detector.set_enabled(any(bool(agent_cfg.get(key)) for key in self.monitors))
         self._exploration_watchdog.configure(agent_cfg if isinstance(agent_cfg, dict) else {})
 
 
@@ -1176,7 +1188,6 @@ class AgentLinkManager(QObject):
         for mon in self.monitors.values():
             mon.pause()
         self._stuck_detector.pause()
-        self._behavior_detector.pause()
         # 探索看门狗随隐藏暂停：隐藏期继续跑只会让提醒在显示层被丢弃
         # （_poll_long_think 发射前置位已上报标志），永久丢失；暂停后恢复时
         # 计时锚点整体后移，隐藏时长不计入任何时长判定（产品决策：方案A）。
@@ -1191,7 +1202,6 @@ class AgentLinkManager(QObject):
         for mon in self.monitors.values():
             mon.resume()
         self._stuck_detector.resume()
-        self._behavior_detector.resume()
         self._exploration_watchdog.resume()
 
     def shutdown(self) -> None:
@@ -1322,14 +1332,10 @@ class AgentLinkManager(QObject):
             macro_state = "idle"
 
         # 桌宠隐藏：动画/声音不呈现，但状态簿记（_last_raw / 成本 / 完成确认
-        # 调度）照常推进——岛反馈面可用时气泡经 _show_link_bubble 改道灵动岛
         # （无注入时维持丢弃）。此前整段 return 会连簿记一起丢，隐藏期间
         # start/done 反馈气泡全部消失（岛反馈面引入后用户实测）。
         hidden = not hasattr(self.win, "isVisible") or not self.win.isVisible()
 
-        mark = getattr(self.win, "mark_activity", None)
-        if callable(mark) and not hidden:
-            mark()
 
         now = self._clock()
         # --- 原始状态流（绕开去抖/节流）：busy→idle 完成检测 ---
@@ -1605,9 +1611,6 @@ class AgentLinkManager(QObject):
         白名单工具映射 + 三重限流（同 Agent 10s / 同文案 60s / 全局 8s）。"""
         if not self._gen_current(agent_key, gen):
             return
-        mark = getattr(self.win, "mark_activity", None)
-        if callable(mark):
-            mark()
         agent_cfg = self.cfg.get("agent_link", {})
         label = self.TOOL_LABELS.get(str(tool).strip().lower(), self._UNKNOWN_TOOL_LABEL)
         now = self._clock()
@@ -1709,7 +1712,6 @@ class AgentLinkManager(QObject):
                 text = self._dialogue("approval.generic", text, name=name, **conditional)
         self._register_interaction(
             agent_key, kind="approval", text=text, tool=tool, command=command,
-            interactive=False,
             rpc_id=payload.get("rpcId"),
             approval_id=payload.get("approvalId"),
             request_id=payload.get("requestId"),
@@ -1755,7 +1757,6 @@ class AgentLinkManager(QObject):
             agent_key, kind="question", text=self._question_text(name, questions, prefix=prefix,
                                                                  conditional=conditional),
             questions=questions,
-            interactive=False,
             rpc_id=payload.get("rpcId"),
             call_id=payload.get("callId"),
             session_id=session_id,
@@ -1946,12 +1947,8 @@ class AgentLinkManager(QObject):
         elif hasattr(self.win, "hide_bubble"):
             self.win.hide_bubble()
 
-    def dismiss_all_approvals(self) -> None:
-        """兼容别名：等价 dismiss_all_interactions。"""
-        self.dismiss_all_interactions()
-
     def _show_interaction_bubble(self, interaction_id: str) -> None:
-        """把某条 pending 阻塞交互以 sticky 气泡挂上（可交互时内嵌按钮）。
+        """把待处理交互以持续气泡挂上，引导用户回ChatGPT处理。
 
         走提醒消息队列（show_alert）：审批/问题入队后一次只展示一个，
         队列非空时其他弹窗不覆盖；resolved 时经 resolve_alert 弹下一条。
@@ -1963,17 +1960,12 @@ class AgentLinkManager(QObject):
             if hasattr(self.win, "show_bubble"):
                 # 旧桩/无 show_alert 的窗口：退化为普通气泡，绝不因签名差异崩溃
                 try:
-                    buttons = None
-                    if buttons:
-                        self.win.show_bubble(pending["text"], sticky=True, buttons=buttons)
-                    else:
-                        self.win.show_bubble(pending["text"], sticky=True)
+                    self.win.show_bubble(pending["text"], sticky=True)
                 except TypeError:
                     self.win.show_bubble(pending["text"])
             return
-        buttons = None
         self._show_alert_compat(
-            pending["text"], subtitle="", buttons=buttons or None, sticky=True,
+            pending["text"], subtitle="", buttons=None, sticky=True,
             alert_id=pending.get("alert_id", ""), priority=0, alert_type=pending.get("kind", "approval"),
         )
 
@@ -1988,10 +1980,9 @@ class AgentLinkManager(QObject):
             self.win.show_alert(text, **legacy)
 
 
-
     @staticmethod
     def _questions_all_have_options(questions: list) -> bool:
-        """整批问题是否全部带可点选选项（是否可完全在气泡内回答完）。"""
+        """多项问题是否全部给出选项，用于决定提醒摘要。"""
         if not questions:
             return False
         return all(
@@ -1999,13 +1990,6 @@ class AgentLinkManager(QObject):
             for q in questions
         )
 
-
-    def _show_approval_bubble(self, agent_key: str) -> None:
-        """兼容别名：把该 agent 的全部 pending 审批/问题气泡挂上（等价
-        _show_interaction_bubble，按 agent 遍历其所有交互）。"""
-        for iid in list(self._pending_interactions):
-            if self._pending_interactions[iid].get("agent_key") == agent_key:
-                self._show_interaction_bubble(iid)
 
     def _schedule_done_check(self, agent_key: str) -> None:
         self._cancel_done_check(agent_key)
@@ -2025,7 +2009,6 @@ class AgentLinkManager(QObject):
     def _fire_done(self, agent_key: str) -> None:
         """800ms 稳定确认到期：期间回忙则不算完成；配置/冷却在弹出前再查。"""
         self._done_pending.pop(agent_key, None)
-        # 隐藏中：不切动画不出声，气泡改道灵动岛反馈面（岛反馈面可用时；
         # pause_agent_link_for_hide 让监视器隐藏期保持运行，本兜底必须感知，
         # 否则 done 气泡在隐藏期被静默吞掉）。
         hidden = not hasattr(self.win, "isVisible") or not self.win.isVisible()
@@ -2047,11 +2030,8 @@ class AgentLinkManager(QObject):
             text = self._dialogue("done.success", f"{name} 干完活啦，去看看成果吧～", agent_key=agent_key, name=name)
         self._saw_alert.discard(agent_key)
         if hidden:
-            # 隐藏中：不切待机动画；气泡改道灵动岛反馈面（_show_link_bubble
             # 内置改道；岛反馈面不可用时丢弃）。
-            from . import window_alerts as _window_alerts
 
-            _window_alerts.redirect_hidden_bubble(self.win, text, duration_ms=4500)
             return
         # 仅当没有其他 Agent 仍在忙时恢复（避免 A 完成顶掉 B 的工作动画）。
         # 必须走 request_link_idle（它会清 _link_anim_current 并尊重一次性动作），
@@ -2066,7 +2046,6 @@ class AgentLinkManager(QObject):
         self._show_link_bubble(text, important=True)
 
 
-
     def _show_link_bubble(self, text: str, *, important: bool, duration_ms: int = 4500,
                           _retried: int = 0) -> None:
         """联动气泡：提醒消息队列非空时一律让路（审批/问题/失败/卡住优先）。
@@ -2075,15 +2054,10 @@ class AgentLinkManager(QObject):
         （约 10s 窗口），仍被占才放弃——主动识屏长答复可能占位 15-20s。"""
         if not hasattr(self.win, "show_bubble"):
             return
-        # 桌宠隐藏时 show_bubble/show_alert 会静默丢弃：改道灵动岛反馈面
-        # （AppShell 经 hidden_bubble_redirect 注入；无注入/岛不可用维持丢弃）。
-        # 审批/问题等交互气泡不经本函数，仍需桌宠可见。
+        # Hidden pets continue monitoring, but do not show floating feedback.
         is_visible = getattr(self.win, "isVisible", None)
         if callable(is_visible) and not is_visible():
-            from . import window_alerts as _window_alerts
-
-            if _window_alerts.redirect_hidden_bubble(self.win, text, duration_ms=duration_ms):
-                return
+            return
         # 提醒消息队列激活：任何其他弹窗（含重要气泡）都不覆盖提醒
         if getattr(self.win, "_alert_current", None) is not None or \
                 getattr(self.win, "_alert_queue", None):
@@ -2101,9 +2075,9 @@ class AgentLinkManager(QObject):
                 return
             QTimer.singleShot(2500, self,
                               lambda t=text, n=_retried: self._show_link_bubble(
-                                  t, important=True, _retried=n + 1))
+                                  t, important=True, duration_ms=duration_ms, _retried=n + 1))
             return
-        self.win.show_bubble(text, duration_ms=duration_ms)
+        self.win.show_bubble(text, duration_ms=duration_ms + 2000)
 
     # ------------------------------------------------------------------
     # 卡住检测（stuck_detector）反应：建议介入动画 + 持续提醒气泡

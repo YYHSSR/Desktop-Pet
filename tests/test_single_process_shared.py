@@ -108,23 +108,6 @@ class _RecordWin:
         pass
 
 
-class _FakeIsland:
-    def __init__(self):
-        self.pet_visible = None
-
-    def set_pet_visible(self, visible):
-        self.pet_visible = bool(visible)
-
-    def hide(self):
-        pass
-
-    def show(self):
-        pass
-
-    def refresh_from_config(self):
-        pass
-
-
 def _make_flag_on_shell(tmp_path):
     config = Config(tmp_path)
     config.set("experimental_single_process_spawn", True)
@@ -180,7 +163,7 @@ def test_flag_on_agent_link_single_manager_fans_out(tmp_path, app, monkeypatch):
         assert len(shell.instances) == 2
 
         # 触发一次联动气泡呈现 → 仅首个可见窗收到（多窗不重复弹）
-        mgr.presentation.show_link_bubble("全体跳舞", important=True, duration_ms=2000)
+        mgr._show_link_bubble("全体跳舞", important=True, duration_ms=2000)
         assert "全体跳舞" in primary_win.bubbles
         assert "全体跳舞" not in second_win.bubbles
 
@@ -194,7 +177,7 @@ def test_flag_on_agent_link_single_manager_fans_out(tmp_path, app, monkeypatch):
         # 主窗隐藏后：呈现不再扇出到隐藏窗
         second_win.hide()
         second_win.bubbles.clear()
-        mgr.presentation.show_link_bubble("只看主窗", important=True, duration_ms=2000)
+        mgr._show_link_bubble("只看主窗", important=True, duration_ms=2000)
         assert "只看主窗" in primary_win.bubbles
         assert "只看主窗" not in second_win.bubbles, "隐藏窗不接收呈现事件"
     finally:
@@ -215,8 +198,8 @@ def test_flag_off_shared_subsystems_none(tmp_path, app):
     assert shell.instance.win is None
 
 
-def test_flag_on_tray_per_window_submenu_exists_and_routes(tmp_path, app, monkeypatch):
-    """§③.3 / 验收②：单托盘 + 每窗子菜单存在，动作路由正确。"""
+def test_shared_tray_toggles_all_windows(tmp_path, app, monkeypatch):
+    """§③.3 / 验收②：单托盘的显示操作路由到全部本地桌宠。"""
     shell, config, primary_handle = _make_flag_on_shell(tmp_path)
     try:
         primary_win = _make_primary_record_win(shell, config)
@@ -224,87 +207,20 @@ def test_flag_on_tray_per_window_submenu_exists_and_routes(tmp_path, app, monkey
 
         tray = shell._build_tray(primary_win)
         menu = tray.contextMenu()
-        submenus = {}
-        for act in menu.actions():
-            sub = act.menu()
-            if sub is not None and act.text().startswith("桌宠 "):
-                submenus[act.text()] = sub
-        # 每窗一个子菜单
-        assert submenus, f"应存在每窗子菜单，实际 actions: {[a.text() for a in menu.actions()]}"
-        assert any("slot-0" in t for t in submenus), f"主窗子菜单缺失: {list(submenus)}"
-        assert any("slot-1" in t for t in submenus), f"第二窗子菜单缺失: {list(submenus)}"
-
-        # 每窗子菜单含 显示/隐藏、切换角色、退出这只
-        for text, sub in submenus.items():
-            labels = [a.text() for a in sub.actions()]
-            assert "显示 / 隐藏" in labels, f"{text} 缺显示/隐藏: {labels}"
-            assert "退出这只" in labels, f"{text} 缺退出这只: {labels}"
-            char_menu = next((a.menu() for a in sub.actions() if a.text() == "切换角色"), None)
-            assert char_menu is not None, f"{text} 缺切换角色子菜单"
-
-        # 动作路由：点第二窗子菜单的「显示 / 隐藏」→ 切换第二窗可见性
-        target_sub = submenus[next(t for t in submenus if "slot-1" in t)]
-        toggle_act = next(a for a in target_sub.actions() if a.text() == "显示 / 隐藏")
-        assert second.win.is_shown is True
-        toggle_act.trigger()
-        assert second.win.is_shown is False, "「显示 / 隐藏」应切第二窗可见性"
-        toggle_act.trigger()
-        assert second.win.is_shown is True
-
-        # 动作路由：点第二窗子菜单的「退出这只」→ _on_window_exit_requested(second)
-        exited = []
-        monkeypatch.setattr(shell, "_on_window_exit_requested",
-                            lambda inst: exited.append(inst))
-        exit_act = next(a for a in target_sub.actions() if a.text() == "退出这只")
-        exit_act.trigger()
-        assert exited == [second], "「退出这只」应路由到本窗实例"
-
+        labels = [a.text() for a in menu.actions() if not a.isSeparator()]
+        assert labels == ["显示 / 隐藏所有桌宠", "鼠标穿透", "开机自启", "退出"]
+        assert all(a.menu() is None for a in menu.actions())
+        toggle = menu.actions()[0]
+        toggle.trigger()
+        assert not primary_win.is_shown and not second.win.is_shown
+        toggle.trigger()
+        assert primary_win.is_shown and second.win.is_shown
         tray.hide()
     finally:
         _stop_sessions(*getattr(shell, "instances", []))
         if getattr(shell, "_shared", None) is not None:
             shell._shared.stop_all()
         slot_manager_mod._unlock_file(primary_handle)
-
-
-def test_flag_on_island_toggle_all_windows(tmp_path, app, monkeypatch):
-    """§③.4 / 验收③：灵动岛单击 toggle 全部窗，并按聚合可见态同步 set_pet_visible。"""
-    shell, config, primary_handle = _make_flag_on_shell(tmp_path)
-    try:
-        primary_win = _make_primary_record_win(shell, config)
-        second = _make_second_record_win(shell, tmp_path, monkeypatch)
-        second_win = second.win
-
-        island = _FakeIsland()
-        shell.island = island
-        # 启用灵动岛，让 _sync_dynamic_island 走向聚合可见态分支
-        config.set("dynamic_island", {"enabled": True})
-        config.save()
-
-        # 初始：两窗都可见 → 单击 → 全部隐藏，island 同步为 False
-        assert primary_win.is_shown and second_win.is_shown
-        shell._toggle_pet_from_island()
-        assert primary_win.is_shown is False
-        assert second_win.is_shown is False
-        assert island.pet_visible is False
-
-        # 再单击 → 全部显示，island 同步为 True
-        shell._toggle_pet_from_island()
-        assert primary_win.is_shown is True
-        assert second_win.is_shown is True
-        assert island.pet_visible is True
-
-        # 聚合可见态：只隐藏第二窗 → 主窗仍可见 → island 仍为可见
-        second_win.hide()
-        shell._sync_dynamic_island()
-        assert island.pet_visible is True, "任一窗可见即聚合可见"
-    finally:
-        _stop_sessions(*getattr(shell, "instances", []))
-        if getattr(shell, "_shared", None) is not None:
-            shell._shared.stop_all()
-        slot_manager_mod._unlock_file(primary_handle)
-
-
 
 
 def test_flag_on_hidden_notify_text_non_primary(tmp_path, app, monkeypatch):
@@ -332,8 +248,7 @@ def test_flag_on_hidden_notify_text_non_primary(tmp_path, app, monkeypatch):
         primary_win.cfg = config
         shell.instance._notify_pet_hidden()
         msg = shown[-1][0][1]
-        assert "显示 / 隐藏" not in msg, f"主窗提示保持原样: {msg}"
-        assert "点击托盘图标" in msg
+        assert "显示 / 隐藏所有桌宠" in msg
     finally:
         _stop_sessions(*getattr(shell, "instances", []))
         if getattr(shell, "_shared", None) is not None:

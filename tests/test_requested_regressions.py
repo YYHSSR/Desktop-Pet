@@ -5,10 +5,6 @@ import pytest
 from datetime import datetime, timezone
 
 
-
-
-
-
 def test_bubble_text_scale_row_persists(tmp_path, monkeypatch):
     """「气泡文字大小」设置行：默认 100%，改值保存并持久化，越界被配置清洗钳位。"""
     from PySide6.QtWidgets import QApplication
@@ -17,7 +13,7 @@ def test_bubble_text_scale_row_persists(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     config = Config(tmp_path)
     assert config.get("bubble_text_scale") == 100
 
@@ -45,8 +41,6 @@ def test_harness_autostart_toggle_retired(tmp_path):
     assert "harness_autostart" not in config.data
 
 
-
-
 def test_settings_dialog_position_avoids_pet_window(tmp_path, monkeypatch):
     """设置窗口激活时不应遮挡桌宠：打开时移动到不与桌宠相交的位置。"""
     import pet.modern_settings_dialog as settings_mod
@@ -56,7 +50,7 @@ def test_settings_dialog_position_avoids_pet_window(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     pet = QWidget()
     pet.setGeometry(QRect(100, 100, 200, 200))
     pet.show()
@@ -87,7 +81,7 @@ def test_menu_font_select_lists_system_fonts(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     config = Config(tmp_path)
     dialog = settings_mod.ModernSettingsDialog(config,)
     select = dialog.menu_font_select
@@ -119,7 +113,7 @@ def test_settings_first_paint_does_not_enumerate_system_fonts(tmp_path, monkeypa
 
     app = QApplication.instance() or QApplication([])
     calls = []
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     monkeypatch.setattr(
         settings_mod,
         "_system_font_families",
@@ -145,7 +139,7 @@ def test_settings_save_preserves_custom_font_before_selector_is_opened(tmp_path,
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     config = Config(tmp_path)
     appearance = dict(config.get("context_menu_appearance"))
     appearance["ui_font"] = "Regression Custom Font"
@@ -166,7 +160,7 @@ def test_modern_select_reuses_one_popup_without_accumulating_children(tmp_path, 
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     dialog = settings_mod.ModernSettingsDialog(Config(tmp_path),)
     select = dialog.menu_theme_select
 
@@ -195,7 +189,7 @@ def test_dock_icon_row_platform_gated(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     monkeypatch.setattr(sys, "platform", "win32")
     config = Config(tmp_path)
     dialog = settings_mod.ModernSettingsDialog(config,)
@@ -205,87 +199,6 @@ def test_dock_icon_row_platform_gated(tmp_path, monkeypatch):
     dialog2 = settings_mod.ModernSettingsDialog(config,)
     assert dialog2.findChild(settings_mod.SettingRow, "settingRow_dock_icon") is not None
     dialog2.close()
-    app.processEvents()
-
-
-
-
-
-
-
-
-
-
-def test_ojingjing_entry_hover_survives_widget_children(monkeypatch):
-    """彩蛋项 hover 不应依赖 enter 事件：菜单弹出时鼠标已在项上（无 enter）
-    应合成高亮；鼠标移入子 widget 触发的 leave 不应丢高亮。"""
-    from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
-    from PySide6.QtGui import QMouseEvent
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    import pet.context_menus.fun_entry as fun_entry
-    from pet.context_menus.fun_entry import OjingjingMenuEntry
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    entry = OjingjingMenuEntry(menu, {"title": "厉害了我的鲸", "hint": "请点击"})
-    # offscreen QPA 的 QCursor.setPos 不生效（光标位置由平台管理）。
-    # 模拟光标悬在项内时用项自身的全局坐标（mapToGlobal），而不是绝对屏幕点：
-    # 菜单实际弹出位置受任务栏/DPI/多屏约束可能不在 (0, 0)，绝对点一旦落在
-    # 项外，showEvent 合成 _hovered=False 反而是正确行为，测试就变成环境耦合。
-    # 几何相对点保证任何 QPA/窗口管理器下合成高亮都能命中项内，验证的是
-    # “不依赖 enter 事件”本身，而非菜单弹出的绝对位置。
-    monkeypatch.setattr(
-        fun_entry.QCursor,
-        "pos",
-        staticmethod(lambda: entry.mapToGlobal(QPoint(10, 10))),
-    )
-    # 用 popup(0, 0) 而不是 show()：Windows QPA 上 QMenu.show() 跟随真实系统
-    # 光标落点（Qt C++ 内部调用不受 Python 层 QCursor.pos mock 影响）。
-    menu.popup(QPoint(0, 0))
-    app.processEvents()
-    try:
-        # 1. 菜单弹出时鼠标已悬在项上：showEvent 按光标位置合成高亮
-        assert entry._hovered, "鼠标已位于项上时应合成初始高亮（无需 enter 事件）"
-        # 2. 鼠标移入子 widget 触发的 leave：光标仍在项内，高亮保持
-        entry.leaveEvent(QEvent(QEvent.Type.Leave))
-        assert entry._hovered, "光标仍在项内时 leave 不应清除高亮"
-        # 3. 跨窗口移动丢失 enter 时，mouseMove 兜底恢复高亮
-        entry._hovered = False
-        entry.mouseMoveEvent(QMouseEvent(
-            QEvent.Type.MouseMove, QPointF(20, 20), QPointF(20, 20),
-            Qt.MouseButton.NoButton, Qt.MouseButton.NoButton,
-            Qt.KeyboardModifier.NoModifier,
-        ))
-        assert entry._hovered, "鼠标移动应恢复高亮"
-    finally:
-        entry.close()
-        menu.close()
-        app.processEvents()
-
-
-def test_windows_ojingjing_children_do_not_intercept_hover():
-    """Windows 按子窗口做命中测试；首项内容必须把鼠标事件透传给背景控件。"""
-    from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication, QMenu, QWidget
-
-    from pet.context_menus.fun_entry import OjingjingMenuEntry
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    entry = OjingjingMenuEntry(menu)
-    children = [
-        entry.findChild(QWidget, "ojingjingAvatar"),
-        entry.findChild(QWidget, "ojingjingTitle"),
-        entry.findChild(QWidget, "ojingjingClickAccessory"),
-    ]
-    assert all(child is not None for child in children)
-    assert all(
-        child.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        for child in children
-    ), "头像、标题和提示不应截获 Windows hover 事件"
-    entry.close()
-    menu.close()
     app.processEvents()
 
 
@@ -328,7 +241,7 @@ def test_windows_settings_has_no_orphan_macos_dock_toggle(tmp_path, monkeypatch)
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.sys, "platform", "win32")
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     config = Config(tmp_path)
     config.set("show_dock_icon", False)
     dialog = settings_mod.ModernSettingsDialog(config,)
@@ -359,7 +272,7 @@ def test_linux_settings_has_no_orphan_windows_cursor_passthrough_toggle(tmp_path
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod.sys, "platform", "linux")
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     dialog = settings_mod.ModernSettingsDialog(Config(tmp_path),)
 
     assert dialog.cursor_hidden_passthrough_check is None
@@ -485,151 +398,6 @@ def test_animation_icon_applier_updates_action_and_cleans_worker():
     app.processEvents()
 
 
-def test_build_scripts_bundle_menu_templates_without_retired_ai_resources():
-    """三平台打包脚本必须包含菜单模板与聊天样式资源（防漏打包回归）。
-
-    回归背景：Linux workflow 曾漏掉 pet/menu_templates（右键菜单在冻结版
-    打不开）与 legacy/modern_styles.qss（聊天窗无样式）。
-
-    构建定义统一在本地脚本（scripts/build_*.sh / build_onedir.ps1），
-    CI workflow 只调用脚本不再内联打包命令，故资源断言指向脚本而非 workflow。
-    """
-    from pathlib import Path
-
-    repo = Path(__file__).resolve().parents[1]
-    linux = (repo / "scripts" / "build_linux.sh").read_text(encoding="utf-8")
-    macos = (repo / "scripts" / "build_macos.sh").read_text(encoding="utf-8")
-    windows = (repo / "scripts" / "build_onedir.ps1").read_text(encoding="utf-8")
-
-    for name, text in (("build_linux.sh", linux), ("build_macos.sh", macos), ("build_onedir.ps1", windows)):
-        assert "menu_templates" in text, f"{name} 必须打包 pet/menu_templates"
-        assert "legacy_styles.qss" not in text, f"{name} 必须打包 legacy_styles.qss"
-        assert "modern_styles.qss" not in text, f"{name} 必须打包 modern_styles.qss"
-    # 兜底：模板 JSON 缺失时 load_menu_template 必须回退内置模板而非抛异常
-    import pet.context_menu as context_menu_mod
-    assert context_menu_mod.load_menu_template("modern")["id"] == "modern"
-    assert context_menu_mod.load_menu_template("legacy")["id"] == "legacy"
-
-
-def test_store_fun_asset_keeps_bundled_paths_relative(tmp_path):
-    """内置 assets 内的路径必须持久化为相对值（portable），外部文件保留绝对路径。
-
-    回归背景：设置对话框把默认相对路径固化成安装目录绝对路径，目录移动/
-    自更新后彩蛋弹窗失效。
-    """
-    from pet.fun_image_popup import bundled_assets_root, store_fun_asset
-
-    default = bundled_assets_root() / "big_blue_fat_fish" / "ojingjing.jpg"
-    # 绝对路径指向内置 assets → 归一化为相对值
-    stored = store_fun_asset(str(default), default)
-    assert stored == "assets/big_blue_fat_fish/ojingjing.jpg"
-    # 相对值原样保留
-    assert store_fun_asset("assets/big_blue_fat_fish", default) == "assets/big_blue_fat_fish"
-    # 空值回退默认
-    assert store_fun_asset("", default) == str(default)
-    # 外部文件 → 绝对路径保留
-    external = tmp_path / "custom" / "egg.jpg"
-    external.parent.mkdir(parents=True)
-    external.write_bytes(b"x")
-    assert store_fun_asset(str(external), default) == str(external)
-
-
-def test_popup_image_paths_survives_missing_directory(tmp_path):
-    """彩蛋图片目录不存在时回退默认彩蛋池（而非抛异常或空列表）。"""
-    from pet.fun_image_popup import popup_image_paths
-
-    paths = popup_image_paths(tmp_path / "does-not-exist")
-    assert paths, "缺失目录应回退默认彩蛋图片池"
-    assert all(path.is_file() for path in paths)
-
-
-def test_config_normalizes_polluted_absolute_easter_egg_paths(tmp_path):
-    """旧配置里已固化的内置资产绝对路径在加载时归一化回相对值。"""
-    from pet.fun_image_popup import bundled_assets_root
-    from pet.config import Config
-
-    bundled = bundled_assets_root()
-    (tmp_path / "config.json").write_text(
-        '{"version": 4, "menu_easter_egg": {"enabled": true, "avatar": "'
-        + str(bundled / "big_blue_fat_fish" / "ojingjing.jpg").replace("\\", "/")
-        + '", "image_dir": "'
-        + str(bundled / "big_blue_fat_fish").replace("\\", "/")
-        + '"}}',
-        encoding="utf-8",
-    )
-    cfg = Config(tmp_path)
-    egg = cfg.get("menu_easter_egg")
-    assert egg["avatar"] == "assets/big_blue_fat_fish/ojingjing.jpg"
-    assert egg["image_dir"] == "assets/big_blue_fat_fish"
-
-
-def test_easter_egg_activate_defers_until_menu_closes():
-    """彩蛋点击在菜单可见时排入 deferred callbacks，菜单关闭后才开窗。
-
-    回归背景：macOS 原生 NSMenu 跟踪循环中直接开窗被 AppKit 抑制（首点无效）。
-    """
-    import time
-
-    from PySide6.QtWidgets import QApplication, QMenu
-
-    import pet.context_menus.fun_entry as fun_entry_mod
-    from pet.context_menus.fun_entry import OjingjingMenuEntry
-
-    app = QApplication.instance() or QApplication([])
-    menu = QMenu()
-    entry = OjingjingMenuEntry(menu, {"title": "厉害了我的鲸"})
-    opened = []
-    monkeypatch = __import__("pytest").MonkeyPatch()
-    monkeypatch.setattr(fun_entry_mod, "open_ojingjing_window", lambda config: opened.append(config))
-    try:
-        # 菜单不可见：走 singleShot 延迟
-        entry._activate()
-        deadline = time.time() + 1
-        while not opened and time.time() < deadline:
-            app.processEvents()
-            time.sleep(0.01)
-        assert opened, "不可见菜单点击应立即排队开窗"
-        opened.clear()
-
-        # 菜单可见：排入 deferred callbacks 并关闭菜单
-        menu.show()
-        app.processEvents()
-        entry._activate()
-        callbacks = list(getattr(menu, "_deferred_callbacks", ()))
-        assert callbacks, "可见菜单点击必须排入 deferred callbacks"
-        assert not menu.isVisible(), "点击后菜单应被关闭"
-        callbacks[0]()
-        assert opened, "回调应打开彩蛋窗口"
-    finally:
-        monkeypatch.undo()
-        menu.close()
-        app.processEvents()
-
-
-def test_modern_settings_save_writes_autostart_wanted(tmp_path, monkeypatch):
-    """新版设置保存必须记录 autostart_wanted（启动自检提醒依赖它）。"""
-    from PySide6.QtWidgets import QApplication
-
-    import pet.modern_settings_dialog as settings_mod
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    # 不碰真实系统自启：CI runner 上写入失败会触发 QMessageBox.warning，
-    # offscreen 下无人交互（实测 access violation / 挂起）。
-    monkeypatch.setattr(settings_mod.autostart_mod, "set_enabled", lambda enabled: True)
-    config = Config(tmp_path)
-    assert config.get("autostart_wanted") is False
-    dialog = settings_mod.ModernSettingsDialog(config,)
-    dialog.autostart_check.setChecked(True)
-    dialog._save()
-    assert config.get("autostart_wanted") is True
-    dialog.close()
-    app.processEvents()
-
-
-
-
 def test_spawned_children_are_reaped_after_exit():
     """孵化的子进程退出后必须从登记表回收（防 POSIX 僵尸 / 句柄泄漏）。"""
     import sys
@@ -669,7 +437,7 @@ def test_modern_settings_close_autosaves(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     config = Config(tmp_path)
     dialog = settings_mod.ModernSettingsDialog(config,)
     dialog.bubble_style_select.setCurrentData("breath_bubble")
@@ -708,7 +476,7 @@ def test_settings_window_uses_the_explicit_dark_appearance_on_a_light_system(
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(settings_mod, "_system_dark", lambda: False)
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     config = Config(tmp_path)
     config.set("context_menu_appearance", {"theme": "dark"})
 
@@ -729,7 +497,7 @@ def test_settings_window_rethemes_immediately_with_the_appearance_selector(
 
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr("pet.settings_theme_qss._system_dark", lambda: False)
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     dialog = settings_mod.ModernSettingsDialog(Config(tmp_path),)
     assert "QDialog { background: #202024" not in dialog.styleSheet()
 
@@ -773,16 +541,12 @@ def test_modern_settings_finished_refreshes_even_on_rejected(tmp_path, monkeypat
     owner.win = FakeWin()
     owner.config = Config(tmp_path)
     owner.shell._sync_dynamic_island = lambda: None
-    # Phase 1 门控后 todo 服务走 _sync_todo_service（懒启停）；测试只测桌宠刷新
-    owner.shell._sync_todo_service = lambda: None
     owner.shell._sync_festival_service = lambda: None  # 节日提醒同样懒启停（其内部会连带同步报时通道）
     owner._refresh_chat_windows = lambda: None
     owner._sync_animation_prewarm = lambda: None
     monkeypatch.setattr(app_mod, "_mac_set_dock_icon_visible", lambda *a, **k: None)
     PetInstance._modern_settings_finished(owner, 0)  # QDialog.Rejected（X 关闭）
     assert refreshed == [1], "Rejected 关闭也必须刷新桌宠"
-
-
 
 
 def test_modern_settings_save_warns_on_failure(tmp_path, monkeypatch):
@@ -793,7 +557,7 @@ def test_modern_settings_save_warns_on_failure(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     warnings = []
     monkeypatch.setattr(settings_mod.QMessageBox, "warning", lambda *a, **k: warnings.append(a))
     config = Config(tmp_path)
@@ -806,54 +570,4 @@ def test_modern_settings_save_warns_on_failure(tmp_path, monkeypatch):
     app.processEvents()
 
 
-def test_modern_settings_close_applies_autostart(tmp_path, monkeypatch):
-    """直接关闭（X）新版设置也必须应用开机自启开关（与「保存并退出」一致）。"""
-    from PySide6.QtWidgets import QApplication
-
-    import pet.modern_settings_dialog as settings_mod
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    applied = []
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    monkeypatch.setattr(
-        settings_mod.autostart_mod,
-        "set_enabled",
-        lambda enabled: applied.append(enabled) or True,
-    )
-    config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config,)
-    dialog.autostart_check.setChecked(True)
-    dialog.close()  # X 关闭，不点「保存并退出」
-    app.processEvents()
-    assert applied == [True]
-    assert config.get("autostart_wanted") is True
-    dialog.close()
-    app.processEvents()
-
-
-def test_modern_autostart_write_failure_warns(tmp_path, monkeypatch):
-    """开机自启写入失败时必须弹窗提示（此前无任何反馈，用户不知自启没生效）。"""
-    from PySide6.QtWidgets import QApplication
-
-    import pet.modern_settings_dialog as settings_mod
-    from pet.config import Config
-
-    app = QApplication.instance() or QApplication([])
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
-    monkeypatch.setattr(settings_mod.autostart_mod, "set_enabled", lambda enabled: False)
-    warnings = []
-    monkeypatch.setattr(
-        settings_mod.QMessageBox, "warning", lambda *a, **k: warnings.append(a)
-    )
-    config = Config(tmp_path)
-    dialog = settings_mod.ModernSettingsDialog(config,)
-    # 与初始状态不同（初始 = is_enabled() = False）→ 触发写入
-    dialog.autostart_check.setChecked(True)
-    dialog._apply_autostart()
-    assert len(warnings) == 1
-    assert "开机自启设置失败" in str(warnings[0][1])
-    assert "失败" in str(warnings[0][2])
-    dialog.close()
-    app.processEvents()
 # --- macOS Dock recovery menu regression (2026-09-03) ---

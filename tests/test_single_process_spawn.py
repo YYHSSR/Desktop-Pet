@@ -105,14 +105,6 @@ class _FanoutMovie:
         self.playback_speed = 1.0
         self._publish_sink = None
         self._feed_source = None
-        self.decode_throttle_divisor = 1
-        self.decode_pace_external = False
-
-    def set_decode_throttle(self, divisor: int) -> None:
-        self.decode_throttle_divisor = max(1, int(divisor))
-
-    def set_decode_pace_external(self, value: bool) -> None:
-        self.decode_pace_external = bool(value)
 
 
 def _make_primary_with_slot(tmp_path):
@@ -136,48 +128,6 @@ def _stop_sessions(*insts):
             pass
 
 
-
-
-
-
-def test_spawn_refreshes_island_wall_hooks(tmp_path, app, monkeypatch):
-    """生小肥鱼后必须刷新灵动岛硬墙钩子——否则新鱼直接穿过岛（回归）。
-
-    硬墙 hook 只在碰撞体 start() 挂过一轮（那一刻已存在的窗口），本进程新窗
-    不在列表里；spawn 路径必须补挂（island_collision.refresh_hooks）。
-    """
-    shell, config, primary_handle = _make_primary_with_slot(tmp_path)
-
-    def fake_build_window(self, character_id, lib=None, build_tray=True):
-        win = _FakeWindow()
-        win.cfg = self.config
-        win._single_process_spawn = self.shell._single_process_spawn
-        self.win = win
-        return win
-
-    monkeypatch.setattr(app_mod.PetInstance, "_build_window", fake_build_window)
-    monkeypatch.setattr(app_mod.PetInstance, "_apply_spawn_offset", lambda self: None)
-    monkeypatch.setattr(app_mod.PetInstance, "_check_autostart_wanted", lambda self: None)
-
-    class _RecordingBody:
-        def __init__(self):
-            self.calls = 0
-
-        def refresh_hooks(self):
-            self.calls += 1
-
-    body = _RecordingBody()
-    shell.island_collision = body
-    second = shell.spawn_in_process_window(1)
-    assert body.calls == 1, "spawn 后未刷新硬墙钩子——新鱼会穿过灵动岛"
-
-    _stop_sessions(second)
-    second.win.close()
-    slot_manager_mod._unlock_file(second.slot_handle)
-    second.slot_handle = None
-    slot_manager_mod._unlock_file(primary_handle)
-
-
 def test_spawn_flag_off_keeps_process_launcher(tmp_path, app, monkeypatch):
     """flag 关：spawn_pet 走旧的 launch_new_pet 进程路径（逐位一致）。"""
     config = Config(tmp_path)
@@ -191,8 +141,6 @@ def test_spawn_flag_off_keeps_process_launcher(tmp_path, app, monkeypatch):
     shell.spawn_pet()
     assert launched == [1, 2]
     assert len(shell.instances) == 1
-
-
 
 
 def _alive_pid() -> int:
@@ -235,7 +183,7 @@ def test_switch_character_rebuilds_own_session_and_broker(tmp_path, app, monkeyp
     ipc_stop = []
     broker_shutdown = []
     monkeypatch.setattr(old_ipc, "stop", lambda: ipc_stop.append(1))
-    monkeypatch.setattr(old_broker, "shutdown", lambda: broker_shutdown.append(1))
+    monkeypatch.setattr(old_broker, "stop_all", lambda: broker_shutdown.append(1))
     sec_ipc_id = id(sec.collision_ipc)
     sec_broker_id = id(sec.broker_facade)
 
@@ -324,10 +272,6 @@ def test_spawn_offset_env_wired_to_primary_instance(tmp_path, app, monkeypatch):
     assert shell2.instance._spawn_offset == 5
 
 
-
-
-
-
 def test_exit_flag_off_does_not_inject_on_exit_window(tmp_path, app, monkeypatch):
     """P0-2/T-4：flag 关右键退出等价——on_exit_window 不注入，
     _request_quit 走旧 app.quit 分支（逐位一致）。"""
@@ -381,12 +325,6 @@ def test_exit_flag_on_injects_on_exit_window(tmp_path, app, monkeypatch):
 # --------------------------------------------------------------------------
 # P1-7 / T-3：close_root per-root 屏障
 # --------------------------------------------------------------------------
-
-
-
-
-
-
 
 
 # --------------------------------------------------------------------------
@@ -462,8 +400,6 @@ def test_spawn_in_process_slot_scan_cap_raises(tmp_path, app, monkeypatch):
     with pytest.raises(slot_manager_mod.SlotManagerError):
         shell.spawn_in_process_window(1)
     slot_manager_mod._unlock_file(primary_handle)
-
-
 
 
 def test_in_process_spawn_shares_process_hub(tmp_path, app, monkeypatch):
@@ -721,15 +657,12 @@ def test_seed_slot_config_follows_main_settings(tmp_path):
 
 
 def test_seed_slot_config_applies_spawn_inherit_logic(tmp_path):
-    """批 C：落种遵循 spawn_inherit_size / spawn_scale / spawn_inherit_dynamic_island。"""
     config_dir = tmp_path / "cfg"
     config_dir.mkdir()
     (config_dir / "config.json").write_text(json.dumps({
         "scale": 1.0,
         "spawn_inherit_size": False,
         "spawn_scale": 0.5,
-        "spawn_inherit_dynamic_island": True,
-        "dynamic_island": {"enabled": True},
     }), encoding="utf-8")
 
     assert slot_manager_mod.seed_slot_config_from_main(config_dir, 7) is True
@@ -739,8 +672,6 @@ def test_seed_slot_config_applies_spawn_inherit_logic(tmp_path):
     assert seeded["scale"] == 0.5
     assert seeded["spawn_inherit_size"] is False
     assert seeded["spawn_scale"] == 0.5
-    assert seeded["spawn_inherit_dynamic_island"] is True
-    assert seeded["dynamic_island"]["enabled"] is True
     assert seeded.get("user_customized") is False
 
 
@@ -806,8 +737,6 @@ def test_multi_process_start_seed_then_config_roundtrip(tmp_path):
         "scale": 1.0,
         "spawn_inherit_size": False,
         "spawn_scale": 0.5,
-        "spawn_inherit_dynamic_island": True,
-        "dynamic_island": {"enabled": True},
     }), encoding="utf-8")
 
     # 与 main() 的 seed → Config(instance_id) 次序一致。
@@ -816,7 +745,6 @@ def test_multi_process_start_seed_then_config_roundtrip(tmp_path):
     assert cfg.get("scale") == 0.5
     assert cfg.get("spawn_inherit_size") is False
     assert cfg.get("spawn_scale") == 0.5
-    assert cfg.get("dynamic_island", {}).get("enabled") is True
     assert cfg.get("user_customized") is False
 
 
@@ -904,7 +832,6 @@ def test_clear_spawned_pets_closes_in_process_children_no_residue(
 
     # 子窗会话/broker 打桩（避免真实 QLocal/共享 hub 收口的副作用）
     monkeypatch.setattr(sec.collision_ipc, "stop", lambda: None)
-    monkeypatch.setattr(sec.broker_facade, "shutdown", lambda: None)
 
     # 确认对话框返回 Yes
     monkeypatch.setattr(
@@ -1009,7 +936,6 @@ def _add_child_instance(shell, tmp_path, config, preferred_slot, monkeypatch):
     inst.win = win
     shell._instances.append(inst)
     monkeypatch.setattr(inst.collision_ipc, "stop", lambda: None)
-    monkeypatch.setattr(inst.broker_facade, "shutdown", lambda: None)
     return inst, win
 
 
@@ -1150,8 +1076,6 @@ def test_clear_spawned_pets_defers_heavy_teardown_to_reaper_thread(
     assert shell._clear_spawned_pending is False
 
     slot_manager_mod._unlock_file(primary_handle)
-
-
 
 
 def test_clear_spawned_entry_wired_only_on_primary(tmp_path, app, monkeypatch):

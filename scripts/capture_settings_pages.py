@@ -9,11 +9,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from PySide6.QtCore import QPoint, Qt  # noqa: E402
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtGui import QColor, QPalette  # noqa: E402
 from PySide6.QtWidgets import QApplication, QScrollArea, QWidget  # noqa: E402
 
-from pet import modern_settings_dialog as settings_mod  # noqa: E402
 from pet.config import Config  # noqa: E402
 from pet.modern_settings_dialog import (  # noqa: E402
     ModernSettingsDialog,
@@ -70,21 +69,15 @@ def _expand_toggle_dependencies(dialog: ModernSettingsDialog) -> None:
     for toggle in (
         dialog.self_talk_check,
         dialog.menu_translucent_check,
-        dialog.island_enabled_check,
-        dialog.island_icon_check,
-        dialog.island_info_check,
-        dialog.egg_enabled_check,
         dialog.collision_enabled_check,
     ):
         toggle.setChecked(True)
-    dialog.island_info_mode_select.setCurrentData("custom")
 
 
 def capture(args: argparse.Namespace) -> None:
     app = QApplication.instance() or QApplication([])
     if args.dark:
         _apply_dark_palette(app)
-    settings_mod.autostart_mod.is_enabled = lambda: False
     destination = Path(args.destination).resolve()
     destination.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="desktop-pet-settings-capture-") as data_dir:
@@ -146,57 +139,6 @@ def capture(args: argparse.Namespace) -> None:
                 target = destination / f"04-菜单-{_safe_filename(label)}.png"
                 if not dialog.grab().save(str(target)):
                     raise RuntimeError(f"failed to save screenshot: {target}")
-            dialog.egg_enabled_check.setChecked(False)
-            dialog.quick_launch_editor.list.clear()
-            dialog.quick_launch_editor._sync_content_height()
-            tabs.setCurrentKey("layout")
-            app.processEvents()
-            target = destination / "04-菜单-停用状态.png"
-            if not dialog.grab().save(str(target)):
-                raise RuntimeError(f"failed to save screenshot: {target}")
-            tabs.setCurrentKey("layout")
-            dialog.menu_layout_editor.set_item_alias("modern_settings", "桌宠设置")
-            chat_item = dialog.menu_layout_editor.item_for_action("modern_settings")
-            dialog.menu_layout_editor.tree.setCurrentItem(chat_item)
-            dialog.menu_layout_editor.set_item_file_icon(
-                "modern_settings", Path(__file__).resolve().parents[1] / "assets" / "icon-preview.png",
-            )
-            app.processEvents()
-            target = destination / "04-菜单-别名保留原名.png"
-            if not dialog.grab().save(str(target)):
-                raise RuntimeError(f"failed to save screenshot: {target}")
-            for button, menu, filename in (
-                (dialog.menu_layout_editor.order_button, dialog.menu_layout_editor.order_menu, "04-菜单-排序下拉.png"),
-                (dialog.menu_layout_editor.move_button, dialog.menu_layout_editor.move_menu, "04-菜单-移动下拉.png"),
-                (dialog.menu_layout_editor.customize_button, dialog.menu_layout_editor.customize_menu, "04-菜单-自定义下拉.png"),
-                (dialog.quick_launch_editor.add_button, dialog.quick_launch_editor.add_menu, "04-菜单-快捷启动下拉.png"),
-            ):
-                button.showPopup()
-                app.processEvents()
-                target = destination / filename
-                if not menu.grab().save(str(target)):
-                    raise RuntimeError(f"failed to save screenshot: {target}")
-                menu.close()
-                app.processEvents()
-            dialog.menu_layout_editor.icon_display_menu.popup(
-                dialog.mapToGlobal(QPoint(dialog.width() // 2, 180))
-            )
-            app.processEvents()
-            target = destination / "04-菜单-图片显示方式.png"
-            if not dialog.menu_layout_editor.icon_display_menu.grab().save(str(target)):
-                raise RuntimeError(f"failed to save screenshot: {target}")
-            dialog.menu_layout_editor.icon_display_menu.close()
-            app.processEvents()
-            dialog.menu_template_select.showPopup()
-            app.processEvents()
-            popup = dialog.menu_template_select._popup
-            if popup is None:
-                raise RuntimeError("menu mode popup was not created")
-            target = destination / "04-菜单-菜单模式下拉.png"
-            if not popup.grab().save(str(target)):
-                raise RuntimeError(f"failed to save screenshot: {target}")
-            popup.close()
-            app.processEvents()
         if args.interaction_details:
             interaction_index = next(
                 index

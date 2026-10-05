@@ -102,14 +102,11 @@ class FakeBubble(QObject):
         self.dismiss_calls = 0
 
     def show_text(self, text, anchor, duration_ms, *, pet_scale=None,
-                  subtitle="", sticky=False, buttons=None,
-                  title_first=False, width_locked=False):
+                  subtitle="", sticky=False, buttons=None):
         self.shown.append({
             "text": str(text), "sticky": bool(sticky),
             "duration_ms": int(duration_ms), "buttons": buttons,
             "subtitle": str(subtitle or ""),
-            "title_first": bool(title_first),
-            "width_locked": bool(width_locked),
         })
 
     def reposition(self, anchor_rect):
@@ -182,10 +179,6 @@ def test_show_bubble_yields_when_alert_active(win):
     assert win._speech_bubble.shown[-1]["text"] == "审批一"
 
 
-
-
-
-
 def test_interactive_button_callback_still_runs_and_closes(win):
     actions = []
     win.show_alert(
@@ -197,8 +190,6 @@ def test_interactive_button_callback_still_runs_and_closes(win):
     assert actions == [True]
     assert win._alert_current is None
     assert win._sticky_bubble_active is False
-
-
 
 
 def test_sticky_alert_is_sticky(win):
@@ -330,22 +321,6 @@ class _HiddenRedirectHost:
 
     def isVisible(self):
         return False
-
-
-def test_hidden_host_redirects_noninteractive_alert():
-    """桌宠隐藏：无按钮提醒改道灵动岛反馈面，不入队不丢弃。"""
-    redirected = []
-
-    def hook(text, subtitle="", duration_ms=3200):
-        redirected.append((text, subtitle, duration_ms))
-        return True
-
-    host = _HiddenRedirectHost(hook=hook)
-    show_alert(host, "可能卡住了，去看一眼吧", duration_ms=8000, sticky=False,
-               alert_type="watchdog")
-
-    assert redirected == [("可能卡住了，去看一眼吧", "", 8000)]
-    assert host._alert_queue == deque() and host._alert_current is None
 
 
 def test_hidden_host_interactive_alert_not_redirected():

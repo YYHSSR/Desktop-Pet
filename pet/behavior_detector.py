@@ -10,7 +10,7 @@
 3. **纯探索无产出**：最近 6 个 step 全是 EXPLORATION（search/read/think/导航），
    完全没有 ACTION（edit/execute/test）——Agent 在反复翻资料但没动手验证/修改。
 
-规则（默认参数，可用配置覆盖，见 :func:`BehaviorPatternDetector.get_config_overrides`）::
+内置规则（启动时自动应用，无需用户调整）::
 
     ───── 细分类（SEARCH/READ/THINK/NAV/EDIT/EXECUTE/TEST）─────
     W10 同类 >= 3   → warning（有重复倾向）
@@ -366,12 +366,6 @@ class BehaviorPatternDetector(QObject):
     def is_enabled(self) -> bool:
         return self._enabled
 
-    def pause(self) -> None:
-        """桌宠隐藏时暂停（无状态可清理，仅停触发）。"""
-        pass
-
-    def resume(self) -> None:
-        pass
 
     def reset(self, agent_key: str) -> None:
         """重置指定 Agent 的模式状态（空闲/离线/任务完成）。"""
@@ -381,19 +375,6 @@ class BehaviorPatternDetector(QObject):
         for key in list(self._states):
             self.reset(key)
 
-    def get_config_overrides(self, config: dict) -> None:
-        """从配置字典读取覆盖参数（config.agent_link 段）。"""
-        if not isinstance(config, dict):
-            return
-        self._w6_control = int(config.get("pattern_w6_control", DEFAULT_W6_CONTROL))
-        self._w10_warn = int(config.get("pattern_w10_warn", DEFAULT_W10_WARN))
-        self._w10_control = int(config.get("pattern_w10_control", DEFAULT_W10_CONTROL))
-        self._macro_w6_explore = int(config.get("pattern_macro_w6_explore", DEFAULT_MACRO_W6_EXPLORE))
-        self._macro_w6_action = int(config.get("pattern_macro_w6_action", DEFAULT_MACRO_W6_ACTION))
-        self._macro_w10_explore = int(config.get("pattern_macro_w10_explore", DEFAULT_MACRO_W10_EXPLORE))
-        self._macro_w10_action = int(config.get("pattern_macro_w10_action", DEFAULT_MACRO_W10_ACTION))
-        self._min_steps_between = int(config.get("pattern_min_steps_between", DEFAULT_MIN_STEPS_BETWEEN))
-        self._cooldown_seconds = float(config.get("pattern_cooldown_seconds", DEFAULT_COOLDOWN_SECONDS))
 
     # ------------------------------------------------------------ 事件消费
 

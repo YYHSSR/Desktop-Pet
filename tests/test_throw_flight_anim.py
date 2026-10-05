@@ -40,7 +40,6 @@ class FakeClip(QObject):
         self.frame_count = max(1, frame_count)
         self.fps = max(0.1, float(fps))
         self.speed = 1.0
-        self.decode_throttle_divisor = 1
         self.warm_calls = 0
         self.stop_count = 0
         self.start_count = 0
@@ -85,8 +84,6 @@ class FakeClip(QObject):
     def warm_first_frame(self):
         self.warm_calls += 1
 
-    def set_decode_throttle(self, divisor):
-        self.decode_throttle_divisor = max(1, int(divisor))
 
     def set_recycle_minutes(self, minutes):
         self.recycle_minutes_calls.append(minutes)

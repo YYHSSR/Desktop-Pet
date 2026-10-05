@@ -251,7 +251,7 @@ turn/end、idle、session 结束或用户点击控制按钮后清理
 
 ## 代码依据
 
-- [行为模式检测器](<pet/behavior_detector.py>)
-- [探索循环 Watchdog](<pet/exploration_watchdog.py>)
-- [卡住检测器](<pet/stuck_detector.py>)
-- [Agent 联动管理器](<pet/agent_link.py>)
+- 行为模式检测器（历史材料见Git记录）
+- 探索循环 Watchdog（历史材料见Git记录）
+- 卡住检测器（历史材料见Git记录）
+- Agent 联动管理器（历史材料见Git记录）

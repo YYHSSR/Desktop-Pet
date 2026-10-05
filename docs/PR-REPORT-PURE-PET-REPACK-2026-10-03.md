@@ -1,7 +1,7 @@
 # 纯桌宠清理与重新打包报告（2026-10-03）
 
 基线：本轮修改前的工作区快照 `before-pure-pet.zip`；保留用户原有改动。
-本报告承接 [上一轮 Work/Codex 联动报告](PR-REPORT-CHATGPT-LINK-2026-10-03.md)。
+本报告承接 上一轮 Work/Codex 联动报告（历史材料见Git记录）。
 
 ## 核心特性
 

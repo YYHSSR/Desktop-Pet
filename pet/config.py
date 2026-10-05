@@ -28,37 +28,7 @@ DEFAULT_ANIMATION_GAP_SECONDS = 0.0
 DEFAULT_SELF_TALK_MIN_INTERVAL = 20.0
 DEFAULT_SELF_TALK_MAX_INTERVAL = 60.0
 DEFAULT_SELF_TALK_DURATION_SECONDS = 3.2
-DEFAULT_SELF_TALK_TEXTS = [
-    "好女孩……",
-    "好模型……",
-    "欧鲸鲸……",
-    "今天也要认真工作呀。",
-    "再陪你一会儿。",
-    "情绪价值到账，请查收一只我。",
-    "桌面小小的，陪伴满满的。",
-    "你忙你的，我负责可爱。",
-    "今天也在努力降低班味。",
-    "先把这一步走完，别提前焦虑下一步。",
-    "这波节奏，可以慢慢拿捏。",
-    "摸鱼可以，记得给自己换气。",
-    "发会儿呆，给脑袋清个缓存。",
-    "偶尔放空，也是一种充电。",
-    "今天的你，已经攒下不少经验值。",
-    "别和别人的高光比自己的加载中。",
-    "不必每次都惊艳，稳稳往前也很好。",
-    "水杯在等你，真的没有催。",
-    "肩膀放下来，别替全世界扛项目。",
-    "看看远处，给眼睛换张壁纸。",
-    "久坐暂停，起来晃一小圈。",
-    "我不是桌面装饰，我是氛围组。",
-    "可爱已加载，严肃模式稍后再说。",
-    "给快乐留点内存，别全给焦虑。",
-    "今天的努力，可以存个档了。",
-    "事情明天还能做，你今晚也要睡。",
-    "收工不叫摆烂，叫合理续航，今天辛苦啦。",
-    "睡前别赛博对账了，先抱抱今天的自己。",
-    "夜深了，给自己一个温柔的暂停键。",
-]
+DEFAULT_SELF_TALK_TEXTS = json.loads((Path(__file__).with_name("persona_presets") / "self_talk.json").read_text(encoding="utf-8"))
 DEFAULT_SELF_TALK_BUBBLE_STYLE = "classic_top"
 # 自言自语出图概率（百分比 0~100）：先决定"这次出图还是出文本"，再在对应池里等权
 # 抽一条。默认 30%——图片目录常有几十张图，若与文本等权随机会让图片彻底压过文本
@@ -94,19 +64,8 @@ DEFAULT_CONTEXT_MENU_APPEARANCE = {
     "dark_foreground": "#f3f3f3",
     "dark_hover": "#3a3a3a",
 }
-DEFAULT_MENU_EASTER_EGG = {
-    "enabled": True,
-    "title": "厉害了我的鲸",
-    "hint": "请点击",
-    "avatar": "assets/big_blue_fat_fish/ojingjing.jpg",
-    "image_dir": "assets/big_blue_fat_fish",
-}
 DEFAULT_QUICK_LAUNCH_APPS = []
 DEFAULT_QUICK_URLS = []
-
-
-def _clean_menu_layout_override(value):
-    return copy.deepcopy(value) if isinstance(value, dict) else None
 
 
 def _clean_color(value, default):
@@ -175,20 +134,6 @@ def _normalize_fun_asset_path(candidate: str, default: str) -> str:
         return candidate
 
 
-def _clean_menu_easter_egg(value):
-    value = value if isinstance(value, dict) else {}
-    defaults = DEFAULT_MENU_EASTER_EGG
-    avatar = _normalize_fun_asset_path(str(value.get("avatar") or defaults["avatar"]).strip()[:500], defaults["avatar"])
-    image_dir = _normalize_fun_asset_path(str(value.get("image_dir") or defaults["image_dir"]).strip()[:500], defaults["image_dir"])
-    return {
-        "enabled": bool(value.get("enabled", defaults["enabled"])),
-        "title": str(value.get("title") or defaults["title"]).strip()[:40],
-        "hint": str(value.get("hint") or defaults["hint"]).strip()[:20],
-        "avatar": avatar,
-        "image_dir": image_dir,
-    }
-
-
 _RETIRED_BALANCE_KEYS = frozenset({
     "agent_cost_enabled", "click_show_balance", "balance_refresh_minutes",
     "balance_tier_labels_mode", "balance_tier_label_peak", "balance_tier_label_idle",
@@ -225,8 +170,6 @@ def _clean_quick_urls(value):
     return cleaned
 
 
-
-
 def _default_agent_link_data() -> dict:
     return {
         "codex": False,
@@ -253,26 +196,7 @@ def _default_agent_link_data() -> dict:
         "exploration_watchdog_early_grace_minutes": 5,
         "exploration_watchdog_long_run_minutes": 10,
         "exploration_watchdog_long_think_seconds": 120,
-        # 行为模式检测（默认开）：双窗口规则识别慢性循环 / 短时爆发 / 纯探索无产出。
-        # 细分类：W10 同类 >= 3 → warning；W10 >= 4 → control；W6 >= 3 → control。
-        # 大类：W6 EXPLORATION >= 5 且 ACTION == 0 → control；W10 EXPLORATION >= 7 且
-        # ACTION <= 1 → warning。触发后至少新增 pattern_min_steps_between 个 step
-        # 且间隔 pattern_cooldown_seconds 秒才允许再次触发（step 去重防止误杀并行调用）。
-        "pattern_detect": True,
-        "pattern_w6_control": 3,
-        "pattern_w10_warn": 3,
-        "pattern_w10_control": 4,
-        "pattern_macro_w6_explore": 5,
-        "pattern_macro_w6_action": 0,
-        "pattern_macro_w10_explore": 7,
-        "pattern_macro_w10_action": 1,
-        "pattern_min_steps_between": 3,
-        "pattern_cooldown_seconds": 60,
     }
-
-
-
-
 
 
 # 内置联动 Agent 键：custom_agents 的 key 不得与之重复
@@ -346,18 +270,8 @@ def _clean_agent_link_data(raw: Any) -> dict:
     return result
 
 
-
-
 def _merge_agent_link_data(raw: Any) -> dict:
     return _clean_agent_link_data(raw)
-
-
-
-
-
-
-
-
 
 
 def _default_base():
@@ -420,81 +334,6 @@ def _clean_self_talk_texts(value):
         if text and text not in texts:
             texts.append(text[:120])
     return texts or list(DEFAULT_SELF_TALK_TEXTS)
-
-
-def _default_dynamic_island_data() -> dict:
-    """灵动岛默认配置：默认关闭常驻，位置留空由首次显示时自动定位。"""
-    return {
-        "enabled": False,
-        "show_icon": True,
-        "show_name": True,
-        "show_info": True,
-        "info_mode": "time",  # time / custom
-        "custom_text": "",
-        "show_status": True,
-        "style": "dark",  # dark / light / glass
-        "opacity": 1.0,  # 背景不透明度 0.4~1.0
-        "accent": "blue",  # 主题色：blue / green / purple / pink / orange
-        # 图标：auto=鱼本体头像图片（默认，不碰 emoji 字体栈）；img:<路径>=自定义
-        # 图片；其余字符串=文字/emoji（用户主动选择，愿意付首次绘制的一次性税额）
-        "icon": "auto",
-        "click_action": "expand",  # expand（展开卡片）/ toggle_pet（切换显隐，旧行为）
-        "event_effects": True,  # 事件动效：AI 回复到达时弹跳
-        "edge_dock": True,  # 拖到屏幕边缘收成细条，鼠标靠近滑出
-        "dock_edge": "none",  # none / top / bottom / left / right（拖拽落点写入）
-        "collision_enabled": True,  # 果冻墙：岛注册为静态碰撞体，肥鱼撞到会弹开
-        "x": None,
-        "y": None,
-    }
-
-
-def _clean_dynamic_island_data(value) -> dict:
-    defaults = _default_dynamic_island_data()
-    if not isinstance(value, dict):
-        return defaults
-    result = dict(defaults)
-    result.update({k: v for k, v in value.items() if k in defaults})
-    result["enabled"] = bool(result.get("enabled", False))
-    result["show_icon"] = bool(result["show_icon"])
-    result["show_name"] = bool(result["show_name"])
-    result["show_info"] = bool(result["show_info"])
-    result["show_status"] = bool(result["show_status"])
-    mode = str(result.get("info_mode") or "time").strip()
-    result["info_mode"] = mode if mode in {"time", "custom"} else "time"
-    result["custom_text"] = str(result.get("custom_text") or "")[:80]
-    style = str(result.get("style") or "dark").strip()
-    result["style"] = style if style in {"dark", "light", "glass"} else "dark"
-    try:
-        result["opacity"] = max(0.4, min(1.0, float(result.get("opacity", 1.0))))
-    except (TypeError, ValueError):
-        result["opacity"] = 1.0
-    accent = str(result.get("accent") or "blue").strip()
-    result["accent"] = accent if accent in {"blue", "green", "purple", "pink", "orange"} else "blue"
-    # 图标归一化：auto 原样；img:<路径> 按路径保留（限长 260）；其余当文字/emoji
-    # 截到 8 字符；空值回 "auto"（默认走头像图片，不回退 emoji——首次 emoji 绘制
-    # 会触发 DirectWrite 彩色字体栈加载，实测定案一次性 +33.6MB 私有内存）
-    icon = str(result.get("icon") or "auto").strip()
-    if icon == "auto":
-        result["icon"] = "auto"
-    elif icon.startswith("img:"):
-        result["icon"] = icon[:260]
-    else:
-        result["icon"] = icon[:8] or "auto"
-    click_action = str(result.get("click_action") or "expand").strip()
-    result["click_action"] = click_action if click_action in {"expand", "toggle_pet"} else "expand"
-    # 布尔键必须用 _bool_or_default：bool("false") is True，字符串/None
-    # 会被误翻（同文件既有规则）；int 0/1 是旧配置的合法布尔编码，先归一
-    for _key in ("event_effects", "edge_dock", "collision_enabled"):
-        _v = result[_key]
-        if isinstance(_v, int) and not isinstance(_v, bool):
-            _v = bool(_v)
-        result[_key] = _bool_or_default(_v, defaults[_key])
-    edge = str(result.get("dock_edge") or "none").strip()
-    result["dock_edge"] = edge if edge in {"none", "top", "bottom", "left", "right"} else "none"
-    # 至少保留一个组件：全部关闭时强制显示信息槽，避免空胶囊。
-    if not (result["show_icon"] or result["show_name"] or result["show_info"] or result["show_status"]):
-        result["show_info"] = True
-    return result
 
 
 def _clean_character_profiles(value) -> dict:
@@ -626,7 +465,6 @@ class Config:
             "scale": catalog.DEFAULT_SCALE,
             "spawn_inherit_size": True,  # 生小肥鱼继承主肥鱼大小（False 用 spawn_scale）
             "spawn_scale": catalog.DEFAULT_SCALE,  # 关闭继承时生小肥鱼使用的尺寸
-            "spawn_inherit_dynamic_island": False,  # 生小肥鱼继承主肥鱼灵动岛（默认关=不开灵动岛）
             "user_customized": False,  # 批 C：仅当用户在该子肥鱼自己的设置界面保存过才置真
             "on_top": True,
             "show_dock_icon": True,
@@ -654,17 +492,12 @@ class Config:
             "lock_position": False,  # 锁定位置：桌宠不可拖动（点击仍有效）
             "shift_drag": False,  # 按住 SHIFT+左键才能拖动
             "pet_opacity": 100,  # 桌宠窗口不透明度 10-100
-            "context_menu_template": "modern",
-            "context_menu_layout": None,
             "context_menu_appearance": dict(DEFAULT_CONTEXT_MENU_APPEARANCE),
-            "menu_easter_egg": dict(DEFAULT_MENU_EASTER_EGG),
             "quick_launch_apps": [dict(item) for item in DEFAULT_QUICK_LAUNCH_APPS],
             "quick_urls": [dict(item) for item in DEFAULT_QUICK_URLS],
             "auto_hide_fullscreen": True,  # 全屏应用自动隐藏（Windows）
             "slingshot_enabled": True,  # 弹弓弹射
             "throw_strength": "standard",  # gentle / standard / strong / crazy
-            "idle_low_fps_enabled": False,  # 闲置降帧（灰度默认关）：长时间无交互时动画隔帧呈现
-            "idle_low_fps_threshold": 30.0,  # 闲置阈值（秒）：超过该时长无交互且窗口可见才降帧
             "click_show_self_talk": False,  # 点击反馈气泡默认关闭
             "golden_spin_on_click": False,  # 点击回应动画结束后自动接一段黄金回旋
             "golden_spin_direct": False,  # 点击触发黄金回旋时跳过点击动画，直接回旋并逐圈加速
@@ -673,11 +506,8 @@ class Config:
             "stream_capture_mode": False,  # 直播捕获兼容模式（Windows：Tool 窗口直播姬/OBS 枚举不到）
             "character_aliases": {},  # 角色显示名别名 {角色id: 自定义名}，空名=恢复默认
             "character_profiles": {},  # 角色档案：{角色id: {click_talk_bindings: {动画id: [台词]}}}
-            "dynamic_island": _default_dynamic_island_data(),
             "agent_link": _default_agent_link_data(),
             "system_notifications_enabled": True,  # 对话完成/失败/需要授权时弹桌面系统通知
-            "todo_reminder_enabled": True,  # 待办提醒总开关
-            "todo_reminder_lead_minutes": 5,  # 待办提前提醒分钟数（0~60，0=不提前）
             # 节日提醒（农历/24 节气/西方节日；命中当日用气泡告知并附氛围匹配文案）。
             # 总开关默认关闭：属"主动打扰"型功能，升级后不应突然冒出来，由用户显式开启。
             "festival_reminder_enabled": False,  # 节日提醒总开关
@@ -745,7 +575,7 @@ class Config:
 
         只在该槽位还没有个体配置文件时执行；已有存档的 slot-N 配置（用户改过
         的）一律保持独立记忆，「生小肥鱼」复用旧槽位也不覆盖。副本生成逻辑
-        （spawn_inherit_size / spawn_scale / spawn_inherit_dynamic_island、位置键
+        （spawn_inherit_size / spawn_scale、位置键
         剔除、脱敏、user_customized 置假）统一收敛在
         ``slot_manager.seed_slot_config_from_main``，这里只负责把 instance_id
         解析成 slot_id 后转发。
@@ -778,6 +608,7 @@ class Config:
 
             slot_manager_mod.backup_corrupt_config(self.path)
             return
+        self._clean_retired_data(raw)
         try:
             old_version = int(raw.get("version", 1) or 1)
         except (TypeError, ValueError):
@@ -796,7 +627,6 @@ class Config:
             "character",
             "spawn_inherit_size",
             "spawn_scale",
-            "spawn_inherit_dynamic_island",
             "user_customized",
             "playback_speed",
             "animation_gap_seconds",
@@ -813,23 +643,18 @@ class Config:
             "mouse_through",
             "cursor_hidden_passthrough",
             "drag_physics",
-            "context_menu_template",
             "dialogue_mode",
             "dialogue_phrases",
             "dialogue_last_scope",
-            "context_menu_layout",
             "lock_position",
             "shift_drag",
             "pet_opacity",
             "context_menu_appearance",
             "quick_launch_apps",
             "quick_urls",
-            "menu_easter_egg",
             "auto_hide_fullscreen",
             "slingshot_enabled",
             "throw_strength",
-            "idle_low_fps_enabled",
-            "idle_low_fps_threshold",
             "click_show_self_talk",
             "autostart_wanted",
             "stream_capture_mode",
@@ -837,8 +662,6 @@ class Config:
             "golden_spin_direct",
             "edge_probe_enabled",
             "system_notifications_enabled",
-            "todo_reminder_enabled",
-            "todo_reminder_lead_minutes",
             "festival_reminder_enabled",
             "festival_reminder_cn",
             "festival_reminder_solar_terms",
@@ -851,7 +674,6 @@ class Config:
             "festival_custom_quotes_west",
             "character_aliases",
             "character_profiles",
-            "dynamic_island",
             "collision_enabled",
             "collision_restitution",
             "collision_friction",
@@ -1010,33 +832,21 @@ class Config:
         self.data["cursor_hidden_passthrough"] = _bool_or_default(self.data.get("cursor_hidden_passthrough"), True)
         self.data["spawn_inherit_size"] = _bool_or_default(self.data.get("spawn_inherit_size"), True)
         self.data["spawn_scale"] = _float_or_default(self.data.get("spawn_scale"), catalog.DEFAULT_SCALE, 0.1, 4.0)
-        self.data["spawn_inherit_dynamic_island"] = _bool_or_default(self.data.get("spawn_inherit_dynamic_island"), False)
         self.data["show_dock_icon"] = bool(self.data.get("show_dock_icon", True))
         self.data["self_talk_texts"] = _clean_self_talk_texts(self.data.get("self_talk_texts"))
         bubble_style = str(self.data.get("self_talk_bubble_style") or "")
         self.data["self_talk_bubble_style"] = bubble_style if bubble_style in SELF_TALK_BUBBLE_STYLES else DEFAULT_SELF_TALK_BUBBLE_STYLE
-        if self.data.get("context_menu_template") not in {"legacy", "modern"}:
-            self.data["context_menu_template"] = "modern"
-        self.data["context_menu_layout"] = _clean_menu_layout_override(self.data.get("context_menu_layout"))
         self.data["context_menu_appearance"] = _clean_menu_appearance(self.data.get("context_menu_appearance"))
-        self.data["menu_easter_egg"] = _clean_menu_easter_egg(self.data.get("menu_easter_egg"))
         self.data["quick_launch_apps"] = _clean_quick_launch_apps(self.data.get("quick_launch_apps"))
         self.data["quick_urls"] = _clean_quick_urls(self.data.get("quick_urls"))
         self.data["character_profiles"] = _clean_character_profiles(self.data.get("character_profiles"))
-        self.data["dynamic_island"] = _clean_dynamic_island_data(self.data.get("dynamic_island"))
         self.data["slingshot_enabled"] = bool(self.data.get("slingshot_enabled", True))
         strength = physics_mod.normalize_throw_strength(str(self.data.get("throw_strength") or "standard"))
         self.data["throw_strength"] = strength
-        # 闲置降帧（性能调研 §4.3）：开关默认关（灰度）；阈值夹到 [1, 3600] 秒
         # 终审 P1-3：必须用 _bool_or_default——bool("false") is True，字符串
         # 布尔（外部手改配置/旧版导出）会被误开；与其它布尔键同规。
-        self.data["idle_low_fps_enabled"] = _bool_or_default(self.data.get("idle_low_fps_enabled"), False)
-        self.data["idle_low_fps_threshold"] = _float_or_default(self.data.get("idle_low_fps_threshold"), 30.0, 1.0, 3600.0)
         # 上游 #60 系统通知开关：同规防字符串布尔误开（bool("false") is True）。
         self.data["system_notifications_enabled"] = _bool_or_default(self.data.get("system_notifications_enabled"), True)
-        # 待办提醒：开关同规防字符串布尔误开；提前量钳到 [0, 60] 分钟（0=不提前）。
-        self.data["todo_reminder_enabled"] = _bool_or_default(self.data.get("todo_reminder_enabled"), True)
-        self.data["todo_reminder_lead_minutes"] = int(_float_or_default(self.data.get("todo_reminder_lead_minutes"), 5.0, 0.0, 60.0))
         # 黄金回旋 / 边缘探头：与其它布尔键同规，防手改字符串布尔误开。
         self.data["golden_spin_on_click"] = _bool_or_default(self.data.get("golden_spin_on_click"), False)
         self.data["golden_spin_direct"] = _bool_or_default(self.data.get("golden_spin_direct"), False)
@@ -1152,39 +962,25 @@ class Config:
             "bubble_text_scale",
             "self_talk_bubble_style",
             "context_menu_appearance",
-            "context_menu_layout",
             "quick_launch_apps",
             "quick_urls",
-            "menu_easter_egg",
             "slingshot_enabled",
             "throw_strength",
             "agent_link",
-            "idle_low_fps_enabled",
-            "idle_low_fps_threshold",
             "media_prewarm",
             "first_frame_cache_max_mb",
             "predict_prewarm_lead_ms",
             "ffmpeg_recycle_minutes",
             "spawn_inherit_size",
             "spawn_scale",
-            "spawn_inherit_dynamic_island",
-            "todo_reminder_enabled",
-            "todo_reminder_lead_minutes",
             "character_profiles",
-            "dynamic_island",
         }:
             self._normalize_pet_settings()
-
 
 
     # ---- 域 facade 便捷入口（批5：只建不用，调用点未迁移）----
     # 返回对应域的轻量视图（pet/config_domains.py）。normalize 复用本模块现有
     # _merge_*/_clean_* 函数；facade 只读，不写盘、不碰 secret 保留/version 迁移。
-
-
-
-
-
 
 
     def _redacted_data(self) -> dict:
@@ -1259,15 +1055,16 @@ class Config:
     @staticmethod
     def _clean_retired_data(data: dict) -> dict:
         """Migrate removed integrations even when merging another process's data."""
+        for key in ('context_menu_layout', 'context_menu_template', 'dynamic_island', 'idle_low_fps_enabled', 'idle_low_fps_threshold', 'menu_easter_egg', 'spawn_inherit_dynamic_island', 'todo_reminder_enabled', 'todo_reminder_lead_minutes'):
+            data.pop(key, None)
+        if data.get("self_talk_texts") == ["好女孩……", "好模型……", "欧鲸鲸……", "今天也要认真工作呀。", "再陪你一会儿。"]:
+            data["self_talk_texts"] = list(DEFAULT_SELF_TALK_TEXTS)
         for key in tuple(data):
             if key.startswith(("click_sound", "collision_sound", "voice_chime", "self_talk_voice", "self_talk_speak")) or key in {"click_self_talk_speak", "festival_reminder_speak"}:
                 data.pop(key, None)
                 continue
             if key in {"chat", "proactive_screen", "file_interpret", "vision_api_key"} or key.startswith(("chat_", "modern_chat_", "vision_")):
                 data.pop(key, None)
-        island = data.get("dynamic_island")
-        if isinstance(island, dict):
-            island.pop("hidden_chat", None)
         for key in (*_RETIRED_BALANCE_KEYS, "pnpm_bin"):
             data.pop(key, None)
         if "agent_link" in data:

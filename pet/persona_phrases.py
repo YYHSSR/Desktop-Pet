@@ -111,6 +111,9 @@ def render_template(template: str, values: Mapping[str, Any] | None = None, auto
     """
     values = _template_values(values or {})
     autohide = set(autohide or ())
+    # 缺少步骤号时保留完整语义，避免空白步骤提示。
+    if "step" in autohide and values.get("step") in (None, ""):
+        template = re.sub(r"第\s*\{step(?::[^}]*)?\}\s*步", "当前步骤", str(template))
     formatter = Formatter()
     output: list[str] = []
     hid_any = False

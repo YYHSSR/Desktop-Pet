@@ -121,10 +121,10 @@ def test_circle_chain_uses_each_members_world_coordinates():
     assert 0 <= contact[4] <= members[1].x + members[1].radius_x
 
 
-def test_static_scene_sets_real_static_flag_only_on_wall():
+def test_held_scene_sets_dragging_flag_only_on_held_pet():
     from scripts.bench_collision_backends import scene
 
-    members = scene(3, "static")
+    members = scene(3, "held")
     assert members[0].is_infinite_mass
-    assert members[0].flags & collision.FLAG_STATIC
-    assert all(not (member.flags & collision.FLAG_STATIC) for member in members[1:])
+    assert members[0].flags & collision.FLAG_DRAGGING
+    assert all(not (member.flags & collision.FLAG_DRAGGING) for member in members[1:])

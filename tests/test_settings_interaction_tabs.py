@@ -37,7 +37,7 @@ def dialog(tmp_path, monkeypatch):
     from pet.config import Config
 
     app = _qapp()
-    monkeypatch.setattr(settings_mod.autostart_mod, "is_enabled", lambda: False)
+
     dlg = settings_mod.ModernSettingsDialog(Config(tmp_path),)
     yield dlg
     dlg.close()

@@ -28,10 +28,6 @@ def test_uninstall_cleanup_reports_autostart_failure(tmp_path, monkeypatch):
     assert results["autostart"] is False
 
 
-
-
-
-
 def test_main_dispatches_uninstall_cleanup(monkeypatch):
     import pet.__main__ as m
     monkeypatch.setattr(sys, "argv", ["pet", "--uninstall-cleanup"])

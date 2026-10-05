@@ -30,8 +30,6 @@ def test_default_config_still_uses_plain_file(tmp_path):
     assert instance.path.name == "config-pet3.json"
 
 
-
-
 def test_retired_balance_settings_do_not_persist(tmp_path):
     config = Config(base=tmp_path)
     config.set("balance_tier_labels_mode", "liangwen")
@@ -48,15 +46,11 @@ def test_retired_balance_settings_do_not_persist(tmp_path):
     assert reloaded.get("self_talk_enabled") is True
 
 
-
-
 def test_save_returns_false_on_write_failure(tmp_path):
     """写盘失败（此处置目标为目录迫使 os.replace 失败）时 save 返回 False。"""
     config = Config(base=tmp_path)
     config.path.mkdir(parents=True, exist_ok=True)
     assert config.save() is False
-
-
 
 
 def test_unmodified_save_does_not_overwrite_newer_disk_changes(tmp_path):
