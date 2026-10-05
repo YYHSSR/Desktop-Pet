@@ -62,7 +62,7 @@
                   },
                   {
                       "name":  "pet_core.dll",
-                      "sha256":  "cdac6d44f17c447d962157eb725bef7efc15e18fb49c5d12b498a8dd51a7f66e",
+                      "sha256":  "905e4f32ec6b736b35d90fd8fdb9f37721497bfef4fc5b9bea1a897209a36023",
                       "architecture":  "pei-x86-64",
                       "direct_imports":  [
                                              "libgcc_s_seh-1.dll",

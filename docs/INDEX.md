@@ -38,7 +38,7 @@
 | [SETTINGS-REPORT-PROBABILITY-2026-09-10.md](SETTINGS-REPORT-PROBABILITY-2026-09-10.md) | 联动事件气泡的概率门语义 | 修改事件概率或覆盖策略之前。 |
 | [STABLE_BUILDS.md](STABLE_BUILDS.md) | 历史onefile产物保护规则 | 修改构建输出名或分发目录之前。 |
 | [WINDOW_PY_SPLIT_GUIDE.md](WINDOW_PY_SPLIT_GUIDE.md) | PetWindow职责与拆分边界 | 整理窗口实现或跨模块状态之前。 |
-| [PR-REPORT-WHALE-TRAY-FEEDBACK-2026-10-04.md](PR-REPORT-WHALE-TRAY-FEEDBACK-2026-10-04.md) | 鲸鱼娘托盘反馈、回应首行、内置检测及本轮打包推送证据 | 追溯本轮自启修复、菜单回应或文档清理时。 |
+| [PR-REPORT-WHALE-TRAY-FEEDBACK-2026-10-04.md](PR-REPORT-WHALE-TRAY-FEEDBACK-2026-10-04.md) | 鲸鱼娘托盘反馈、回应首行与构建证据；追加2026-10-05随机图片、原生托盘切换和成品README验证 | 追溯自启修复、菜单回应、成品目录或文档清理时。 |
 
 ## Agent工作规范
 

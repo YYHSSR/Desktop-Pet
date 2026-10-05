@@ -76,7 +76,7 @@ def test_tray_autostart_click_confirms_state_and_has_visible_checks(app, tmp_pat
     shell._tray_menu, shell._tray_submenus, shell._tray_actions = None, [], []
     tray = shell._build_tray(win)
     try:
-        menu = tray.contextMenu()
+        menu = shell._tray_menu
         assert tray.toolTip() == "鲸鱼娘"
         assert not tray.icon().isNull()
         assert menu.property("paintChecksOnRight")
@@ -89,6 +89,93 @@ def test_tray_autostart_click_confirms_state_and_has_visible_checks(app, tmp_pat
         assert messages[-1] == "开机自启已关闭。"
         menu.aboutToShow.emit()
         assert writes == [True, False]
+    finally:
+        tray.hide()
+        tray.deleteLater()
+        menu.close()
+        menu.deleteLater()
+        app.processEvents()
+
+
+def test_tray_toggle_reads_system_state_when_checked_argument_is_stale(app, tmp_path, monkeypatch):
+    from pet import app as app_module
+    state = {"enabled": False}
+    writes, changes = [], []
+    monkeypatch.setattr(app_module.autostart_mod, "is_enabled", lambda: state["enabled"])
+
+    def write(enabled):
+        writes.append(enabled)
+        state["enabled"] = enabled
+        return True
+
+    monkeypatch.setattr(app_module.autostart_mod, "set_enabled", write)
+    cfg = Config(tmp_path)
+    win = SimpleNamespace(hide_speech_bubble=lambda: None, show_bubble=lambda *_a, **_kw: None)
+    instance = object.__new__(PetInstance)
+    instance.win, instance.config = win, cfg
+    shell = object.__new__(AppShell)
+    shell.app, shell.config, shell._instances, shell.instance = app, cfg, [instance], instance
+    shell._tray_menu, shell._tray_submenus, shell._tray_actions = None, [], []
+    tray = shell._build_tray(win)
+    menu = shell._tray_menu
+    try:
+        auto = next(a for a in menu.actions() if a.text() == "开机自启")
+        auto.changed.connect(lambda: changes.append(auto.isChecked()))
+        auto.triggered[bool].emit(True)
+        assert auto.isChecked() and state["enabled"]
+        auto.triggered[bool].emit(True)
+        assert not auto.isChecked() and not state["enabled"]
+        assert writes == [True, False]
+        assert changes == [True, False]
+    finally:
+        tray.hide()
+        tray.deleteLater()
+        menu.close()
+        menu.deleteLater()
+        app.processEvents()
+
+
+def test_menu_greeting_shows_cartoon_images_without_immediate_repeat(app, tmp_path):
+    from tests.test_pet_interaction_locks import _make_win
+    win = _make_win(app, tmp_path, self_talk_enabled=False)
+    try:
+        win.show()
+        app.processEvents()
+        win.respond_to_menu_click()
+        bubble = win._speech_bubble
+        assert bubble.isVisible()
+        assert bubble._content_kind == "image"
+        assert bubble._raw_text == ""
+        first = win._menu_response_image
+        win.respond_to_menu_click()
+        assert bubble._content_kind == "image"
+        assert win._menu_response_image != first
+    finally:
+        win.close()
+        win.deleteLater()
+        app.processEvents()
+
+
+def test_windows_tray_context_activation_opens_the_styled_qt_menu(app, tmp_path, monkeypatch):
+    from pet import app as app_module
+    from PySide6.QtWidgets import QSystemTrayIcon
+    monkeypatch.setattr(app_module, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(app_module.autostart_mod, "is_enabled", lambda: True)
+    cfg = Config(tmp_path)
+    instance = SimpleNamespace(config=cfg, win=SimpleNamespace(hide_speech_bubble=lambda: None))
+    shell = object.__new__(AppShell)
+    shell.app, shell.config, shell._instances, shell.instance = app, cfg, [instance], instance
+    shell._tray_menu, shell._tray_submenus, shell._tray_actions = None, [], []
+    tray = shell._build_tray(instance.win)
+    menu = shell._tray_menu
+    try:
+        tray.activated.emit(QSystemTrayIcon.ActivationReason.Context)
+        app.processEvents()
+        assert tray.contextMenu() is None
+        assert menu.isVisible()
+        auto = next(a for a in menu.actions() if a.text() == "开机自启")
+        assert auto.isChecked()
+        assert menu._modern_check_layer.isVisible()
     finally:
         tray.hide()
         tray.deleteLater()

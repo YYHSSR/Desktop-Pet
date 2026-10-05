@@ -29,10 +29,14 @@ A bundled fixed tree of action IDs and one-level submenus in
 `pet/menu_templates/modern-default-v1.json`. Capability checks omit unavailable
 actions. User layout editing, alternate templates and Easter-egg entries were
 removed on 2026-10-04. The greeting header ("请点击") invokes the pet's
-response animation and a short bubble; it does not open an image window.
+response animation and a random bundled cartoon image bubble, avoiding an
+immediate repeat. Important work reminders keep priority.
 Behavior repetition uses built-in thresholds, and Todo reminders are retired.
 The tray and all pet menu items reuse the historical modern appearance and
-visible checked-state layer. The tray's stable icon/name is 鲸鱼娘.
+visible checked-state layer. Windows tray Context activation opens the owned
+Qt menu so its stylesheet and check layer appear. Autostart clicks invert the
+current OS state and keep QAction change notifications enabled. The tray's
+stable icon/name is 鲸鱼娘.
 _Avoid_: Serialized QAction, platform-specific menu order
 
 **Menu Presentation Override**:

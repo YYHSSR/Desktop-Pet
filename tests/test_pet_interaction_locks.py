@@ -380,7 +380,7 @@ def test_tray_menu_syncs_mouse_through_from_config(tmp_path):
     manager.instance.win = win
     win.hide_speech_bubble = win._speech_bubble.hide
     tray = manager._build_tray(win)
-    menu = tray.contextMenu()
+    menu = manager._tray_menu
     labels = [action.text() for action in menu.actions() if not action.isSeparator()]
     assert "检查更新" not in labels
     assert "打开网页版 example" not in labels

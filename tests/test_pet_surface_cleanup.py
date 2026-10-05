@@ -112,7 +112,7 @@ def test_tray_owns_system_options_and_refresh_does_not_write_autostart(app, tmp_
     shell._tray_menu, shell._tray_submenus, shell._tray_actions = None, [], []
     tray = shell._build_tray(win)
     try:
-        menu = tray.contextMenu()
+        menu = shell._tray_menu
         labels = [act.text() for act in menu.actions() if not act.isSeparator()]
         assert labels == ["显示 / 隐藏所有桌宠", "鼠标穿透", "开机自启", "退出"]
         state["enabled"] = True

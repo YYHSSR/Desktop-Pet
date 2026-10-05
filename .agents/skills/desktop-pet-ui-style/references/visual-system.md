@@ -37,10 +37,13 @@ Settings own detailed preferences and never duplicate those controls. Menu
 editing, Easter eggs, power saving and Dynamic Island are retired. Show the
 ChatGPT Work/Codex controls first; collapse lengthy text customization.
 
-The greeting header responds through the pet, without a separate image popup.
+The greeting header shows a random bundled cartoon through the pet bubble,
+avoiding an immediate repeat and respecting important work reminders.
 The tray reuses menu typography, background and visible check marks; its icon
 is assets/icon.ico and its tooltip is 鲸鱼娘. Repetition thresholds are internal,
-and Todo rows do not exist. Use the Windows font stack on Windows.
+and Todo rows do not exist. Use the Windows font stack on Windows. Open the
+owned Qt tray menu on Windows Context activation; native HMENU cannot paint
+the shared Qt check layer. Autostart uses current OS state and visible checks.
 
 ## Typography
 

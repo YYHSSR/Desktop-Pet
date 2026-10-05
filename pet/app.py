@@ -29,7 +29,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import shiboken6
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QCursor, QIcon
 from PySide6.QtCore import QPoint, QTimer, Qt
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
@@ -1495,10 +1495,14 @@ class AppShell:
         if tray is None:
             icon = QIcon(str(Path(__file__).resolve().parents[1] / "assets" / "icon.ico"))
             tray = QSystemTrayIcon(icon)
-            tray.activated.connect(
-                lambda reason: self._toggle_all_pets_visible()
-                if reason == QSystemTrayIcon.ActivationReason.DoubleClick else None
-            )
+            def activated(reason) -> None:
+                if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+                    self._toggle_all_pets_visible()
+                elif reason == QSystemTrayIcon.ActivationReason.Context and sys.platform == "win32":
+                    if self._tray_menu is not None:
+                        self._tray_menu.popup(QCursor.pos())
+
+            tray.activated.connect(activated)
         menu = QMenu()
         menu.setObjectName("petTrayMenu")
         menu.aboutToShow.connect(lambda: self.win.hide_speech_bubble() if self.win is not None else None)
@@ -1510,10 +1514,12 @@ class AppShell:
         auto = menu.addAction("开机自启")
         auto.setCheckable(True)
 
-        def set_autostart(enabled: bool) -> None:
+        def set_autostart(_checked: bool) -> None:
+            enabled = not autostart_mod.is_enabled()
             ok = self.instance._set_autostart(enabled, self.win)
-            with QSignalBlocker(auto):
-                auto.setChecked(autostart_mod.is_enabled())
+            # Only triggered writes the system setting; changed remains enabled
+            # so both the platform menu and the painted check receive updates.
+            auto.setChecked(autostart_mod.is_enabled())
             if ok:
                 tray.showMessage("鲸鱼娘", "开机自启已开启。" if enabled else "开机自启已关闭。",
                                  QSystemTrayIcon.MessageIcon.Information, 4000)
@@ -1523,8 +1529,7 @@ class AppShell:
         def sync_checks() -> None:
             with QSignalBlocker(mouse):
                 mouse.setChecked(any(inst.config.get("mouse_through", False) for inst in self.instances))
-            with QSignalBlocker(auto):
-                auto.setChecked(autostart_mod.is_enabled())
+            auto.setChecked(autostart_mod.is_enabled())
 
         sync_checks()
         menu.aboutToShow.connect(sync_checks)
@@ -1534,7 +1539,9 @@ class AppShell:
         install_responsive_menu_style(menu)
         install_modern_check_indicators(menu)
         menu.setObjectName("petTrayMenu")
-        tray.setContextMenu(menu)
+        # Windows' native HMENU cannot paint the Qt check layer or menu QSS.
+        # The tray Context activation opens our owned QMenu on that platform.
+        tray.setContextMenu(None if sys.platform == "win32" else menu)
         tray.setToolTip("鲸鱼娘")
         tray.show()
         self._install_tray_menu(menu, [menu])

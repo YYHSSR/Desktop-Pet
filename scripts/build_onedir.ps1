@@ -222,6 +222,7 @@ if (-not (Test-Path $appDir)) { throw "Build output missing: $appDir" }
 foreach ($notice in @('LICENSE', 'THIRD_PARTY_NOTICES.md')) {
     Copy-Item -LiteralPath (Join-Path $root $notice) -Destination $appDir -Force
 }
+Copy-Item -LiteralPath (Join-Path $root 'packaging\README.portable.md') -Destination (Join-Path $appDir 'README.md') -Force
 
 # =====================================================================
 # Qt runtime post-build (issue: shiboken6 "找不到指定的模块")

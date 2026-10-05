@@ -316,3 +316,70 @@ W6/W10行为阈值改用内置默认值；删除旧配置覆写键和界面控�
 - 文档相对链接检查无失效入口；最终报告纪律测试11项通过；git diff --check通过。
 
 GitHub目标为origin/main，推送在上述门禁完成后执行；最终提交SHA以Git历史和交付消息为准。
+
+## 2026-10-05：随机卡通气泡、Windows托盘实际交互与成品文档
+
+### 修改文件说明
+
+基线e78c15e。本轮保留原有6张截图的本地删除和新SKILL目录，未纳入本轮提交范围。首行改为4.5秒随机卡通图片气泡，不依赖自言自语开关或图片概率，连续点击避开上一张；仍播放回应动画，重要工作提醒优先。复用24张现有配图与现有气泡，不恢复独立图片弹窗。
+
+Windows的系统托盘可使用原生HMENU，而现有蓝色勾选由Qt widget绘制，原生菜单不能显示这层。本次用Windows Context激活打开进程持有的Qt菜单，保留其他平台原有入口。自启点击不相信可能过期的checked参数，反转当前系统值；同步勾选时不再阻断QAction.changed，只有triggered执行写入。参见[Qt Windows托盘实现](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/windows/qwindowssystemtrayicon.cpp)与[QMenu平台菜单接线](https://github.com/qt/qtbase/blob/v6.11.2/src/widgets/widgets/qmenu.cpp)。
+
+成品README来自packaging/README.portable.md，与LICENSE、THIRD_PARTY_NOTICES.md、exe同目录。源码根README是GitHub首页/开发使用入口；AGENTS是工程验证规则，CONTEXT是模块和UI契约，docs是构建/维护指南与验证证据，均不属于桌宠运行模块。LICENSE和第三方声明记录许可及素材/运行库来源，源码与成品各保留一份。
+
+| 文件 | 增行 | 删行 | 改了什么及原因 |
+|---|---:|---:|---|
+| `.agents/skills/desktop-pet-ui-style/references/visual-system.md` | 5 | 2 | 同步图片回应、Windows Qt托盘勾选和实际状态切换契约。 |
+| `CONTEXT.md` | 6 | 2 | 记录首行随机图片与托盘呈现/状态归属，防止再次出现原生菜单和Qt绘制分离。 |
+| `README.md` | 1 | 1 | 更新源码首页的请点击行为说明。 |
+| `docs/INDEX.md` | 1 | 1 | 登记本报告追加证据，不再创建重复的独立反馈报告。 |
+| `docs/ONEDIR_PACKAGING.md` | 2 | 2 | 说明玩家README及许可证在exe同目录、源码入口与成品说明分工。 |
+| `docs/PR-REPORT-WHALE-TRAY-FEEDBACK-2026-10-04.md` | 67 | 0 | 按原报告追加本轮修复、性能、实机及测试证据，保留历史对照。 |
+| `docs/screenshots/whale-tray-2026-10-05/cartoon-bubble.png` | — | — | 本轮真实Windows托盘右键及图片气泡的可见证据。 |
+| `docs/screenshots/whale-tray-2026-10-05/tray-off-dark.png` | — | — | 本轮真实Windows托盘右键及图片气泡的可见证据。 |
+| `docs/screenshots/whale-tray-2026-10-05/tray-off-light.png` | — | — | 本轮真实Windows托盘右键及图片气泡的可见证据。 |
+| `docs/screenshots/whale-tray-2026-10-05/tray-on-light.png` | — | — | 本轮真实Windows托盘右键及图片气泡的可见证据。 |
+| `packaging/README.portable.md` | 16 | 0 | 新增玩家使用说明，供构建复制到成品README.md。 |
+| `pet/app.py` | 18 | 11 | Windows Context事件弹出自有Qt菜单；自启反转系统真实状态并保留changed通知。 |
+| `pet/native/_bin/manifest.json` | 1 | 1 | 重新构建后登记当前构建ID及DLL哈希，原生源码未改。 |
+| `pet/native/_bin/pet_core.dll` | — | — | 随当前成品重新生成原生库，已通过CTest与冻结包ABI/调用检查。 |
+| `pet/window.py` | 18 | 3 | 复用图片气泡显示随机内置卡通，避开上一张，保留重要提醒优先与资源失败反馈。 |
+| `scripts/build_onedir.ps1` | 1 | 0 | 复制玩家README到成品exe同目录，保留已有许可证及第三方声明复制。 |
+| `tests/test_pet_interaction_locks.py` | 1 | 1 | 从进程持有的Qt托盘菜单验证交互，不假定它是原生contextMenu。 |
+| `tests/test_pet_surface_cleanup.py` | 1 | 1 | 更新托盘实际菜单读取口，保留系统选项归属验证。 |
+| `tests/test_single_process_shared.py` | 1 | 1 | 以当前拥有的菜单检验多窗共享切换，适配Windows呈现路径。 |
+| `tests/test_tray_feedback.py` | 88 | 1 | 新增过期checked参数、changed通知、连续随机图片及Windows Context回归。 |
+
+### 性能分析
+
+命令：`python E:/CODX/2026-10-03/shen/work/2026-10-05-feedback/native_feedback.py`，cwd为仓库。真实Windows、Python3.13、PySide6 6.11.2。4次真实注册表切换加Qt鼠标点击，中位71.67ms；24次随机图片加载及呈现，中位18.78ms、P95 34.37ms。样本包含Qt事件处理和绘制，不是纯函数耗时。
+
+整个交互及短稳态采样11.63秒，进程CPU平均3.09%，内存样本68个，末次RSS 171.58MiB、峰值222.28MiB。24次连续换图阶段带来瞬时图片/缓存分配，短测不能证明长期无增长，没有同场A/B比较。稳态没有新增线程、网络请求、轮询或定时器；图片仅点击时读取本地现有文件，4.5秒隐藏复用原气泡计时器；当前仅保存上一张路径。
+
+### 实机运行记录
+
+探针枚举自身进程的QTrayIconMessageWindow，发送Qt Windows托盘后端使用的WM_APP+101/WM_CONTEXTMENU通知，从实际托盘激活路径打开菜单，随后QTest鼠标点击菜单行，未用QAction.trigger代替用户路径。使用唯一临时HKCU Run值完成开启/关闭/开启/关闭；每次同时确认注册表值、勾选和桌宠提示一致。结束清除临时注册项，玩家原有自启状态不变。退出通过AppShell收口全部Qt/IPC资源；最终退出0，输出NATIVE_TRAY_AND_CARTOON_OK。
+
+24次卡通图片气泡加载成功且无紧邻重复；浅色、深色Qt菜单和蓝色勾选均已观察。当前没有设置页布局改动，720/1100设置截图门禁不适用；macOS/Linux未实机验证，测试保留平台分支。
+
+![未开启托盘](screenshots/whale-tray-2026-10-05/tray-off-light.png)
+![已开启托盘](screenshots/whale-tray-2026-10-05/tray-on-light.png)
+![深色托盘](screenshots/whale-tray-2026-10-05/tray-off-dark.png)
+![随机卡通图片气泡](screenshots/whale-tray-2026-10-05/cartoon-bubble.png)
+
+### 测试与验证
+
+图片回归在修改前因显示text而失败；Windows Context入口回归在修改前因原生contextMenu路径而失败；旧_build_tray的反事实回归在两次True激活后仍启用而失败，现均转绿。focused相关52项通过。全量1590通过、6跳过，114.61秒；11个既有Qt弃用警告。Ruff与git diff --check通过。3个受影响测试族（test_tray_feedback、test_pet_interaction_locks、test_single_process_shared）在20个CPU负载进程下连续三轮各40项通过，外部耗时2.11/2.08/2.70秒；500ms采样16次，平均CPU97.44%、峰值100%，负载进程已停止。最终便携包验收见下节。
+
+高负载要求来自根AGENTS.md的推送门禁，不由SKILL单独决定。它发现繁忙机器上的时序错误；上轮共享解码、IPC、监视线程均改动，需要广泛覆盖。本轮仅托盘、共享窗口及交互路径发生变化，高负载族相应缩小；压力测试不能替代原生菜单点击验证，也不是每个文案改动都应重跑全部族。
+
+
+### 最终便携包验收
+
+执行scripts/build_onedir.ps1 -Variant webm-chat，Python为D:/python/miniconda/envs/py13/python.exe。构建子进程退出0，原生CTest 1/1通过；Qt运行库、中文编码、DLL链、NATIVE_BUNDLE_OK、FROZEN_NATIVE_OK、PET_QT_WINDOW_OK、SETTINGS_QT_WINDOW_OK均通过。历史冻结onefile文件未修改。
+
+进一步启动实际新exe，使用隔离APPDATA配置，发送Windows托盘Context通知，以原生窗口键盘Home/Down/Down/Enter选择自启，实际系统状态连续开启、关闭，菜单关闭正确。输出FROZEN_NATIVE_TRAY_OK；最后恢复玩家完整原始注册表值（含类型和命令），进程正常退出。这里只临时验证真实分发exe，没有给产品添加测试专用开关。
+
+成品目录dist-onedir/dsh-pet-standalone-webm-chat包含README.md、LICENSE、THIRD_PARTY_NOTICES.md、exe和_internal。ZIP为129.74MiB，共938个文件，CRC通过。嵌入模块确认包含新图片回应方法，不含已退役待办/岛/菜单编排/彩蛋/音效；图标、玩家README、许可证及内置图片均存在。ZIP SHA256：`824b86acbbea5c3176fcd28f580fb4da332fb0e4c3322303850070e42bcbe864`。
+
+日志和ZIP保存在仓库外work/2026-10-05-feedback及outputs/2026-10-05-feedback。本轮提交只包含本轮修改、资源与证据；原有截图删除及SKILL目录保留在本地工作区。GitHub提交SHA在最终交付消息中提供。

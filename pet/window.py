@@ -3189,10 +3189,25 @@ class PetWindow(QWidget, WindowFeatureGateMixin):
 
 
     def respond_to_menu_click(self) -> None:
-        """菜单首行与真实点击共用回应动画；提醒队列仍优先。"""
+        """首行播放回应动画和内置随机卡通配图；重要提醒优先。"""
         self._on_click()
-        if not self._alert_current and not self._alert_queue and not self._sticky_bubble_active:
-            self.show_bubble("鲸鱼娘收到，陪你一起冲！", duration_ms=4500)
+        if (not self.isVisible() or self._bubble_suppressed or self._alert_current
+                or self._alert_queue or self._sticky_bubble_active):
+            return
+        images = list_self_talk_images(Path(__file__).resolve().parents[1] / "assets" / "big_blue_fat_fish")
+        previous = getattr(self, "_menu_response_image", None)
+        candidates = [path for path in images if path != previous] or images
+        random.shuffle(candidates)
+        _set_speech_bubble_interactive(self)
+        for path in candidates:
+            if self._speech_bubble.show_image(
+                path, window_placement.bubble_anchor_rect(self), 4500,
+                pet_scale=self.scale, image_scale=self._self_talk_image_scale,
+            ):
+                self._menu_response_image = path
+                self.hold_bubble(6.5)
+                return
+        self.show_bubble("卡通图片没能加载，请检查角色资源。", duration_ms=4500)
 
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802

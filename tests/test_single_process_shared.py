@@ -206,7 +206,7 @@ def test_shared_tray_toggles_all_windows(tmp_path, app, monkeypatch):
         second = _make_second_record_win(shell, tmp_path, monkeypatch)
 
         tray = shell._build_tray(primary_win)
-        menu = tray.contextMenu()
+        menu = shell._tray_menu
         labels = [a.text() for a in menu.actions() if not a.isSeparator()]
         assert labels == ["显示 / 隐藏所有桌宠", "鼠标穿透", "开机自启", "退出"]
         assert all(a.menu() is None for a in menu.actions())
