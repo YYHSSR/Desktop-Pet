@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Builds a PyInstaller --onedir variant (no runtime extraction, no _MEI cache),
-    output at dist-onedir\<name>\ containing <name>.exe.
+    output at dist-onedir\ containing <name>.exe and _internal\.
 
     Variants:
       webm-chat   - WebM pet + ChatGPT Work/Codex link (default; legacy variant ID)
@@ -17,7 +17,7 @@
       The whole build runs with PYTHONUTF8=1 + PYTHONIOENCODING=utf-8 so neither
       PyInstaller nor the helper scripts can decode UTF-8 sources/resources with
       a legacy codepage (GBK/cp1252). After PyInstaller, an encoding self-check
-      (scripts\check_bundle_encoding.py) scans the bundle's bytecode/resources/
+      (tests\tools\check_bundle_encoding.py) scans the bundle's bytecode/resources/
       filenames for known Chinese literals and fails the build if any are garbled.
 
     Bundle slimming (2026-09):
@@ -42,7 +42,8 @@ param(
     [switch]$SkipCheck,
     [switch]$SkipSlim,
     [switch]$SkipGuiSmoke,
-    [switch]$Gif
+    [switch]$Gif,
+    [switch]$KeepBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -67,21 +68,24 @@ $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
 
 $variants = @{
-    'webm-chat' = @{ Name = 'dsh-pet-standalone-webm-chat'; Entry = 'packaging\pet_entry.py' }
-    'webm'      = @{ Name = 'dsh-pet-standalone-webm';      Entry = 'packaging\pet_entry.py' }
-    'gif-chat'  = @{ Name = 'dsh-pet-standalone-gif-chat';  Entry = 'packaging\pet_entry.py'; Gif = $true }
-    'gif'       = @{ Name = 'dsh-pet-standalone-gif';       Entry = 'packaging\pet_entry.py'; Gif = $true }
+    'webm-chat' = @{ Name = 'dsh-pet-standalone-webm-chat'; Entry = 'scripts\pet_entry.py' }
+    'webm'      = @{ Name = 'dsh-pet-standalone-webm';      Entry = 'scripts\pet_entry.py' }
+    'gif-chat'  = @{ Name = 'dsh-pet-standalone-gif-chat';  Entry = 'scripts\pet_entry.py'; Gif = $true }
+    'gif'       = @{ Name = 'dsh-pet-standalone-gif';       Entry = 'scripts\pet_entry.py'; Gif = $true }
 }
 
 if (-not $variants.ContainsKey($Variant)) {
     throw "Unknown variant: $Variant (available: $($variants.Keys -join ', '))"
 }
 $name  = $variants[$Variant].Name
-$entry = 'packaging\pet_entry.py'
+$finalAppDir = Join-Path $root 'dist-onedir'
+$stageDist = Join-Path $root 'build-onedir\dist'
+$entry = 'scripts\pet_entry.py'
 $isGif = $variants[$Variant].Gif
 
 # GIF builds ship assets/characters_gif (webm dir must NOT be bundled, else runtime prefers webm)
-$datas = if ($isGif) { 'assets/characters_gif;assets/characters_gif' } else { 'assets/characters;assets/characters' }
+$assetDirectory = if ($isGif) { 'assets/characters_gif' } else { 'assets/characters' }
+$datas = "$(Join-Path $root $assetDirectory);$assetDirectory"
 $excludes = @('--exclude-module', 'keyring')
 foreach ($audioModule in @('PySide6.QtMultimedia','PySide6.QtMultimediaWidgets','edge_tts','aiofiles','aiohttp','certifi')) {
     $excludes += @('--exclude-module', $audioModule)
@@ -192,7 +196,8 @@ if (-not $SkipBuild) {
     # 注入变体标识：配置目录/会话/开机自启按变体隔离（pet/config.py 读取）。
     # 必须写 BOM-free UTF-8：PowerShell 5.1 的 Set-Content -Encoding UTF8 会带
     # BOM，且内容若含中文再被旧编辑器按 GBK 另存就会污染产物（issue #26）。
-    $variantPy = Join-Path $root 'packaging\build_variant.py'
+    New-Item -ItemType Directory -Path (Join-Path $root 'build-onedir') -Force | Out-Null
+    $variantPy = Join-Path $root 'build-onedir\build_variant.py'
     [System.IO.File]::WriteAllText(
         $variantPy,
         "VARIANT = '$Variant'`n",
@@ -200,29 +205,27 @@ if (-not $SkipBuild) {
     )
     & $PythonExe -m PyInstaller --noconfirm --clean --onedir --windowed --noupx `
         --name $name `
-        --distpath dist-onedir `
+        --distpath $stageDist `
         --workpath build-onedir `
-        --icon assets\icon.ico `
+        --specpath build-onedir `
+        --paths $root `
+        --paths (Join-Path $root 'build-onedir') `
+        --icon (Join-Path $root 'assets\icon.ico') `
         --collect-all imageio_ffmpeg `
-        --collect-all tzdata `
         --collect-all psutil `
         @nativeBinaries `
         --add-data $datas `
-        --add-data "assets\big_blue_fat_fish;assets\big_blue_fat_fish" `
-        --add-data "assets\icon.ico;assets" `
-        --add-data "pet\persona_presets;pet\persona_presets" `
-        --add-data "pet\menu_templates;pet\menu_templates" `
+        --add-data "$(Join-Path $root 'assets\big_blue_fat_fish');assets\big_blue_fat_fish" `
+        --add-data "$(Join-Path $root 'assets\icon.ico');assets" `
+        --add-data "$(Join-Path $root 'pet\persona_presets');pet\persona_presets" `
+        --add-data "$(Join-Path $root 'pet\menu_templates');pet\menu_templates" `
         @excludes `
         $entry
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed: $LASTEXITCODE" }
 }
 
-$appDir = Join-Path $root "dist-onedir\$name"
+$appDir = if ($SkipBuild) { $finalAppDir } else { Join-Path $stageDist $name }
 if (-not (Test-Path $appDir)) { throw "Build output missing: $appDir" }
-foreach ($notice in @('LICENSE', 'THIRD_PARTY_NOTICES.md')) {
-    Copy-Item -LiteralPath (Join-Path $root $notice) -Destination $appDir -Force
-}
-Copy-Item -LiteralPath (Join-Path $root 'packaging\README.portable.md') -Destination (Join-Path $appDir 'README.md') -Force
 
 # =====================================================================
 # Qt runtime post-build (issue: shiboken6 "找不到指定的模块")
@@ -302,7 +305,7 @@ if (Test-Path -LiteralPath $condaBin) {
     if ($LASTEXITCODE -ne 0) { throw "[Python] conda runtime collection failed: $LASTEXITCODE" }
     Write-Host "[Python] conda extension DLL chain staged" -ForegroundColor Green
 } else {
-    & $PythonExe (Join-Path $root 'scripts\candidate_release.py') runtime-standard --bundle $appDir
+    & $PythonExe (Join-Path $root 'scripts\collect_conda_runtime.py') --bundle $appDir
     if ($LASTEXITCODE -ne 0) { throw "[Python] standard runtime manifest failed: $LASTEXITCODE" }
     Write-Host "[Python] standard runtime manifest staged" -ForegroundColor Green
 }
@@ -385,7 +388,7 @@ if (-not $SkipSlim) {
 # 编码污染即中止，绝不把乱码包发出去。
 if (-not $SkipCheck) {
     Write-Host "[1.6/3] Chinese-encoding self-check on bundle..." -ForegroundColor Cyan
-    & $PythonExe scripts\check_bundle_encoding.py --dir $appDir
+    & $PythonExe tests\tools\check_bundle_encoding.py --dir $appDir
     if ($LASTEXITCODE -ne 0) {
         throw "Bundle encoding check failed - refusing to package garbled output (issue #26)"
     }
@@ -401,15 +404,15 @@ if (-not $SkipCheck) {
 $exePath = Join-Path $appDir "$name.exe"
 if (-not (Test-Path $exePath)) { throw "Build exe missing: $exePath" }
 
-$verifyScript = Join-Path $root 'scripts\verify_bundle_qt.py'
+$verifyScript = Join-Path $root 'tests\tools\verify_bundle_qt.py'
 if (-not (Test-Path $verifyScript)) { throw "missing verify script: $verifyScript" }
 Write-Host "[smoke] verifying bundle DLL chain (Shiboken/QtCore/QtGui/QtWidgets)..." -ForegroundColor Cyan
 & $PythonExe $verifyScript --internal (Join-Path $appDir '_internal')
 if ($LASTEXITCODE -ne 0) { throw "[smoke] bundle DLL chain verification failed" }
 Write-Host "[smoke] bundle DLL chain OK" -ForegroundColor Green
-& $PythonExe -m scripts.verify_native_bundle --internal (Join-Path $appDir '_internal')
+& $PythonExe -m tests.tools.verify_native_bundle --internal (Join-Path $appDir '_internal')
 if ($LASTEXITCODE -ne 0) { throw "[smoke] pet_core native bundle verification failed" }
-& $PythonExe scripts\verify_frozen_native.py --exe $exePath
+& $PythonExe tests\tools\verify_frozen_native.py --exe $exePath
 if ($LASTEXITCODE -ne 0) { throw "[smoke] frozen native self-test failed" }
 
 if (-not $SkipGuiSmoke) {
@@ -429,7 +432,7 @@ if ($proc.HasExited) {
     throw "[smoke] exe exited early (code $($proc.ExitCode)) - runtime dependency broken"
 }
 $proc.Refresh()
-& $PythonExe scripts\verify_pet_window.py --pid $proc.Id
+& $PythonExe tests\tools\verify_pet_window.py --pid $proc.Id
 if ($LASTEXITCODE -ne 0) {
     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
     throw "[smoke] exe running but pet window missing - startup failed (likely 'Failed to execute script')"
@@ -453,7 +456,7 @@ try {
         throw "[smoke] --settings exited early (code $($settingsProc.ExitCode)) - arg routing broken"
     }
     $settingsProc.Refresh()
-    & $PythonExe scripts\verify_settings_window.py --pid $settingsProc.Id
+    & $PythonExe tests\tools\verify_settings_window.py --pid $settingsProc.Id
     if ($LASTEXITCODE -ne 0) { throw "[smoke] --settings Qt window missing" }
     # 配置目录名随打包变体走（= $name，如 dsh-pet-standalone-webm-chat），
     # 写死基础名会让 webm-chat 等变体误报"没拿到锁"（实机踩过）
@@ -479,5 +482,40 @@ if ($null -eq $petSmokeOriginalQpa) {
 Write-Host "[smoke] --settings started OK" -ForegroundColor Green
 }
 
+& $PythonExe (Join-Path $root 'scripts\collect_runtime_licenses.py') --bundle $appDir --ucrt-bin $UcrtBin
+if ($LASTEXITCODE -ne 0) { throw 'Runtime license collection failed' }
+
+# Publish only after all validation succeeds. Keep the previous bundle for rollback.
+if (-not $SkipBuild) {
+    $backupDir = Join-Path $root 'build-onedir\previous-bundle'
+    foreach ($checkedPath in @($finalAppDir, $backupDir, $appDir)) {
+        $absolutePath = [IO.Path]::GetFullPath($checkedPath)
+        if (-not $absolutePath.StartsWith($root.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Unsafe bundle path: $absolutePath"
+        }
+        if ((Test-Path -LiteralPath $absolutePath) -and ((Get-Item -LiteralPath $absolutePath).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw "Refusing linked bundle directory: $absolutePath"
+        }
+    }
+    if (Test-Path -LiteralPath $backupDir) { throw "Previous rollback directory remains: $backupDir" }
+    if (Test-Path -LiteralPath $finalAppDir) { Move-Item -LiteralPath $finalAppDir -Destination $backupDir }
+    try {
+        Move-Item -LiteralPath $appDir -Destination $finalAppDir
+    } catch {
+        if (Test-Path -LiteralPath $backupDir) { Move-Item -LiteralPath $backupDir -Destination $finalAppDir }
+        throw
+    }
+    $appDir = $finalAppDir
+    $exePath = Join-Path $appDir "$name.exe"
+}
+if (-not $KeepBuild) {
+    foreach ($buildDirectory in @('build-native', 'build-onedir')) {
+        $buildPath = [IO.Path]::GetFullPath((Join-Path $root $buildDirectory))
+        if (-not $buildPath.StartsWith($root.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe cleanup: $buildPath" }
+        if (Test-Path -LiteralPath $buildPath) {
+            if ((Get-Item -LiteralPath $buildPath).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Refusing linked build directory: $buildPath" }
+            Remove-Item -LiteralPath $buildPath -Recurse -Force
+        }
+    }
+}
 Write-Host "[2/2] Done. onedir dir: $appDir (exe: $exePath)" -ForegroundColor Green
-Write-Host "      Installer: compile packaging\dsh-pet-$Variant.iss with ISCC.exe"

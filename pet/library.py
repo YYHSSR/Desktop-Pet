@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QObject, QTimer, Signal
-from PySide6.QtGui import QImage, QMovie
+from PySide6.QtGui import QMovie
 
 from . import catalog
 from . import perfstats
@@ -169,7 +169,7 @@ class MovieLibrary(QObject):
         # 只释放同代次持有：pause_warm 换代的迟到 release 成为 no-op，
         # 不会误释放换代后新交互的持有（可重入配对不被 pause 破坏）。
         self._warm_generation = 0
-        # Phase 2：动画预热总开关（默认开）。关闭时不启动高/低优先级预热，
+        # 动画预热总开关（默认开）。关闭时不启动高/低优先级预热，
         # 也不在窗口恢复显示时自动 resume 预热；首次播放/交互按需同步解码。
         self._prewarm_enabled = bool(prewarm_enabled)
         # 低优先级批次去重：同一时间最多一个在飞批次（timer 到点/50ms 重试/
@@ -260,21 +260,6 @@ class MovieLibrary(QObject):
             return None
         return vals
 
-    def _load_move_strides(self) -> dict[str, float]:
-        '''加载 move_strides.json：移动动画每圈（scale=1.0）地面位移像素数。
-
-        缺文件/解析失败 → 空 dict（窗口回退 catalog.MOVE_STRIDE_DEFAULT_PX），
-        绝不抛异常。只收数值项与 {'stride': 数值} 对象项："_comment" 等备注
-        字段与其余项静默忽略。
-        '''
-        return self._load_move_sidecar()[0]
-
-    def _load_move_curves(self) -> dict[str, list[float]]:
-        '''加载 move_strides.json 对象项里的 curve：圈内逐帧位移曲线。
-
-        校验不过（非列表/太短/越界/回退/首尾不符）静默跳过，绝不抛异常。
-        '''
-        return self._load_move_sidecar()[1]
 
     def _read_move_strides_json(self) -> dict:
         import json
@@ -349,9 +334,8 @@ class MovieLibrary(QObject):
 
         高优先级（pinned 首帧）= 用户手指的瞬时事件，零预测提前量：
           click（点击）、drag（拖拽）、turn（拖拽变向/掷骰转向）。
-        低优先级 = idle / move / 随机动作池：idle-return 与 move 由批10-A1
-        预测式预热覆盖（播放点前 ~350ms 后台预解码），且 idle 常播在 LRU 里
-        永远热，不需要 pinned 常驻（批10-A3 瘦身，首帧预算随之 32→8MB）。
+        低优先级 = idle / move / 随机动作池：idle-return 与 move 由预测式预热覆盖（播放点前 ~350ms 后台预解码），且 idle 常播在 LRU 里
+        永远热，不需要 pinned 常驻（瘦身，首帧预算随之 32→8MB）。
         """
         names = list(self._manifest)
         cats = catalog.build_categories(
@@ -372,7 +356,7 @@ class MovieLibrary(QObject):
         # 低优先级也必须去重（与 high 同构）：build_categories 在无 idle 兜底时
         # 会把随机动作池里的一个 clip 同时归入 idles 与 acts（Safety fallback），
         # 若不去重则同一素材在单批里被预热两次（重复拉起 ffmpeg）。dict.fromkeys
-        # 保序去重，绝不改变池构成。批10-A3 缩池后该路径暴露为 CI 负载 flake。
+        # 保序去重，保持随机动作池的构成。
         low = list(dict.fromkeys(
             n for n in (*(cats['idles'] or []), *(cats['moves'] or []),
                         *(cats['acts'] or [])) if n not in high
@@ -557,7 +541,7 @@ class MovieLibrary(QObject):
     def resume_warm(self) -> None:
         """窗口恢复显示时补齐预热：低优先级池未建完或首帧未预热完则重新排期。"""
         if not self._prewarm_enabled:
-            return  # Phase 2：动画预热关闭时，隐藏/恢复都不再自动拉起预热
+            return  # 动画预热关闭时，隐藏/恢复都不再自动拉起预热
         self._warm_paused = False
         try:
             _, low = self._priority_names()
@@ -782,7 +766,7 @@ class MovieLibrary(QObject):
                 )
 
     def warm_predicted(self, name: str) -> None:
-        """批10-A1：后台预解码预测动画的首帧（Phase 1，尽力而为）。
+        """后台预解码预测动画的首帧（Phase 1，尽力而为）。
 
         GLM A-1 / A3：预测预热只复用「交互让路 / 隐藏暂停 / warm_first_frame
         幂等」三重闸门，webm_clip.py 零改动；不预起 reader（Phase 2 挂起）。
@@ -801,7 +785,7 @@ class MovieLibrary(QObject):
         if self._warm_paused or not self._prewarm_enabled:
             return
         if session_ending():
-            return  # 会话结束（关机/注销）：绝不起预热线程拉 ffmpeg（issue #111）
+            return  # 会话结束（关机/注销）：绝不起预热线程拉 ffmpeg
         clip = self.movie(name)
         generation = self._warm_generation
 
@@ -860,23 +844,3 @@ class MovieLibrary(QObject):
     def movies(self) -> dict[str, object]:
         """当前已创建（已加载）的 clip 映射，供窗口层连接信号。"""
         return dict(self._movies)
-
-
-def clip_current_image(clip):
-    """取 clip 当前显示帧为 QImage（零拷贝优先，只在 GUI 线程调用）。
-
-    WebMClip 已持有 _current_image，优先走 currentImage() 直取——省掉一次
-    QPixmap.fromImage→toImage 的全画布往返（GUI 减负 Step1b）。clip 无该
-    能力（GifClip）或当前无帧时，回退 currentPixmap().toImage()，与旧链
-    逐位一致。返回 None 表示当前没有可显示帧（首帧未就绪/素材损坏），
-    调用方按原有空判语义跳过本帧。
-    """
-    getter = getattr(clip, 'currentImage', None)
-    if callable(getter):
-        img = getter()
-        if isinstance(img, QImage) and not img.isNull():
-            return img
-    pm = clip.currentPixmap()
-    if pm is None or pm.isNull():
-        return None
-    return pm.toImage()

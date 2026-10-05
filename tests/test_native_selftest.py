@@ -11,7 +11,7 @@ def test_native_selftest_uses_default_path_and_records_native_call(tmp_path, mon
     if not loader._default_path().is_file():
         pytest.skip("native DLL is not staged")
     monkeypatch.delenv("PET_CORE_DLL", raising=False)
-    from pet.native.selftest import run_self_test
+    from pet.native.diagnostics import run_self_test
 
     output = tmp_path / "result.json"
     assert run_self_test(output, mode="native") == 0
@@ -27,7 +27,7 @@ def test_native_selftest_uses_default_path_and_records_native_call(tmp_path, mon
 
 def test_native_selftest_forced_missing_fails_and_auto_falls_back(tmp_path, monkeypatch):
     monkeypatch.setenv("PET_CORE_DLL", str(tmp_path / "missing.dll"))
-    from pet.native.selftest import run_self_test
+    from pet.native.diagnostics import run_self_test
 
     native_output = tmp_path / "native.json"
     assert run_self_test(native_output, mode="native") != 0

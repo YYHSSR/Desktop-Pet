@@ -164,18 +164,18 @@ def clear_spawned_pets(config_dir: Path | str) -> dict:
     slot-0 主肥鱼不受影响。
     返回 {"killed_pids": [...], "failed_pids": [...]}。
 
-    批 G：杀进程后必须确认进程真的死掉才删标记——旧实现「杀失败静默吞掉 +
+    杀进程后必须确认进程真的死掉才删标记——旧实现「杀失败静默吞掉 +
     无条件删标记」，子进程存活且痕迹清零（实机复现：第二只子肥鱼幸存），
     且全程零日志无法排查。杀失败的 pid 保留标记并记入 failed_pids，
     供下次重试/结果框呈报。
 
-    批 H：①枚举源加 slots/slot-*.lock（没写过 runtime 标记的小肥鱼也持有
+    ①枚举源加 slots/slot-*.lock（没写过 runtime 标记的小肥鱼也持有
     slot 锁，否则未拖动过的新鱼漏清）；②杀前用 exe 路径核验身份——陈旧
     标记的 pid 可能已被无关进程复用，误杀会杀死无辜进程/打不动受保护进程
     （实机事故：0 杀 2 失败），识别为复用的按陈旧标记直接清理；③taskkill
     加 CREATE_NO_WINDOW，GUI 下不再每杀一只弹空白控制台窗口。
 
-    批 I：①探活改 GetExitCodeProcess==STILL_ACTIVE——OpenProcess 对「已死但
+    ①探活改 GetExitCodeProcess==STILL_ACTIVE——OpenProcess 对「已死但
     父进程还持有句柄」的子进程仍可打开，旧探活把杀成功的子鱼误判存活
     （实机：杀了还白等两轮 2s 并误报未能退出）；②两段式杀法——先一口气
     全部结束再统一等确认，N 只也只需一次等待窗口（旧逐只杀等串行 N×2s）；

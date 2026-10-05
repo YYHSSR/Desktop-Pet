@@ -82,7 +82,7 @@ def _run_settings(config=None) -> int:
 
 def _main() -> int:
     if "--native-self-test" in sys.argv:
-        from .native.selftest import main as native_self_test_main
+        from .native.diagnostics import main as native_self_test_main
         return native_self_test_main()
     # 卸载清理走无 GUI 路径：不导入 pet.app（避免拉起 QApplication/事件循环）。
     if "--uninstall-cleanup" in sys.argv:

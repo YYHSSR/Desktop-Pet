@@ -44,7 +44,7 @@ EDGE_ENTER_MS = 300
 EDGE_STRAIGHTEN_MS = 250
 EDGE_RETURN_MS = 300
 EDGE_IDLE_SECONDS = 5.0
-# 碰撞撞飞落地停稳后允许重新进入探头吸附前的等待秒数（批 A）。
+# 碰撞撞飞落地停稳后允许重新进入探头吸附前的等待秒数。
 EDGE_REENTRY_SECONDS = 5.0
 
 OFF = "OFF"
@@ -150,7 +150,7 @@ class EdgeProbeController:
         self._transition_to_exposure = 1.0
         self._hidden = False
         self._paused_at = 0.0
-        # 批 A：碰撞撞飞取消会话后，是否等待/正在执行“落地停稳→边缘重进”流程。
+        # 碰撞撞飞取消会话后，是否等待/正在执行“落地停稳→边缘重进”流程。
         # _reentry_armed    True 表示本次撞飞取消源于碰撞，落地后可重新进入探头。
         # _reentry_active   True 表示 5 秒重进倒计时正在进行。
         # _reentry_remaining 剩余秒数。
@@ -179,8 +179,6 @@ class EdgeProbeController:
     def current_angle_deg(self) -> float:
         return self._angle_deg if self.active else 0.0
 
-    def current_exposure(self) -> float:
-        return self._exposure if self.active else 1.0
 
     # ------------------------------------------------------------ 开关
     def set_enabled(self, on: bool) -> None:
@@ -206,7 +204,7 @@ class EdgeProbeController:
 
     def on_drag_started(self) -> None:
         if self._reentry_active:
-            # 批 A：重新进入探头吸附的倒计时期间发生拖拽，作废本次倒计时。
+            # 重新进入探头吸附的倒计时期间发生拖拽，作废本次倒计时。
             self._cancel_reentry()
         if self.active and self.enabled and not self._hidden:
             self.cancel("drag_away", restore=False)
@@ -269,7 +267,7 @@ class EdgeProbeController:
     def cancel(self, reason: str = "", restore: bool = False) -> None:
         """取消会话。restore=True 时恢复进入探头前的窗口 x（用于关闭功能/角色切换）。
 
-        批 A：碰撞撞飞（reason == "collision_throw"）并确实处于激活会话时，标记
+        碰撞撞飞（reason == "collision_throw"）并确实处于激活会话时，标记
         落地后允许重新进入探头（_reentry_armed），由 on_throw_settled 接续。
         """
         was_active = self.active

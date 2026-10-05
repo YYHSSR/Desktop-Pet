@@ -11,7 +11,7 @@ TEMPLATE_VERSION = "persona-phrases/v1"
 
 # 显式注入的展示参数：每个 key 渲染时由调用点（pet/agent_link.py、pet/app.py）
 # 直接以 kwargs 传入，保证可用。上游记录附带字段见 UPSTREAM_FIELDS。
-# 对齐审计见 docs/PERSONA-TEMPLATE-FIELD-ALIGNMENT-2026-09-05.md。
+# 文案占位符的字段契约由本模块及 agent_event_protocol 定义。
 VARIABLES = {
     "name": "Agent 展示名称（所有事件都会注入）",
     "command": "命令文本（approval.command=待审批命令；activity.*=工具命令，上游记录提供时可用；已折叠单行、超长截断）",

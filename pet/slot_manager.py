@@ -219,12 +219,12 @@ def get_config_path_for_slot(config_dir: Path | str, slot_id: int) -> Path:
 
 
 # 新 slot 落种/刷新时剔除的每窗状态键（位置/朝向不继承，其余设置跟随主配置）。
-# 批 C：落种/刷新永不写位置键（位置由各子肥鱼拖动后自存自管，生成逻辑不碰）。
+# 落种/刷新永不写位置键（位置由各子肥鱼拖动后自存自管，生成逻辑不碰）。
 _SEED_EXCLUDE_KEYS = ("rx", "ry", "screen_name", "facing")
 
 
 def seed_slot_config_from_main(config_dir: Path | str, slot_id: int) -> bool:
-    """新 slot 的初始配置跟随主设置；对目标 slot 三分支（批 C）：
+    """新 slot 的初始配置跟随主设置；对目标 slot 三分支（）：
 
     - slot 配置文件不存在 → 按当前主设置落种（含 spawn_inherit_size /
       spawn_scale 逻辑）；
@@ -391,7 +391,7 @@ def migrate_legacy_spawns(config_dir: Path | str) -> bool:
         return True
 
     # 检查是否有旧实例正在运行（通过 runtime marker 探测；同时认旧名与
-    # 批5.2 版本化新名，否则多进程模式的新标记匹配不到、迁移被误放行）
+    # 版本化新名，否则多进程模式的新标记匹配不到、迁移被误放行）
     for runtime_file in list_runtime_marker_files(config_path):
         try:
             data = json.loads(runtime_file.read_text(encoding="utf-8"))
@@ -524,7 +524,7 @@ def pid_alive(pid: int) -> bool:
         return False
 
 
-# --- 批5.2 R4：runtime 标记格式版本化（多窗每窗一份，旧 glob 不匹配）--------
+# --- R4：runtime 标记格式版本化（多窗每窗一份，旧 glob 不匹配）--------
 # 旧版（runtime-<pid>.json）用 glob('runtime-*.json') 读取；为避免新旧混跑时
 # 旧版把新版标记也计入「存活实例」而虚高计数（多开位置避让被干扰），新版标记
 # 改用不与 'runtime-*.json' 匹配的 pet-runtime-v2-<pid>-slot-<N>.json 前缀。
@@ -544,7 +544,7 @@ def _slot_label(instance_id: str) -> str:
 def runtime_marker_name(instance_id: str = "", *, versioned: bool = False) -> str:
     """返回某窗 runtime 标记文件名。versioned=False 用旧名
     runtime-<pid>.json（单窗/flag 关时保持旧行为）；True 用版本化新名
-    pet-runtime-v2-<pid>-slot-<N>.json（批5.2 多窗，规避旧 glob 匹配）。"""
+    pet-runtime-v2-<pid>-slot-<N>.json（多窗，规避旧 glob 匹配）。"""
     pid = os.getpid()
     if versioned:
         return f"{_RUNTIME_V2_PREFIX}{pid}-slot-{_slot_label(instance_id)}.json"
@@ -597,7 +597,7 @@ def delete_runtime_marker(config_dir: Path | str, instance_id: str = "") -> None
 def list_runtime_marker_files(config_dir: Path | str) -> list[Path]:
     """列出 config 目录内全部 runtime 标记文件。
 
-    同时认旧名 ``runtime-<pid>.json`` 与批5.2 版本化新名
+    同时认旧名 ``runtime-<pid>.json`` 与版本化新名
     ``pet-runtime-v2-<pid>-slot-<N>.json``。清理/迁移必须覆盖两种命名，否则
     多进程模式下的新标记（只写 v2 名）匹配不到、子进程杀不掉/迁移被误放行。
     """
@@ -619,10 +619,10 @@ def read_live_instances(
 ) -> list[tuple[int, int, int, int, int]]:
     """读取目录内 runtime 标记，返回存活实例 (pid, x, y, w, h) 列表。
 
-    同时认旧（runtime-<pid>.json）与批5.2 新（pet-runtime-v2-*）两种命名
+    同时认旧（runtime-<pid>.json）与新（pet-runtime-v2-*）两种命名
     （避让定位兼容新旧混跑）。死进程 pid、损坏 JSON、字段非法的标记顺手
     删除（避免越积越多）；exclude_markers（本窗自己的标记路径/文件名）跳过
-    且保留——批5.2 多窗同 pid 下不能再用 exclude_pid 这种按 pid 过滤的
+    且保留——多窗同 pid 下不能再用 exclude_pid 这种按 pid 过滤的
     方式（会把同进程所有窗都排除）。pid_alive_fn 可注入（测试用）。
     """
     alive = pid_alive_fn if pid_alive_fn is not None else pid_alive

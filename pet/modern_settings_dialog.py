@@ -536,9 +536,6 @@ class ModernSettingsDialog(QDialog):
         self.watchdog_page = WatchdogSettingsPage(self.config, agent_link_cfg, self)
 
 
-        from .festival_settings import FestivalSettingsPage
-
-        self.festival_page = FestivalSettingsPage(self.config, self)
         self._rebuild_domain_navigation()
         self.sidebar.currentRowChanged.connect(self.pages.setCurrentIndex)
         self.sidebar.setCurrentRow(0)
@@ -563,13 +560,6 @@ class ModernSettingsDialog(QDialog):
         self._apply_selected_theme()
         # 行全部就位后收敛台词编辑可见性：初始层若为某 Agent 专属则隐藏公共事件行
         settings_pet_controls._apply_dialogue_scope_rows(self)
-        if self.standalone:
-            # 独立进程本地宿主：试听改本地播放、节日试听本地演示、无 parent 时
-            # 读 runtime 状态文件避让桌宠。逻辑全在 pet/settings_standalone.py，
-            # 这里只做接线（本文件有行数预算）。
-            from .settings_standalone import install_standalone_hooks
-
-            install_standalone_hooks(self)
         self.move_away_from_pet()
 
 
@@ -894,8 +884,6 @@ class ModernSettingsDialog(QDialog):
 
         watchdog_rows = list(self.watchdog_page.findChildren(SettingRow))
         claimed.update(watchdog_rows)
-        festival_rows = list(self.festival_page.findChildren(SettingRow))
-        claimed.update(festival_rows)
         # 行为重复检测内置；这里只分组循环和卡住检测的可调偏好。
         stuck_rows = [r for r in watchdog_rows if r.objectName().startswith("settingRow_stuck_")]
         loop_rows = [r for r in watchdog_rows if not r.objectName().startswith(("settingRow_stuck_",))]
@@ -905,8 +893,6 @@ class ModernSettingsDialog(QDialog):
             [
                 ("ChatGPT Work/Codex", claim("codex_link")),
                 ("Cursor", claim("cursor_link")),
-                ("节日提醒", [r for r in festival_rows if r.objectName() == "settingRow_festival_reminder_enabled"]),
-                ("节日提醒选项", [r for r in festival_rows if r.objectName() != "settingRow_festival_reminder_enabled"], True),
                 ("循环检测", loop_rows),
                 ("卡住检测", stuck_rows),
             ]
@@ -1159,9 +1145,6 @@ class ModernSettingsDialog(QDialog):
         agent_cfg["report_gates"] = report_gates
 
         self.config.set("agent_link", agent_cfg)
-        # 节日提醒设置页写回（仅写 festival_reminder_* / festival_custom_* 10 键）
-        if self.festival_page is not None:
-            self.festival_page.apply_to_config()
         self.config.set(
             "context_menu_appearance",
             {
@@ -1182,7 +1165,7 @@ class ModernSettingsDialog(QDialog):
         )
         self.config.set("quick_launch_apps", self.quick_launch_editor.apps())
         self.config.set("quick_urls", self.quick_urls_editor.urls())
-        # 批 C：落种占位语义——仅当用户在该子肥鱼自己的设置界面保存过才置真；
+        # 落种占位语义——仅当用户在该子肥鱼自己的设置界面保存过才置真；
         # 位置自动保存等一切后台写盘不得置位。主配置（slot 0/主肥鱼）保存不置位。
         if self.config.instance_id:
             self.config.set("user_customized", True)
@@ -1197,7 +1180,7 @@ class ModernSettingsDialog(QDialog):
 
 
     def reject(self) -> None:  # noqa: N802 - Qt API
-        """Esc 路径与关闭按钮一致：保存设置并应用开机自启。"""
+        """Esc 路径与关闭按钮一致：保存设置。"""
         if not getattr(self, "_saved_via_button", False):
             try:
                 self._write_config()

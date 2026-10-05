@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """PetWindow 可选后台服务/效果控制器的懒装配 mixin（Phase 1 门控）。
 
-把ChatGPT 联动 / 文件投喂 / 黄金回旋 / 边缘探头等“配置关闭就不构造”
+把 ChatGPT 联动 / 黄金回旋 / 边缘探头等可选服务
 的生命周期逻辑从 window.py 拆出，避免继续撑大 window.py（架构红线：行数预算）。
 """
 from __future__ import annotations
@@ -23,7 +23,6 @@ class WindowFeatureGateMixin:
 
     cfg: Any
     agent_link_manager: Any = None
-    _file_eater: Any = None
     _broker_facade: Any = None
     _golden_spin: Any = None
     _edge_probe: Any = None
@@ -47,16 +46,6 @@ class WindowFeatureGateMixin:
             from .agent_link import AgentLinkManager
             self.agent_link_manager = AgentLinkManager(self, self.cfg)
         return self.agent_link_manager
-
-    # ------------------------------------------------------------ 文件投喂
-    def install_file_eater(self):
-        """挂载“吃垃圾文件”拖放处理器（幂等，只对 PetWindow 实例调用）。"""
-        if self._file_eater is None:
-            from .file_eater import FileEaterDropHandler
-            self._file_eater = FileEaterDropHandler(self)
-        return self._file_eater
-
-    # ------------------------------------------------------------ 文件解读
 
     # ------------------------------------------------------------ 黄金回旋/边缘探头
     def _install_effect_services(self):

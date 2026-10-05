@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-macOS 原生窗口辅助 —— 从 pet/window.py 剥离（结构优化批 6-3）。
+macOS 原生窗口辅助 —— 从 pet/window.py 剥离（结构优化）。
 
 纯搬移：逐行搬移不改逻辑；objc runtime 调用的 ctypes 声明（restype/argtypes）
 与搬移前逐字符一致，任何改动都可能造成 ObjC runtime 段错误。

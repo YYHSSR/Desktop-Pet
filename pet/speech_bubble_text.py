@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """speech_bubble 纯函数区 — 气泡文本分页 / 定位 / 内容模型。
 
-批6-2 从 pet/speech_bubble.py 整体迁出（纯搬移，逻辑/默认值零改动）：
+包含以下文本与布局操作：
 - 文本规整与行数上限（normalize_bubble_text / bubble_max_lines）；
 - 省略与分页（elide_bubble_text / paginate_bubble_text，换行带避头尾禁则）；
 - 自适应列宽（bubble_column_for_text）与源头截断（truncate_bubble_text）；
@@ -235,13 +235,9 @@ def elide_bubble_text(
 
 
 def truncate_bubble_text(text: str, limit: int, suffix: str = "…") -> str:
-    """源头截断：文案超过 ``limit`` 字时硬截断并追加 ``suffix``（纯函数）。
+    """按字符数截断文本并追加 suffix；limit <= 0 时不限制长度。
 
-    与 :func:`elide_bubble_text` 的区别：本函数在**进气泡之前**按字数动手，
-    不做换行/度量，因此可以给不同通路配不同上限与提示语（过程汇报「…」、
-    快速对话「…（全文见聊天窗）」）。``limit <= 0`` 视为不限长；未超长时
-    原样返回（含空串），便于调用方直接替换。
-    """
+    本函数不测量字体或换行；未超过限制时返回原文。"""
     value = str(text or "")
     if limit <= 0 or len(value) <= limit:
         return value

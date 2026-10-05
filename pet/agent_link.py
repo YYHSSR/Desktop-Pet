@@ -882,7 +882,7 @@ class CodexDesktopMonitor(BaseAgentMonitor):
 class CustomAgentMonitor(BaseAgentMonitor):
     """自定义联动 Agent 监视器（agent_link.custom_agents 配置驱动）。"""
 
-    """只读监听用户指定路径的统一协议 JSONL 事件文件（docs/AGENT_LINK_PROTOCOL.md §4）：
+    """只读监听用户指定路径的统一协议 JSONL 事件文件（见 README 自定义联动事件）：
     不创建目录、不写任何外部位置、无需授权弹窗；文件不存在时静默空转等待，
     出现后自动开始增量读取（backfill 防护跳过历史内容）。"""
 
@@ -910,7 +910,7 @@ class CustomAgentMonitor(BaseAgentMonitor):
 class AgentLinkManager(QObject):
     """多 Agent 联动总调度管理器。
 
-    批6-5 拆分后本类只保留装配与编排：
+    拆分后本类只保留装配与编排：
     - 装配：2 内置 + 配置驱动的自定义监视器、StuckDetector / BehaviorPatternDetector /
       ExplorationWatchdog，并完成信号接线；
     - 监视器生命周期：pause / resume / shutdown / apply_config；
@@ -1404,20 +1404,6 @@ class AgentLinkManager(QObject):
     _LINK_MAIN_KEYWORDS = ("代码", "工作", "写", "打字", "敲")
     _LINK_BREAK_KEYWORDS = ("记录", "踏步", "伸懒腰")
 
-    def any_busy(self) -> bool:
-        """Return whether an enabled monitor currently reports active work.
-
-        ``_last_raw`` intentionally keeps the latest state after a monitor is
-        stopped, so it must be paired with the monitor lifecycle flag here.
-        Using ``is_running()`` would incorrectly treat a paused monitor as
-        disabled; ``_running`` is the lifecycle state used by ``apply_config``
-        and is therefore the authoritative check for the idle-FPS gate.
-        """
-        return any(
-            bool(getattr(monitor, "_running", False))
-            and self._last_raw.get(agent_key) in self._BUSY_STATES
-            for agent_key, monitor in self.monitors.items()
-        )
 
     def _next_link_anim_rotation(self) -> str | None:
         """下一个联动动作：主动作严格交替；每第 3 次插播摸鱼（独立节奏）。"""
@@ -1448,36 +1434,6 @@ class AgentLinkManager(QObject):
             return self._next_link_anim_rotation()
         self._link_seq = 0
         return None
-
-    # 进程名 → Agent：该 Agent 联动开启且正忙时，主动识屏跳过它的窗口
-    # （联动气泡已在汇报进度，识屏再评一句就是重复打扰）。
-    AGENT_PROCESS_HINTS = {
-        "codex": ("codex.exe", "chatgpt.exe"),
-        "cursor": ("cursor.exe",),
-    }
-    AGENT_TITLE_HINTS = {
-        "codex": ("codex",),
-    }
-
-    def busy_agent_owns_process(self, process_name: str, title: str = "") -> bool:
-        """前台窗口是否属于「联动开启且正在忙」的 Agent（进程名或窗口标题命中）。"""
-        agent_cfg = self.cfg.get("agent_link", {})
-        p = str(process_name or "").lower()
-        t = str(title or "").lower()
-        for agent_key, procs in self.AGENT_PROCESS_HINTS.items():
-            if p and p in procs and agent_cfg.get(agent_key) \
-                    and self._last_raw.get(agent_key) in self._BUSY_STATES:
-                return True
-        for agent_key, needles in self.AGENT_TITLE_HINTS.items():
-            if t and any(n in t for n in needles) and agent_cfg.get(agent_key) \
-                    and self._last_raw.get(agent_key) in self._BUSY_STATES:
-                return True
-        return False
-
-    # ------------------------------------------------------------------
-    # 联动气泡（开始干活可选 / 任务完成通知）
-    # ------------------------------------------------------------------
-    _THINKING_DEFAULTS: dict[str, str] = {}
 
     def _remember_dialogue_record(self, agent_key: str, record: object) -> None:
         """Expose the latest upstream record to phrase templates."""

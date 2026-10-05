@@ -18,7 +18,7 @@ WebM-backed clip library（webm 主路线）。
   素材源时间线帧号（显示帧索引，= elapsed video time × fps）；播放计数
   _frame_index 是 1-based 主线程已消费帧数。降帧相位与末帧判断必须用
   显示帧索引，绝不能使用消费计数（队列满丢帧后两者不再相等）；
-- 进程内循环（批8）：帧数精确已知（count_frames_and_secs 或其缓存）时，
+- 进程内循环（）：帧数精确已知（count_frames_and_secs 或其缓存）时，
   主播放 reader 以 -stream_loop -1 -readrate max(1, playback_speed) 常驻，
   单个进程持续出帧，消灭「每圈动画重启一个 ffmpeg 进程」的 churn；
   帧数未知/估算则退化为播一遍自然结束（现状路径）。reader 把解码序号
@@ -28,7 +28,7 @@ WebM-backed clip library（webm 主路线）。
   reader 自行退出杀进程），续播同一 clip 经 start() re-arm 直接续圈
   （带唤醒握手，握手失败落回 fresh start）；中途打断/切换/关停仍走
   硬停杀进程（原路径不变）；
-- 圈边界定期回收（批11-B1）：长寿 ffmpeg 进程在圈边界驻留时按存活时长
+- 圈边界定期回收（）：长寿 ffmpeg 进程在圈边界驻留时按存活时长
   定期重建（ffmpeg_recycle_minutes，默认 10min，0=关闭）。到阈值的圈末
   不做 park/re-arm、reader 正常退出杀进程，下一次 start() 自然 fresh
   spawn——把 ffmpeg 进程内部（分配器高水位/解复用器随 -stream_loop 回绕
@@ -39,7 +39,7 @@ WebM-backed clip library（webm 主路线）。
   stop() 主动 terminate 底层 ffmpeg 进程（_PopenCapture 捕获句柄），退役池超上限时
   强制回收最旧的；start() 前零等待清空退役池，存活 reader 累积超限仅日志告警，绝不拒绝启动。
 - cleanup() 对仍存活的退役 reader 保留追踪（绝不静默丢弃），等待后续 sweep 回收。
-- Popen 并发串行化（批 6-8b，Windows access violation 主凶修复）：clip 名下任一
+- Popen 并发串行化（，Windows access violation 主凶修复）：clip 名下任一
   Popen 的「操作」（poll/terminate/wait/kill/关管道）任意时刻只允许一个线程执行。
   播放 reader 的 Popen 由 reader 线程独占生命周期（创建/读/close/terminate/wait/
   kill），GUI stop() 只置 stop_evt + 经 _unblock_proc 做最小 TerminateProcess 解除
@@ -48,7 +48,7 @@ WebM-backed clip library（webm 主路线）。
   _ff_proc_lock 互斥。阻塞读（generator 内 stdout.read）不持锁——只与最小
   terminate 并发（进程句柄 vs 管道句柄，不同原生对象），是解除阻塞读的既定安全
   配对。详见 _proc_lock/_ff_proc_lock 的注释。
-- try-acquire 超时跳过的最终保障链（批 6-8b 收尾；R3 闭合 R2 复审 P1）：
+- try-acquire 超时跳过的最终保障链（收尾；R3 闭合 R2 复审 P1）：
   _unblock_proc / cancel_first_frame_warm 的锁超时跳过依赖 owner
   （reader/decode 线程）在 finally 杀进程——这是条件保证；闭合它的兜底是
   ——reader 的（thread, proc）随 stop() 进入退役池，孤儿注册表 sweep 的
@@ -140,12 +140,12 @@ _PROC_TERMINATE_TIMEOUT = 0.5
 # _terminate_proc 与 gen.close() 执行。
 _END_MARKER_PUT_TIMEOUT = 5.0
 # GUI 侧「最小解除阻塞 terminate」（_unblock_proc）获取 _proc_lock /
-# _ff_proc_lock 的有限等待（秒，批 6-8b）：超过此时长说明 reader/解码线程
+# _ff_proc_lock 的有限等待（秒，）：超过此时长说明 reader/解码线程
 # 正在 finally 收尾（持锁），它自己会 terminate 进程——GUI 跳过是安全的
 # （绝不漏杀），同时也绝不让 stop()/cancel_first_frame_warm() 因锁等待
 # 明显变长（用户可感知的响应延迟红线）。
 _PROC_LOCK_ACQUIRE_TIMEOUT = 0.2
-# 首帧进程「取消后未确认退出」的有界补杀重试上限（批 6-8b 收尾；R3 语义）：
+# 首帧进程「取消后未确认退出」的有界补杀重试上限（收尾；R3 语义）：
 # cancel_first_frame_warm 的 try-acquire 超时跳过的进程登记进
 # _unconfirmed_procs，孤儿注册表 sweep 周期补杀；owner（解码线程）持续
 # 持锁不释放（g.close() 病态卡死）或补杀后进程仍存活（poll 异常 / kill
@@ -154,12 +154,12 @@ _PROC_LOCK_ACQUIRE_TIMEOUT = 0.2
 # _LEAK_ATTEMPTS 的「不无限静默重试」同一原则）。
 _UNCONFIRMED_KILL_MAX = 6
 # 退役 reader 兜底确认（_confirm_retired_proc）失败后的有界重试上限
-# （批 6-8b R3）：线程退出后 poll 异常 / terminate+kill 后仍存活时保留
+# （R3）：线程退出后 poll 异常 / terminate+kill 后仍存活时保留
 # _Reader 记录并累计重试；达到此上限记录告警并标注 abandoned（保留追踪
 # 不再重试）——绝不静默丢弃句柄（与 _UNCONFIRMED_KILL_MAX 同一原则）。
 _CONFIRM_KILL_MAX = 6
 
-# 圈边界续圈宽限（秒，批8）：reader 在每圈末尾交付结束标记后驻留等续圈
+# 圈边界续圈宽限（秒，）：reader 在每圈末尾交付结束标记后驻留等续圈
 # （上层 finished → 调度 → start() re-arm 都在同一 GUI 事件序列内完成，
 # 正常只有毫秒级），宽限期满仍未续圈 = 已切走/被打断/无人消费——reader
 # 自行退出并由 finally 杀掉 ffmpeg，切走的旧 clip 绝不泄漏常驻进程。
@@ -167,19 +167,19 @@ _CONFIRM_KILL_MAX = 6
 # 的进程驻留（跨测试/切动画后的线程残留会放大登记册 flake 家族的误判）。
 _LOOP_REARM_GRACE_SECS = 1.0
 
-# re-arm 唤醒握手超时（秒，批8 P1-2）：re-arm 置位 gate 后等 reader 在
+# re-arm 唤醒握手超时（秒，P1-2）：re-arm 置位 gate 后等 reader 在
 # _loop_lock 内置 ack；超时 = reader 实际已在退出（is_alive 的 finally
 # 窗口），回滚并落回 fresh start——绝不让 start() 返回 True 却无 reader
 # 存活（动画链停摆）。正常路径 ack 毫秒级到达，正常预算毫秒级，0.5s 是病态
 # 0.5s 是病态预算；下调到 0.04s 显著降低异常退出时主线程卡死风险
 _LOOP_REARM_ACK_TIMEOUT = 0.04
 
-# 订阅授权有界等待预算（毫秒，批5.3）：进程内 fan-out 的 feed 立即就绪，
+# 订阅授权有界等待预算（毫秒，）：进程内 fan-out 的 feed 立即就绪，
 # 实际不等待；常量本地化以替代对 decode_broker 的 import（该模块退役后
 # webm_clip 不再反向依赖 broker）。
 _SUBSCRIBE_BUDGET_MS = 600
 
-# ------------------------------------------------------------ ffmpeg exe 探测串行化（批 6-8b）
+# ------------------------------------------------------------ ffmpeg exe 探测串行化
 # imageio 的 get_ffmpeg_exe() 在缓存未命中时用 subprocess.check_call 跑
 # `ffmpeg -version` 探测（**无限等待**）。并发 reader 同时冷启动会各自拉起
 # 探测进程：进程拉起风暴显著拖慢探测，极端负载下探测可超过 0.5s——快速
@@ -194,7 +194,7 @@ _FFMPEG_EXE_LOCK = threading.Lock()
 # 640×360 VP9 单帧解码量极小，多线程只是白付线程池内存。实测（同二进制
 # 同素材）：默认 66MB → -threads 1 为 53MB（每实例解码子进程 -13MB）。
 # codec 路径不变，语义零差异。
-# 批8：-stream_loop/-readrate 不在这个共享集里——它们只属于主播放
+# -stream_loop/-readrate 不在这个共享集里——它们只属于主播放
 # reader，且仅当帧数精确已知（count_frames_and_secs 或其缓存）时由
 # _reader_local 按 clip 追加（帧数未知/估算则退化为播一遍自然结束，
 # 现状路径）；首帧解码只读一帧即关，绝不带循环参数。
@@ -203,7 +203,7 @@ _FFMPEG_INPUT_PARAMS = [
     '-threads', '1',
 ]
 
-# ------------------------------------------------------------ 会话结束（关机/注销）spawn 闸门（issue #111）
+# ------------------------------------------------------------ 会话结束（关机/注销）spawn 闸门
 # 现象：Windows 关机/注销时必弹「ffmpeg-*.exe - 应用程序无法正常启动
 # (0xc0000142)」并阻塞关机流程。
 #
@@ -466,7 +466,7 @@ def _unregister_orphan(clip: "WebMClip") -> None:
 # 解码（走既有 120ms 有界等待/逃生口路径），热门（待机/点击/最近播放）
 # 常驻。锁序：clip._first_frame_lock → 注册表锁（单向）；逐出在注册表锁外
 # 逐个取 victim 自己的锁，杜绝跨对象持锁嵌套（对照 P2-10 教训）。
-_FIRST_FRAME_BUDGET_BYTES = 32 * 1024 * 1024  # 模块兜底 32MB；应用层以 first_frame_cache_max_mb（默认 8MB，批10-A3）覆盖，32 亦为迁移哨兵值
+_FIRST_FRAME_BUDGET_BYTES = 32 * 1024 * 1024  # 模块兜底 32MB；应用层以 first_frame_cache_max_mb（默认 8MB，）覆盖，32 亦为迁移哨兵值
 # 运行期可调的预算值（set_first_frame_budget 写入）；常量保留为默认值。
 _first_frame_budget_bytes = _FIRST_FRAME_BUDGET_BYTES
 _first_frame_reg_lock = threading.Lock()
@@ -655,7 +655,7 @@ if mem_debug.ENABLED:
 class _Reader:
     """一个 reader 线程 + 其持有的底层 ffmpeg 进程句柄。
 
-    kill_attempts / abandoned（批 6-8b R3）：线程退出后的兜底确认
+    kill_attempts / abandoned（R3）：线程退出后的兜底确认
     （_confirm_retired_proc）失败时保留记录并累计重试次数；达到
     _CONFIRM_KILL_MAX 上限标注 abandoned（保留追踪、sweep 不再重试），
     绝不静默丢弃句柄。
@@ -808,7 +808,7 @@ def _get_meta_file_cache() -> dict:
 
 
 def _meta_cache_file_lock():
-    """跨进程互斥锁文件（批 6-8b 修 3）：让「读盘→合并→原子替换」成为
+    """跨进程互斥锁文件（修 3）：让「读盘→合并→原子替换」成为
     read-modify-write 临界区，保证多开实例的缓存单调累积——后写进程不会用
     旧进程内快照覆盖先写进程刚加入的条目（5.6sol 全审 P2）。
 
@@ -862,7 +862,7 @@ def _save_meta_file_cache_entry(key: str, frames: int, duration: float) -> None:
         with _META_CACHE_LOCK:
             lock = _meta_cache_file_lock()
             try:
-                # 写前重读磁盘合并（read-modify-write，批 6-8b 修 3）：其他
+                # 写前重读磁盘合并（read-modify-write，修 3）：其他
                 # 进程可能刚写入了新条目，绝不用进程内旧快照覆盖它们——
                 # 缓存单调累积，多开预热不重复探测。跨进程临界区由
                 # _meta_cache_file_lock 提供（有界等待，失败退化为重读合并）。
@@ -927,7 +927,7 @@ class WebMClip(QObject):
         # 注册、GUI 线程 stop 时读取/清空并 terminate）。
         self._reader_proc: subprocess.Popen | None = None
         self._reader_lock = threading.Lock()
-        # Popen 操作串行化锁（批 6-8b）：播放 reader 的 ffmpeg Popen 的「操作」
+        # Popen 操作串行化锁：播放 reader 的 ffmpeg Popen 的「操作」
         # （poll/terminate/wait/kill/关管道）任意时刻只允许一个线程执行。Windows
         # 上两线程并发操作同一 Popen（如 GUI stop 的 terminate/wait 与 reader
         # finally 的 _terminate_proc/gen.close() 关管道）是原生竞态崩溃
@@ -938,7 +938,7 @@ class WebMClip(QObject):
         # 原生对象），是解除阻塞读的既定安全配对（B7 注释「正在阻塞读管道的
         # reader 会因进程终止而立即解除阻塞退出」）。
         self._proc_lock = threading.Lock()
-        # 首帧解码进程的 Popen 操作锁（批 6-8b）：与 _proc_lock 同语义，独立
+        # 首帧解码进程的 Popen 操作锁：与 _proc_lock 同语义，独立
         # 成锁避免首帧解码收尾（g.close() 最长 ~1.5s 病态）阻塞播放 reader 的
         # stop 解除阻塞——两类 Popen 互不相交，锁也互不相交。
         self._ff_proc_lock = threading.Lock()
@@ -947,7 +947,7 @@ class WebMClip(QObject):
         self._reader_ready = threading.Event()
         # 退役 reader 池（有硬上限）：thread + 其 ffmpeg 进程句柄的记录列表。
         self._retired: list[_Reader] = []
-        # 批11-B1：ffmpeg 圈边界定期回收阈值（秒；0 = 关闭回收）。窗口层经
+        # ffmpeg 圈边界定期回收阈值（秒；0 = 关闭回收）。窗口层经
         # set_recycle_minutes 推送 config 的 ffmpeg_recycle_minutes（分钟，
         # 默认 10）。构造默认 0（关闭）：未经窗口推送的 clip（直接测试等）
         # 保持现状逐位一致。主线程写（setter）、reader 线程读（_loop_boundary
@@ -991,7 +991,7 @@ class WebMClip(QObject):
         # terminate，隐藏/切角色后不再有不受控的后台 ffmpeg 存活。
         self._first_frame_gen = 0
         self._first_frame_procs: set = set()
-        # 取消时 try-acquire 超时跳过、尚未确认退出的首帧进程（批 6-8b 收尾；
+        # 取消时 try-acquire 超时跳过、尚未确认退出的首帧进程（收尾；
         # R3 条目格式 [proc, attempts, abandoned]）：_reader_lock 保护。
         # cancel_first_frame_warm 的超时跳过依赖解码线程 finally 的 g.close()
         # 杀进程——该保证是条件性的（g.close 异常被吞等病态路径会漏），登记后
@@ -1007,7 +1007,7 @@ class WebMClip(QObject):
         self._ended_fired = False
         self._running = False
         self._generation = 0
-        # 进程内循环（批8）：reader 在每圈边界交付结束标记后驻留 _loop_gate
+        # 进程内循环：reader 在每圈边界交付结束标记后驻留 _loop_gate
         # 等续圈；_natural_end_pending 标记「末帧/结束标记已交付」（区分圈末
         # 自然结束与中途打断——前者的 stop() 软停保进程，后者硬停杀进程）；
         # _soft_parked = 软停驻留中（start() 据此走 re-arm 续圈）；
@@ -1028,7 +1028,7 @@ class WebMClip(QObject):
         # re-arm 唤醒握手（P1-2）：reader 唤醒续圈后置位，re-arm 有界等待；
         # 等不到 = reader 已在退出（is_alive 的 finally 窗口），落回 fresh start。
         self._loop_ack = threading.Event()
-        # 帧数精确性（批8 P2-5）：仅 count_frames_and_secs（或其缓存）算精确；
+        # 帧数精确性：仅 count_frames_and_secs（或其缓存）算精确；
         # reader/首帧路径从流头 fps×duration 估算的回填不算。进程内循环的
         # 取模回绕只在精确帧数下启用（估算 ±1 会逐圈相位漂移）。
         self._frame_count_exact = False
@@ -1087,7 +1087,7 @@ class WebMClip(QObject):
             pass
         _ffr_unregister(self)
         try:
-            # 必须硬停：圈末软停（批8）会保留 ffmpeg 进程等续圈，cleanup
+            # 必须硬停：圈末软停会保留 ffmpeg 进程等续圈，cleanup
             # 是终结路径，绝不保留进程驻留。
             self._hard_stop()
         except RuntimeError:
@@ -1099,7 +1099,7 @@ class WebMClip(QObject):
             self._retire_grace_wait()
         if self._retired or self._has_unconfirmed_procs():
             # 仍存活 reader 或未确认退出的首帧进程：保持模块级持有，由管理器
-            # 继续回收/补杀（批 6-8b 收尾：_unconfirmed_procs 非空也必须留
+            # 继续回收/补杀（收尾：_unconfirmed_procs 非空也必须留
             # 在注册表，否则 sweep 不会再来补杀）。
             _register_orphan(self)
         else:
@@ -1127,7 +1127,7 @@ class WebMClip(QObject):
         或兜底确认失败则保留在池中（绝不静默丢弃追踪），由模块级管理器
         持续重试。
 
-        兜底确认（批 6-8b 收尾；R3 闭合 R2 复审 P1）：只在「reader 线程
+        兜底确认（收尾；R3 闭合 R2 复审 P1）：只在「reader 线程
         已退出」后触碰其 proc——线程退出意味着 finally 已完整执行
         （_terminate_proc + gen.close() 是杀进程的主保证），此刻不存在与
         reader 收尾的并发 Popen 操作，可安全做「reader finally 之外的兜底
@@ -1180,7 +1180,7 @@ class WebMClip(QObject):
 
     @staticmethod
     def _confirm_retired_proc(r: "_Reader") -> bool:
-        """退役 reader 线程已退出后的兜底确认/补杀（批 6-8b 收尾；R3 闭合）。
+        """退役 reader 线程已退出后的兜底确认/补杀（收尾；R3 闭合）。
 
         前置条件：调用方已确认 r.thread 不再存活（finally 已完整执行，不会
         再有并发 Popen 操作）。正常路径进程已被 reader finally 终止
@@ -1267,7 +1267,7 @@ class WebMClip(QObject):
             return False
 
     def _unblock_proc(self, proc: subprocess.Popen | None) -> None:
-        """GUI 侧对播放 reader Popen 的唯一操作：最小解除阻塞 terminate（批 6-8b）。
+        """GUI 侧对播放 reader Popen 的唯一操作：最小解除阻塞 terminate（）。
 
         只发 TerminateProcess（Windows 上同步杀进程），不做 wait/kill/关管道
         ——进程退出的确认与管道清理由 reader 线程 finally 的 _terminate_proc +
@@ -1409,7 +1409,7 @@ class WebMClip(QObject):
             if self._fps > 0
             else max(1, int(round(catalog.FRAME_MS / self.playback_speed)))
         )
-        # 解码节流（批11）：interval ×ratio —— 消费端降速为
+        # 解码节流：interval ×ratio —— 消费端降速为
         # fps/ratio，配合 reader 的阻塞入队（背压）让 ffmpeg 解码速率
         # 联动下降到同一节奏。ratio=1（默认/非闲置）时与旧行为逐位一致。
         return max(1, base)
@@ -1469,7 +1469,7 @@ class WebMClip(QObject):
 
 
     def set_recycle_minutes(self, minutes: int) -> None:
-        """设置 ffmpeg 圈边界定期回收阈值（分钟；0 = 关闭回收。批11-B1，主线程调用）。
+        """设置 ffmpeg 圈边界定期回收阈值（分钟；0 = 关闭回收。，主线程调用）。
 
         窗口层在播放动画前推送 config 的 ``ffmpeg_recycle_minutes``（默认 10）。
         只影响圈边界回收判定（_loop_boundary 的 _recycle_due）：到达阈值的一圈
@@ -1518,15 +1518,15 @@ class WebMClip(QObject):
             self.errorOccurred.emit(str(_IMPORT_ERROR or 'imageio_ffmpeg 不可用'))
             return False
         if session_ending():
-            # 会话结束（关机/注销）：绝不再拉起新的取帧进程（issue #111）。
+            # 会话结束（关机/注销）：绝不再拉起新的取帧进程。
             # 沿用既有「启动被拒」契约 —— 调用方按 False 走降级/重试。
             logger.info('会话结束中，拒绝启动 reader: %s', self.path)
             return False
 
-        # 批8 续圈：圈边界软停（_soft_parked）且循环 reader 仍存活 → re-arm
+        # 圈边界软停（_soft_parked）且循环 reader 仍存活 → re-arm
         # 直接续播下一圈，不重启 reader/ffmpeg（消灭每圈进程 churn）。
         # re-arm 失败（reader 已退出/异常）则落回正常启动路径。
-        # 复审 P1-2（批5.3）：本 clip 已被登记为订阅者（_feed_source 已置）时
+        # 复审 P1-2：本 clip 已被登记为订阅者（_feed_source 已置）时
         # 绝不可以 re-arm——驻留的旧 reader 在 _reader_local 里只会继续本地
         # 解码，绕过 feed 分派 = 静默双 ffmpeg。必须落 fresh start 进 feed。
         if self._soft_parked and self._feed_source is None and self._rearm_loop_reader():
@@ -1598,7 +1598,7 @@ class WebMClip(QObject):
 
     def stop(self) -> None:
         self._running = False
-        # 批8 圈边界软停：进程内循环的 reader 已到圈末（末帧/结束标记已交付，
+        # 进程内循环的 reader 已到圈末（末帧/结束标记已交付，
         # _natural_end_pending）且仍存活——保留 ffmpeg 进程驻留等续圈
         # （start() re-arm），不再每圈杀进程重启。reader 驻留期间由背压
         # 阻塞出帧（近零 CPU）；宽限期（_LOOP_REARM_GRACE_SECS）满未续圈则
@@ -1646,11 +1646,11 @@ class WebMClip(QObject):
         stop_evt = self._stop_evt
         if stop_evt is not None:
             stop_evt.set()
-        # 唤醒圈边界驻留的 reader（批8），让它立刻看到停止信号退出。
+        # 唤醒圈边界驻留的 reader，让它立刻看到停止信号退出。
         self._loop_gate.set()
         # 主动 terminate 底层 ffmpeg：不能只是 set 事件等 reader 自己退（B7）。
         # 正在阻塞读管道/解析头部的 reader 会因进程终止而立即解除阻塞退出。
-        # 批 6-8b：这里只做「最小解除阻塞 terminate」（_unblock_proc）——所有权
+        # 这里只做「最小解除阻塞 terminate」（_unblock_proc）——所有权
         # 在 reader 线程（唯一执行 wait/kill/关管道的线程），GUI 侧绝不再并发
         # 操作同一 Popen（Windows 原生竞态崩溃根因）；进程退出的确认由 reader
         # finally 完成，stop() 本身零等待返回。
@@ -1682,7 +1682,7 @@ class WebMClip(QObject):
         self.clear_display_frame()
 
     def _rearm_loop_reader(self) -> bool:
-        """圈边界续圈（批8）：软停驻留的循环 reader 直接续播下一圈，不重启
+        """圈边界续圈（）：软停驻留的循环 reader 直接续播下一圈，不重启
         reader/ffmpeg。返回 False = reader 已退出/不可用，调用方走正常
         start() 重新拉起。必须在 GUI 线程调用（QTimer 操作）。
 
@@ -1798,7 +1798,7 @@ class WebMClip(QObject):
             return None
         if session_ending():
             return None  # 会话结束：绝不为首帧拉起解码进程（走既有 None 降级）
-        # 批 6-8b：探测串行化预热——与播放 reader 同源，避免首帧解码路径
+        # 探测串行化预热——与播放 reader 同源，避免首帧解码路径
         # 并发跑 ffmpeg -version 探测（read_frames 内部本就会探测，此处仅
         # 提前到统一入口并串行化）。
         _ensure_ffmpeg_exe()
@@ -1830,7 +1830,7 @@ class WebMClip(QObject):
             if perfstats.ENABLED:
                 _ff_t0 = perfstats.clock()
             if session_ending():
-                # 会话结束（issue #111）：门禁之后、Popen 之前再复查一次，
+                # 会话结束：门禁之后、Popen 之前再复查一次，
                 # 收紧并发关机窗口；proc 仍为 None，finally 无句柄可收。
                 return None
             with _PopenCapture(on_process=_register):
@@ -1872,7 +1872,7 @@ class WebMClip(QObject):
                     self._first_frame_procs.discard(proc)
             if g is not None:
                 try:
-                    # 批 6-8b：g.close()（内部 poll/关管道/等待/kill）与 GUI
+                    # g.close()（内部 poll/关管道/等待/kill）与 GUI
                     # cancel_first_frame_warm 的 _terminate_proc 以 _ff_proc_lock
                     # 互斥——同一 Popen 的操作任意时刻只允许一个线程执行。
                     with self._ff_proc_lock:
@@ -1952,7 +1952,7 @@ class WebMClip(QObject):
             procs = list(self._first_frame_procs)
             self._first_frame_procs.clear()
         for p in procs:
-            # 批 6-8b：完整 terminate（terminate→wait→kill→wait，测试锁定的取消
+            # 完整 terminate（terminate→wait→kill→wait，测试锁定的取消
             # 语义：进程必须确认退出）在 _ff_proc_lock 内执行——与解码线程
             # finally 的 g.close()（同锁）互斥，杜绝 GUI 与解码线程并发操作
             # 同一 Popen。有界等待：超时说明解码线程正在收尾，其 g.close() 内部
@@ -1970,7 +1970,7 @@ class WebMClip(QObject):
 
     def _track_unconfirmed_proc(self, proc: subprocess.Popen) -> None:
         """把 try-acquire 超时跳过、未确认退出的首帧进程登记进重试机制
-        （批 6-8b 收尾；R3 条目格式 [proc, attempts, abandoned]）：挂到
+        （收尾；R3 条目格式 [proc, attempts, abandoned]）：挂到
         _unconfirmed_procs 并确保 clip 进入孤儿注册表，sweep 会在 owner
         释放 _ff_proc_lock 后确认/补杀。确认失败保留条目并累计重试，达到
         上限告警标注 abandoned（保留追踪不再重试）——绝不静默丢弃句柄。"""
@@ -1983,7 +1983,7 @@ class WebMClip(QObject):
             return bool(self._unconfirmed_procs)
 
     def _sweep_unconfirmed_procs(self) -> None:
-        """对未确认退出的首帧进程做有界补杀确认（批 6-8b 收尾；孤儿注册表
+        """对未确认退出的首帧进程做有界补杀确认（收尾；孤儿注册表
         sweep 调用，GUI 线程）。
 
         owner（解码线程）持有 _ff_proc_lock 说明其 finally 的 g.close() 正在
@@ -2048,13 +2048,13 @@ class WebMClip(QObject):
           本地 ffmpeg 解码（帧 0 起播，重入 _reader_local 的拉起序列——
           capture/登记/兜底全复用，绝不复刻一个绕过追踪的新拉起，P1-1）。
         """
-        # 批 6-8b：线程启动前已被 stop/换代的 reader 零成本退出——绝不拉起
+        # 线程启动前已被 stop/换代的 reader 零成本退出——绝不拉起
         # 任何 ffmpeg 进程（省掉「拉起→_register 发现 stale→自终止」的浪费
         # 与延迟，也杜绝 stop 无法解除的探测/解码等待）。
         if stop_evt.is_set() or self._generation != generation:
             return
         if session_ending():
-            # 会话结束（关机/注销）：reader 线程绝不拉起 ffmpeg（issue #111）——
+            # 会话结束（关机/注销）：reader 线程绝不拉起 ffmpeg——
             # 关机窗口期内新起的进程会以 0xc0000142 弹窗阻塞关机。
             logger.info('会话结束中，reader 拒绝拉起 ffmpeg: %s', self.path)
             return
@@ -2077,7 +2077,7 @@ class WebMClip(QObject):
 
     def _reader_local(self, stop_evt: threading.Event, generation: int,
                       ready_evt: threading.Event | None = None) -> None:
-        # 批 6-8b：线程启动前已被 stop/换代的 reader 零成本退出——绝不拉起
+        # 线程启动前已被 stop/换代的 reader 零成本退出——绝不拉起
         # 任何 ffmpeg 进程（省掉「拉起→_register 发现 stale→自终止」的浪费
         # 与延迟，也杜绝 stop 无法解除的探测/解码等待）。
         if stop_evt.is_set() or self._generation != generation:
@@ -2088,7 +2088,7 @@ class WebMClip(QObject):
         if stop_evt.is_set() or self._generation != generation:
             return  # 探测期间被 stop：不拉起解码进程，直接退出
         if session_ending():
-            # 会话结束（关机/注销）：本地解码路径绝不 spawn（issue #111）。
+            # 会话结束（关机/注销）：本地解码路径绝不 spawn。
             # 覆盖 feed 回退本地与任何绕过 start() 的迟到 reader。
             logger.info('会话结束中，本地 reader 拒绝拉起 ffmpeg: %s', self.path)
             return
@@ -2124,7 +2124,7 @@ class WebMClip(QObject):
                 if stale:
                     self._terminate_proc(p)
 
-            # 批8 进程内循环：仅帧数精确已知（count_frames_and_secs 或其
+            # 仅帧数精确已知（count_frames_and_secs 或其
             # 缓存；fps×duration 估算值 ±1 会逐圈相位漂移，P2-5）才带
             # -stream_loop/-readrate 并做取模回绕；帧数未知/估算 → 退化为
             # 播一遍自然结束（现状路径，P2-3，无限流永不终止的泄漏不成立）。
@@ -2140,13 +2140,13 @@ class WebMClip(QObject):
             if loop_frame_count > 0:
                 input_params += ['-stream_loop', '-1',
                                  '-readrate', str(max(1.0, self.playback_speed))]
-            # 批11-B1：记录当前 ffmpeg 进程出生时刻并清零圈数（圈边界回收
+            # 记录当前 ffmpeg 进程出生时刻并清零圈数（圈边界回收
             # 判定/日志用；reader 线程写，Reader 读同线程）。只在此处记录一次，
             # feed 路径（不拉起 ffmpeg）不会走到这里，_reader_born_at 保持 0。
             self._reader_born_at = time.monotonic()
             self._reader_loops = 0
             if session_ending():
-                # 会话结束（issue #111）：门禁检查之后、Popen 之前再复查一次，
+                # 会话结束：门禁检查之后、Popen 之前再复查一次，
                 # 收紧并发的关机窗口；随后由 finally 走既有收尾（无句柄泄漏）。
                 return
             with _PopenCapture(on_process=_register) as capture:
@@ -2182,7 +2182,7 @@ class WebMClip(QObject):
             if self._frame_count <= 0 and self._fps > 0 and self._duration > 0:
                 self._frame_count = int(round(self._fps * self._duration))
 
-            # 批8 进程内循环：frame_count > 0 时按它回绕源帧号，每圈边界经
+            # frame_count > 0 时按它回绕源帧号，每圈边界经
             # _loop_boundary 交付一次结束标记并驻留等续圈；loop_end 记录
             # 「圈边界已交付过结束标记后退出」，避免下方再重复放入一个。
             loop_end = {'reported': False}
@@ -2226,7 +2226,7 @@ class WebMClip(QObject):
                 if proc is not None and self._reader_proc is proc:
                     self._reader_proc = None
                 # B1：reader 自行退出的三条路径（软停宽限满 _loop_boundary
-                # gate 超时、批11 圈界回收、自然播完 _put_end_marker 返回）
+                # gate 超时、圈界回收、自然播完 _put_end_marker 返回）
                 # 都不清 self._thread → 死 Thread 对象每 clip 钉 1 个 OS 线程
                 # 句柄。仅当 _thread 仍指向本 reader 线程时置 None——复播换代
                 # 时 start() 既有摘取逻辑已把旧 thread 摘进退役池（或已置
@@ -2238,7 +2238,7 @@ class WebMClip(QObject):
             # 路径），且跨线程写 _current_pixmap 违反「Qt 操作只在主线程」。
             # 清槽由窗口在 _switch 切走时按权威显示状态执行（GUI 线程）。
             if proc is not None or gen is not None:
-                # 批 6-8b：收尾操作（_terminate_proc 的 poll/terminate/wait/kill +
+                # 收尾操作（_terminate_proc 的 poll/terminate/wait/kill +
                 # gen.close() 的 poll/关管道）在 _proc_lock 内串行化——与 GUI
                 # stop() 的 _unblock_proc 互斥，同一 Popen 任意时刻只有一个线程
                 # 操作（Windows 原生竞态崩溃根因）。
@@ -2374,7 +2374,7 @@ class WebMClip(QObject):
         if item is None:
             # 正常播完（进程内循环模式下 = 一圈结束）；若在处理最后一帧时已经
             # 由窗口层启动了下一个动画，self._queue 已被替换，不会走到这里。
-            # 批8：标记圈末自然结束——随后上层 stop() 据此转软停驻留等续圈。
+            # 标记圈末自然结束——随后上层 stop() 据此转软停驻留等续圈。
             self._natural_end_pending = True
             if not self._ended_fired:
                 self._ended_fired = True
@@ -2409,10 +2409,10 @@ class WebMClip(QObject):
         return False
 
     def _loop_boundary(self, q, stop_evt, generation) -> bool:
-        """圈边界（批8，reader 线程）：交付「播完」结束标记后驻留等续圈。
+        """圈边界（，reader 线程）：交付「播完」结束标记后驻留等续圈。
 
         返回 True = 续播下一圈（re-arm 已发生）；False = 退出 reader
-        （被停止/换代，或宽限期满无人续圈，或 批11-B1 圈边界回收——切走/
+        （被停止/换代，或宽限期满无人续圈，或 圈边界回收——切走/
         被打断/回收的 clip 自行退出，由 _reader_local 的 finally 杀掉
         ffmpeg，绝不泄漏常驻进程）。
 
@@ -2422,13 +2422,13 @@ class WebMClip(QObject):
         上层只有消费到末帧/结束标记后才会 re-arm（此时队列必有空间，
         put 不会阻塞；队列满 = 上层尚未消费到圈末 = 不可能有 re-arm 在等锁）。
 
-        批11-B1 回收只在本点（圈边界、结束标记已交付、_rearm_pending 未置位）
+        回收只在本点（圈边界、结束标记已交付、_rearm_pending 未置位）
         评估：到达回收阈值的一圈结束不做 park/re-arm，直接退出（下一次
         start() 自然 fresh spawn）。判定在 _loop_lock 内完成，与 re-arm 的
         gate/标记互斥原子；re-arm 若恰在并发等待 ack，会因 reader 未 ack 而
         超时回滚落回 fresh start（既有 P1-2 语义），不破坏状态。
         """
-        # 批11-B1：本圈已完成（到达圈边界），累计当前进程圈数（回收日志用）。
+        # 本圈已完成（到达圈边界），累计当前进程圈数（回收日志用）。
         self._reader_loops += 1
         with self._loop_lock:
             if self._rearm_pending:
@@ -2444,7 +2444,7 @@ class WebMClip(QObject):
             # 标记已发出（本圈结束已上报）：无论随后被 _poll 消费还是被
             # re-arm 排空，下一圈边界都不得因此跳过标记。
             self._boundary_marker_pending = delivered
-            # 批11-B1：圈边界回收。结束标记已交付、re-arm 未置位（无 pending
+            # 圈边界回收。结束标记已交付、re-arm 未置位（无 pending
             # re-arm）、且本圈是「本来就要 park」的圈末驻留点 → 若当前 ffmpeg
             # 进程存活已达阈值，不做 park/re-arm，直接返回 False（reader 退出、
             # finally 杀进程），下一次 start() 自然 fresh spawn。只在圈边界
@@ -2520,7 +2520,7 @@ class WebMClip(QObject):
         发布端按此节奏把帧扇出到各订阅者，见 WebMClip
         ``_publish_sink`` 钩子）。None（默认）＝零行为差异。
 
-        loop_frame_count（批8 进程内循环）：>0 时按它把解码序号取模回绕成
+        loop_frame_count（进程内循环）：>0 时按它把解码序号取模回绕成
         源时间线帧号（ffmpeg -stream_loop -1 持续出第二圈时帧号重新从 0
         开始，丢帧/节流语义逐位保留）；每圈末帧（回绕前最后一帧）交付后
         调用 on_loop_boundary()——返回 False 表示停止/宽限超时/换代，
@@ -2561,7 +2561,7 @@ class WebMClip(QObject):
             if perfstats.ENABLED:
                 perfstats.time('webm.queue_wait', perfstats.clock() - _put_t0)
             src_idx += 1
-            # 圈边界（批8）：末帧交付后回调（结束标记 + 驻留等续圈在回调里）。
+            # 圈边界：末帧交付后回调（结束标记 + 驻留等续圈在回调里）。
             # 被停止的节流重试不触发边界（帧未交付，不算一圈播完）。
             if (loop_frame_count > 0 and on_loop_boundary is not None
                     and timeline_idx == loop_frame_count - 1
@@ -2603,7 +2603,7 @@ class WebMClip(QObject):
         # （P1 复审——否则 reader 队列满丢帧后相位错位、末帧提前）。
         self._current_frame_index = src_idx
         self._frame_index += 1
-        # 批8：末帧已交付 = 圈末自然结束（与 _poll 消费结束标记等价），
+        # 末帧已交付 = 圈末自然结束（与 _poll 消费结束标记等价），
         # 随后上层 stop() 据此转软停驻留等续圈。
         if self._frame_count > 0 and src_idx >= self._frame_count - 1:
             self._natural_end_pending = True

@@ -269,20 +269,6 @@ def read_self_talk_texts(value) -> list[str]:
     return texts or list(DEFAULT_SELF_TALK_TEXTS)
 
 
-def expression_style_text(host, text: str) -> str:
-    """Apply the shared expression style only to built-in host-talk text."""
-    if text not in DEFAULT_SELF_TALK_TEXTS:
-        return text
-    mode = str(host.cfg.get("dialogue_mode", "legacy") or "legacy")
-    from .persona_phrases import PhrasePicker
-    picker = getattr(host, "_expression_picker", None)
-    if picker is None:
-        picker = host._expression_picker = PhrasePicker()
-    if mode == "custom":
-        return picker.custom(host.cfg.get("dialogue_phrases", {}), "thinking", text)
-    return picker.get(mode, "thinking", text)
-
-
 def schedule_self_talk(host, *, after_display: bool = False) -> None:
     host._self_talk_timer.stop()
     if not host._self_talk_enabled or not (

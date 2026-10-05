@@ -119,7 +119,6 @@ def test_stale_generation_reader_writes_dropped(monkeypatch):
     clip._generation = 2
 
     # 验证旧 reader 在 generation 不匹配时不会写入 self._queue 或 self._fps/duration
-    old_fps = clip._fps
     clip._fps = 999.0
 
     # 运行 reader，由于 generation (1) != clip._generation (2)，reader 会迅速退出并不向队列或元数据写入

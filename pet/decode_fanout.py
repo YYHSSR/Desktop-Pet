@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # 环形缓冲容量（drop-oldest，保低延迟；对齐 queue(8) 语义减半）
 RING_CAPACITY = 4
 # 看门狗无帧预算（覆盖合法无帧叠加链，杜绝驻留误判）
-# 复审 P2-4（批5.3）：合法无帧窗口会叠加——park 宽限 1.0s + re-arm ack 超时
+# 复审 P2-4：合法无帧窗口会叠加——park 宽限 1.0s + re-arm ack 超时
 # 0.15s（F3 下调后）+ fresh ffmpeg 拉起 ~250ms（病态但合法，GUI 拥塞/连点风暴）
 # 可超 1.1s。预算放宽到 1.9s 覆盖叠加链，避免误判 abort → 订阅者全部本地回退。
 WATCHDOG_BUDGET_MS = 1900
@@ -170,18 +170,6 @@ class _FanoutFeedSession:
         """代理 ring 的高水位线（最近一次 push 的 src_idx）。"""
         return self._ring.last_pushed_src
 
-    @property
-    def caught_up(self) -> bool:
-        """消费端是否已追平生产端（无更多待消费帧的可靠判定）。
-
-        当 ``poll()`` 返回 ``none`` 时，消费端可用此属性区分：
-        - ``True``：ring 真空且消费端已 pop 到生产端最后 push 的 src → 生产完成；
-        - ``False``：ring 暂空但生产端可能还在推 → 不可提前退出。
-
-        这消除了 ``produced["done"]`` 标志与 ``ring.push`` 之间无
-        happens-before 保证的跨线程竞态。
-        """
-        return self._ring.last_pushed_src <= self.last_consumed_src
 
     def abort(self, reason: str) -> None:
         """主动 abort（F1）：让本会话下一次 poll 立即返回 ``('abort', ..., reason)``。
@@ -333,7 +321,7 @@ class DecodeFanoutHub:
 
     ``enabled`` 门控：由 ``experimental_shared_decode``（默认开）且
     ``experimental_single_process_spawn``（多窗）双门快照决定。门关 = 每窗
-    独立解码（批5.2 形态），``shareable_start`` 恒返回 ``'local'``。
+    独立解码，``shareable_start`` 恒返回 ``'local'``。
 
     线程模型：``shareable_start``/``shareable_end``
     全在 GUI 线程（单进程单 GUI 线程）；``_SourceSink.on_frame`` 在源窗 reader
@@ -349,7 +337,6 @@ class DecodeFanoutHub:
     @property
     def enabled(self) -> bool:
         return self._enabled
-
 
 
     # ---- 窗口层入口（window._switch 在 shareable movie start/end 时调用）-----

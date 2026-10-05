@@ -147,19 +147,24 @@ class ModernCheckLayer(QWidget):
         if not isinstance(menu, QMenu):
             return
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        for action in menu.actions():
-            if not action.isCheckable() or not action.isChecked() or not action.isVisible():
-                continue
-            rect = menu.actionGeometry(action)
-            center = QPointF(self.width() - 21.0, rect.center().y())
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor("#1677e8"))
-            painter.drawEllipse(QRectF(center.x() - 6.5, center.y() - 6.5, 13.0, 13.0))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.setPen(QPen(QColor("#ffffff"), 1.55, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-            painter.drawLine(QPointF(center.x() - 3.7, center.y()), QPointF(center.x() - 1.2, center.y() + 2.4))
-            painter.drawLine(QPointF(center.x() - 1.2, center.y() + 2.4), QPointF(center.x() + 3.8, center.y() - 2.8))
+        paint_modern_checks(menu, painter)
+
+
+def paint_modern_checks(menu: QMenu, painter: QPainter) -> None:
+    """Draw the same checked-state marker for menu frames and context-menu layers."""
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    for action in menu.actions():
+        if not action.isCheckable() or not action.isChecked() or not action.isVisible():
+            continue
+        rect = menu.actionGeometry(action)
+        center = QPointF(menu.width() - 21.0, rect.center().y())
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#1677e8"))
+        painter.drawEllipse(QRectF(center.x() - 6.5, center.y() - 6.5, 13.0, 13.0))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(QColor("#ffffff"), 1.55, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.drawLine(QPointF(center.x() - 3.7, center.y()), QPointF(center.x() - 1.2, center.y() + 2.4))
+        painter.drawLine(QPointF(center.x() - 1.2, center.y() + 2.4), QPointF(center.x() + 3.8, center.y() - 2.8))
 
 
 def install_modern_check_indicators(menu: QMenu) -> None:

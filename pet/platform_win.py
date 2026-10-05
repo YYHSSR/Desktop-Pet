@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Win32 平台层 —— 从 pet/window.py 剥离（结构优化批 6-3）。
+Win32 平台层 —— 从 pet/window.py 剥离（结构优化）。
 
 纯搬移：逐行搬移不改逻辑；ctypes 调用约定、argtypes 声明与搬移前逐字符一致。
 这些是直接触碰原生 API 的代码，任何一处改动都可能造成真实崩溃。
@@ -29,7 +29,7 @@ GWL_EXSTYLE = -20           # GetWindowLongW：取扩展样式
 _WS_CAPTION = 0x00C00000    # WS_BORDER | WS_DLGFRAME（带标题栏）
 _WS_EX_TOPMOST = 0x00000008  # 置顶：真全屏游戏/视频几乎必带，普通最大化窗口不带
 _WS_EX_TRANSPARENT = 0x00000020
-# 不接收激活：鼠标点击不夺前台（issue #98）。工具窗口（Tool）不带该位时，
+# 不接收激活：鼠标点击不夺前台。工具窗口（Tool）不带该位时，
 # 点击桌宠会把它变成前台窗口，用户随后的键盘输入全部落到桌宠上，而桌宠不处理
 # Ctrl+C/Ctrl+V —— 观感就是"整机复制粘贴失效"，点回原窗口或退出桌宠才恢复。
 _WS_EX_NOACTIVATE = 0x08000000

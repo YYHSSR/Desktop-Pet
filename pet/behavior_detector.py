@@ -3,7 +3,7 @@
 
 与 ``stuck_detector``（失败/超时/重试的「卡住评分」）互补，本模块专攻**行为模式**：
 不再按工具名数「同一种工具重复几次」，而是把工具调用归一化成**行为类**，再用
-**双窗口**统计近期行为分布，识别两类典型异常：
+**双窗口**统计近期行为分布，识别三类典型异常：
 
 1. **慢性循环**（长期重复）：最近 10 个 step 里同类行为出现很多次；
 2. **短时爆发**（高密度重复）：最近 6 个 step 里同类行为快速重复；
@@ -29,8 +29,7 @@
   ``inspected_seq`` 之后的事件，且**至少新增 N 个 Agent step**（默认 3）才允许
   再次触发——避免同一批历史事件反复弹提醒。
 - **Control 不等于杀掉 Agent**：命中 Control 后只上报 ``REPLAN``（建议重新
-  规划，只提醒、不打断 Agent）。原先预留的小型 LLM Judge 从未接线，已随本次
-  清理删除；本模块只负责「这个行为模式值得检查」。
+  规划，只提醒、不打断 Agent）。
 
 事件来源：本地事件通道提供的 ``tool/call`` /
 ``command/run`` 等记录（每条约 80ms 合批一次），带 ``step`` 字段。
@@ -458,9 +457,6 @@ class BehaviorPatternDetector(QObject):
             )
         return decisions
 
-    def _recent_decisions(self, decisions: list[_StepDecision], n: int) -> list[_StepDecision]:
-        """最近 n 个 step 的决策（按 seq 升序）。"""
-        return decisions[-n:]
 
     def _counts_in(self, decisions: list[_StepDecision]) -> dict[BehaviorClass, int]:
         """统计窗口内每个行为类出现在几个 step 中（每 step 同类只算一次）。"""
@@ -549,7 +545,7 @@ class BehaviorPatternDetector(QObject):
         ) or ""
 
         # Control 档位固定上报 REPLAN：本模块只负责「值得检查」，不替 Agent
-        # 做决定，也不打断其执行（原先预留的 LLM Judge 从未接线，已删除）。
+        # 做决定，也不打断其执行。
         payload = {
             "type": "pet/behavior-pattern",
             "level": level.value,

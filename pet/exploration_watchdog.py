@@ -313,17 +313,6 @@ class ExplorationWatchdog(QObject):
         self.long_run_seconds = max(self.early_grace_seconds, int(config.get("exploration_watchdog_long_run_minutes", 10)) * 60)
         self.long_think_seconds = max(10, int(config.get("exploration_watchdog_long_think_seconds", 120)))
 
-    def grant_grace(self, session: str, minutes: int | None = None) -> None:
-        """Give a session time to absorb a user/system continuation decision."""
-        with self._lock:
-            state = self._states.get(session)
-            if state is None:
-                return
-            seconds = self.early_grace_seconds if minutes is None else max(60, int(minutes) * 60)
-            state["grace_until"] = time.monotonic() + seconds
-            # Do not immediately re-inspect the same history after the button
-            # action; new Agent steps must arrive first.
-            state["last_inspected_seq"] = state["seq"] + (1 if state["current"] else 0)
 
     def reset(self, session_key: str):
         with self._lock:

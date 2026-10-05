@@ -26,11 +26,12 @@ from __future__ import annotations
 import ctypes
 import logging
 import os
+import weakref
 from ctypes import wintypes
 from typing import Callable, Optional
 
 import shiboken6
-from PySide6.QtCore import QCoreApplication, QObject
+from PySide6.QtCore import QAbstractNativeEventFilter, QCoreApplication, QObject
 
 from . import webm_clip
 
@@ -76,7 +77,13 @@ def session_end_reason(message) -> Optional[str]:
     失效 / PySide6 传参形态变化）一律返回 None——本模块只做观测，任何异常都
     必须吞掉，绝不让 Qt 事件循环因探测器崩掉。
     """
-    if not isinstance(message, int) or message <= 0:
+    if isinstance(message, bool) or not isinstance(message, (int, shiboken6.VoidPtr)):
+        return None
+    try:
+        message = int(message)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if message <= 0:
         return None
     try:
         raw = ctypes.string_at(message, ctypes.sizeof(_WinMsg))
@@ -84,6 +91,20 @@ def session_end_reason(message) -> Optional[str]:
     except Exception:
         return None
     return _SESSION_END_MESSAGES.get(msg_id)
+
+
+class _SessionEndFilter(QAbstractNativeEventFilter):
+    """Qt 原生过滤器；探测器持有它，反向引用不延长探测器生命周期。"""
+
+    def __init__(self, watcher) -> None:
+        super().__init__()
+        self._watcher = weakref.ref(watcher)
+
+    def nativeEventFilter(self, event_type, message):  # noqa: N802
+        watcher = self._watcher()
+        if watcher is None or not shiboken6.isValid(watcher):
+            return (False, 0)
+        return watcher.nativeEventFilter(event_type, message)
 
 
 class SessionWatcher(QObject):
@@ -100,6 +121,8 @@ class SessionWatcher(QObject):
         self._install_native_filter = bool(install_native_filter)
         self._armed = False
         self._installed = False
+        self._native_filter = _SessionEndFilter(self)
+        self._native_filter_installed = False
         self._signals_connected = False
 
     # ------------------------------------------------------------ 状态
@@ -118,11 +141,11 @@ class SessionWatcher(QObject):
         self.connect_app_signals()
         if self._install_native_filter and os.name == 'nt':
             try:
-                self._app.installNativeEventFilter(self)
-            except AttributeError:
-                pass  # 鸭子类型替身（测试桩）没有该方法：只保留信号兜底路径
+                self._app.installNativeEventFilter(self._native_filter)
             except Exception:
-                logger.debug('安装会话结束原生事件过滤器失败', exc_info=True)
+                logger.warning('安装会话结束原生事件过滤器失败；保留 Qt 信号兜底', exc_info=True)
+                return False
+            self._native_filter_installed = True
         self._installed = True
         return True
 
@@ -137,7 +160,7 @@ class SessionWatcher(QObject):
             if signal is None:
                 continue
             try:
-                signal.connect(lambda _reason=reason: self.arm(_reason))
+                signal.connect(lambda *_args, _reason=reason: self.arm(_reason))
             except Exception:
                 logger.debug('连接 %s 会话信号失败', name, exc_info=True)
             else:

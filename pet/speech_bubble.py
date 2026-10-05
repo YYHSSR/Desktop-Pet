@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""桌宠自言自语与聊天状态使用的轻量气泡。
+"""桌宠自言自语与本地 Agent 状态使用的轻量气泡。
 
 macOS 焦点问题由气泡窗口自身解决：`WindowDoesNotAcceptFocus`、
 `WA_ShowWithoutActivating` 和透明鼠标事件共同保证提示不会成为键盘或
@@ -8,11 +8,7 @@ macOS 焦点问题由气泡窗口自身解决：`WindowDoesNotAcceptFocus`、
 注意：不要用“绕过 Qt show() 直接对原生窗口 orderFront”的做法——Qt
 认为窗口未显示就不会触发绘制，气泡会“出现但看不见”。
 
-批6-2 拆分（纯搬移，逻辑/绘制/时序零改动）：
-- pet/speech_bubble_text.py — 纯函数区（文本分页/定位/内容模型）整体迁出；
-- 本文件保留 PetSpeechBubble（状态/绘制/窗口生命周期）与 BUBBLE_STYLE_PRESETS，
-  并对拆分出的纯函数做 re-export，维持既有 `from pet.speech_bubble import ...`
-  兼容，外部调用点零改动。
+文本分页、定位和内容模型由 speech_bubble_text.py 提供。
 """
 from __future__ import annotations
 
@@ -42,7 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-# 批6-2 拆分后纯函数区 re-export（维持既有 import 兼容；外部调用点本批不改）
+# 文本和布局函数由独立模块提供。
 from .speech_bubble_text import (
     BUBBLE_BODY_FONT_PX,
     BUBBLE_SUBTITLE_FONT_PX,
@@ -291,7 +287,7 @@ class PetSpeechBubble(QFrame):
         # The subtitle is user/LLM supplied (for example the watchdog's
         # recommendation).  Keep it inside the same text column as the main
         # message; QLabel otherwise reports the full unwrapped line as its
-        # sizeHint and can stretch an interactive bubble across the chat UI.
+        # sizeHint and can stretch an interactive bubble beyond the bubble's intended width.
         self._subtitle_label.setWordWrap(True)
         self._subtitle_label.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
@@ -388,10 +384,6 @@ class PetSpeechBubble(QFrame):
     def style_id(self) -> str:
         return self._style_id
 
-    @property
-    def text_scale(self) -> float:
-        """当前文字缩放系数（1.0 = 默认，与旧版逐像素一致）。"""
-        return self._text_scale
 
     def set_text_scale(self, scale: float) -> None:
         """设置气泡文字缩放系数（配置键 bubble_text_scale，百分比/100）。

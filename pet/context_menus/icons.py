@@ -15,16 +15,9 @@ CUSTOM_ICON_SUFFIXES = frozenset({
 
 
 def _icon_theme(widget) -> tuple[str, bool]:
-    """Resolve (menuStyle, modernDark) from the widget or its nearest ancestor.
+    """从当前控件或最近的父控件读取菜单风格及深色状态。
 
-    Settings and chat windows pin ``menuStyle=modern`` on the container so every
-    icon rendered inside inherits the outline colour (#595959 on light surfaces,
-    #d6d6d6 on dark ones) instead of the app palette. The app palette follows
-    the OS theme: on a dark system its foreground is white, which painted white
-    glyphs on the QSS-light chat surfaces (invisible close/minimize/add icons).
-    Individual widgets may still flip ``modernDark`` (e.g. the accent send
-    button) without restating the style.
-    """
+    设置容器使用自己的主题属性，避免系统深色调色板在浅色界面上绘制白色图标。"""
     style = ""
     dark = False
     current = widget

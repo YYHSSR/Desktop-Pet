@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""多开桌宠碰撞客户端（PetWindow 碰撞职责抽取，批 6-4）。
+"""多开桌宠碰撞客户端（PetWindow 碰撞职责抽取，）。
 
 ``CollisionClient`` 承载 PetWindow 的碰撞客户端侧职责：
 1. 提交自身 snapshot（``_collision_state`` / ``_submit_collision_state``，
@@ -74,7 +74,7 @@ class CollisionClient(QObject):
         self.pending_predicted_contact: tuple[float, float, list[list[float]]] | None = None
         self.impulse_watermarks = collision_codec.WatermarkDeduplicator()
         self.last_collision_squash_at = float('-inf')
-        # 批 A：碰撞撞飞（is_real_hit 且非 contact_deviation）已发起 throw 物理；
+        # 碰撞撞飞（is_real_hit 且非 contact_deviation）已发起 throw 物理；
         # 一旦 throw 落地停稳（_stop_physics 把 _physics_mode 置 None 并回调
         # _submit_collision_state）即通知边缘探头控制器开始重进倒计时。
         self._reentry_after_throw_armed = False
@@ -221,7 +221,7 @@ class CollisionClient(QObject):
 
     def _submit_collision_state(self, force: bool = False) -> None:
         win = self._win
-        # 批 A：碰撞撞飞落地停稳（throw 物理结束）→ 通知边缘探头开始重进倒计时。
+        # 碰撞撞飞落地停稳（throw 物理结束）→ 通知边缘探头开始重进倒计时。
         # 判定依据：撞飞已 armed（_reentry_after_throw_armed）且当前已不在 throw
         # 物理模式（_stop_physics 已把 _physics_mode 置 None 并回调本方法）。
         if self._reentry_after_throw_armed and win._physics_mode != 'throw':
@@ -413,7 +413,7 @@ class CollisionClient(QObject):
             win._phys_pos[:] = list(_virtual_xy(win))
             win._last_physics_tick_time = None
             win._physics_timer.start()
-            # 批 A：真实撞击进入飞行前取消边缘探头会话（restore=False，物理引擎
+            # 真实撞击进入飞行前取消边缘探头会话（restore=False，物理引擎
             # 已接管位置，回拉会抢位置）。撞飞落地停稳后由 _submit_collision_state
             # 触发边缘探头重进倒计时。
             edge_probe = getattr(win, '_edge_probe', None)

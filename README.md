@@ -17,7 +17,9 @@
 
 **Desktop-Pet** 是一款面向 Windows 平台打造的轻量、丝滑、高度自拟物化交互的桌面宠物系统。
 
-本项目聚焦于提供最纯粹的陪伴与桌面互动体验（Pure Pet 模式），剥离了繁复庞杂的大模型对话交互，以极低 CPU 与内存占用常驻系统，配合底层 C++ 物理加速引擎与流水线透明视频流解码，带来如丝般顺滑的动作表现和桌面物理弹射反馈。
+本项目聚焦于陪伴与桌面互动体验（Pure Pet 模式），移除了大模型对话调用。
+动画采用透明视频解码、缓存和预热；物理碰撞支持 Python 与可选 C++ 后端。
+实际 CPU、内存和帧率表现取决于素材、宠物数量、配置及运行环境。
 
 > [!IMPORTANT]
 > **商业限制声明**：本项目遵循 **CC BY-NC 4.0（知识共享 署名-非商业性使用 4.0 国际许可协议）**。允许个人自由使用、学习研究、修改与分享，**严禁任何形式的商业用途、付费出售、捆绑变现或营利性分发**！
@@ -27,10 +29,10 @@
 ## 🌟 核心特性
 
 - 🎬 **透明无缝 WebM 动效引擎**：采用原生无黑边 Alpha 透明通道视频驱动，配合 LRU 帧缓存与流水线首帧预热，动作衔接丝滑自然。
-- ⚡ **底层物理碰撞与弹射互动**：
+- ⚡ **物理碰撞与弹射互动**：
   - 支持鼠标抓取、拖拽弹射甩飞、撞墙弹性反弹；
-  - 基于 C++ 核心 (`pet_core.dll`) 与共享内存原子锁物理模拟，支持多开桌宠之间真实弹性碰撞。
-- 🔗 **ChatGPT Work/Codex 联动**：只读本机工作会话状态，切换工作、等待与完成动作并提示；ChatGPT 桌面端由玩家自行打开。参见 [联动说明](docs/AGENT_LINK_PROTOCOL.md)。
+  - 多开桌宠通过本地 IPC 协调弹性碰撞，默认使用 Python 求解器；支持可选的 C++ 核心 (`pet_core.dll`)。
+- 🔗 **ChatGPT Work/Codex 联动**：只读本机工作会话状态，切换工作、等待与完成动作并提示；ChatGPT 桌面端由玩家自行打开。
 - 🎯 **纯净专注（Pure Pet）**：零多余 AI 依赖，不拉起庞大臃肿的模型调用，开箱即用，资源极简。
 - ⚙️ **现代化独立设置面板**：
   - 独立进程隔离设计，设置调节与桌宠渲染互不干扰；
@@ -88,8 +90,27 @@ python -m pet --settings
 
 联动只读本地 Work/Codex 会话文件，不需要 API Key。普通 Chat 和云端会话不在
 监听范围内。默认读取 `~/.codex/sessions`，也支持 `CODEX_HOME`。
-本机日志格式可能随桌面端版本变化；详细范围与协议见
-[桌面联动协议](docs/AGENT_LINK_PROTOCOL.md)。
+本机日志格式可能随桌面端版本变化。常规事件约每 1.5 秒增量读取，
+新会话约每 15 秒发现一次；启动时跳过已有历史活动。
+
+### 自定义联动事件
+
+设置中的自定义 Agent 可以监听指定的 UTF-8 JSONL 文件，每行一个 JSON 对象。
+事件使用 `event`，状态使用 `state`；支持 `idle`、`thinking`、`working`、
+`attention`、`sleeping`、`error`。例如：
+
+```json
+{"event":"working","state":"working","sessionId":"demo","agentName":"My Agent"}
+```
+
+桌宠只读取文件。它不会执行事件中的命令，也不会替用户批准操作。
+
+### 碰撞后端
+
+默认使用 Python。可在启动前将 `PET_COLLISION_BACKEND` 设置为 `native`
+强制使用原生库，或设置为 `auto` 在原生库不可用时回退到 Python。
+原生库的收益取决于碰撞密度，稀疏场景可能由 Python 更快完成。
+单进程多窗和共享解码属于实验能力；默认多开仍使用独立进程。
 
 | 操作手势 | 触发交互 | 说明 |
 | :--- | :--- | :--- |
@@ -99,7 +120,7 @@ python -m pet --settings
 | **鼠标右键单击** | 上下文主菜单 | 打开功能菜单（角色切换、动作播放、设置等） |
 | **鼠标滚轮** | 缩放大小 | 便捷调整桌宠显示比例 |
 
-大小、播放速率、置顶、拖动物理等快捷操作集中在右键菜单中；系统操作集中在托盘中，设置页不重复这些选项。气泡、文案、碰撞及联动的详细参数仍可在设置中调整。
+大小、播放速率、置顶、拖动物理等快捷操作集中在右键菜单中；系统操作集中在托盘中，设置页不重复这些选项。托盘中的显示/隐藏与开机自启在启用时显示 ✓，再次点击即可关闭并取消勾选。气泡、文案、碰撞及联动的详细参数仍可在设置中调整。
 
 ---
 
@@ -113,8 +134,10 @@ powershell -ExecutionPolicy Bypass -File scripts\build_onedir.ps1 -Variant webm-
 ```
 
 构建完成后产物位于：
-`dist-onedir\dsh-pet-standalone-webm-chat\`
+`dist-onedir\`
 双击文件夹内的 `dsh-pet-standalone-webm-chat.exe` 即可直接免安装运行。
+该目录只放 exe 和 `_internal`，不生成 ZIP 或嵌套应用目录。开发文档留在项目根目录；
+许可证文本放在 `_internal/licenses/`。构建成功后自动清理临时构建目录；需要诊断时使用 `-KeepBuild`。
 
 ---
 
@@ -125,20 +148,24 @@ desktop-pet/
 ├── assets/                 # 桌宠人物动画素材 (WebM/预设)
 ├── pet/                    # Python 核心业务逻辑
 │   ├── app.py             # 应用程序宿主与生命周期调度
+│   ├── tray_controller.py # 托盘状态同步与菜单生命周期
 │   ├── window.py          # 桌宠透明窗口与手势交互
 │   ├── modern_settings_dialog.py # 现代设置对话框
 │   ├── native/            # C++ 物理碰撞底层动态库
 │   └── ...
 ├── C++-Python/             # 碰撞内核 C++ 源代码
-├── packaging/              # 打包规范、资源清单与 Slim 规则
-├── scripts/                # 构建、本地打包与测试脚本
-├── tests/                  # Pytest 自动化测试套件
-├── docs/                   # 架构设计与性能优化复盘文档
+├── scripts/                # 构建工具与冻结程序入口
+├── tests/                  # Python 测试、native/、tools/、benchmarks/
+├── DEPENDENCY_LICENSES.md   # Qt/PySide 使用的完整 GPL/LGPL 正文
+├── agent.md                # 当前开发约定、架构和验证方式
 ├── LICENSE                 # CC BY-NC 4.0 非商业开源许可协议
 └── README.md               # 项目主说明文档
 ```
 
-`docs/` 和 README 不参与应用启动，也不会进入便携包。删除 README 会移除 GitHub 首页说明；删除 `docs/` 会让 README、`AGENTS.md` 等文档链接失效，并使依赖文档的开发规范测试失败。保留 `LICENSE`、`THIRD_PARTY_NOTICES.md`、角色素材和 `C++-Python/` 原生源码。
+历史 `docs/` 已移除，当前开发说明集中在 [agent.md](agent.md)。测试保留关键运行、
+配置、解码生命周期和原生碰撞覆盖。构建必须保留 `LICENSE`、[依赖许可证正文](DEPENDENCY_LICENSES.md)、
+角色素材和 `C++-Python/` 原生源码。节假日提醒和文件投喂已移除。
+项目只维护本地开发与打包流程，已删除 GitHub 自动测试和发布配置。
 
 ---
 

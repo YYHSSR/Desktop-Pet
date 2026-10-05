@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""批5.2a：单进程多窗的进程级共享子系统（agent_link / 全屏 watcher）。
+"""单进程多窗的进程级共享子系统（agent_link / 全屏 watcher）。
 
 feature flag ``experimental_single_process_spawn`` 关（现状）时本模块不被实例化
 ——每窗各自创建子系统，行为与 a2a3fc5 逐位一致（回退保险）。flag 开（多窗）时
@@ -247,7 +247,6 @@ class SharedAgentLinkManager(AgentLinkManager):
         self._stopped = False
 
 
-
     def pause(self) -> None:
         # 单窗隐藏不停共享监视器；呈现扇出已按「可见窗」过滤
         pass
@@ -372,7 +371,7 @@ class SharedFullscreenWatcher(QObject):
 
 
 class SharedSubsystems:
-    """批5.2a：单个进程的一整套共享子系统（agent_link / 全屏 watcher）。
+    """单个进程的一整套共享子系统（agent_link / 全屏 watcher）。
 
     ``AppShell`` 在 flag 开时实例化它一次；各窗经 ``PetWindow`` 构造参数引用
     同一份 ``agent_link``，并订阅 ``fs`` 的广播信号。flag 关

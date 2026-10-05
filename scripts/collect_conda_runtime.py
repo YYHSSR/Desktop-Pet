@@ -87,12 +87,15 @@ def collect(bundle: Path, conda_bin: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--bundle", type=Path, required=True)
-    parser.add_argument("--conda-bin", type=Path, required=True)
+    parser.add_argument("--conda-bin", type=Path)
     arguments = parser.parse_args()
-    manifest = collect(arguments.bundle, arguments.conda_bin)
+    if arguments.conda_bin is None:
+        manifest = {"schema_version": 2, "provider": "standard", "applicable": False, "dependencies": []}
+    else:
+        manifest = collect(arguments.bundle, arguments.conda_bin)
     path = arguments.bundle / "_internal" / "conda-runtime-manifest.json"
     path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"[Python] staged {len(manifest['dependencies'])} conda DLLs; manifest={path}")
+    print(f"[Python] staged {len(manifest['dependencies'])} {manifest['provider']} DLLs; manifest={path}")
 
 
 if __name__ == "__main__":

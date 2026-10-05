@@ -19,7 +19,7 @@ _fs_monotonic = time.monotonic
 
 def start_fs_watch(host) -> None:
     """启动全屏监视线程（幂等）。"""
-    if host._single_process_spawn:  # 批5.2a：flag 开由共享 watcher 接管
+    if host._single_process_spawn:  # flag 开由共享 watcher 接管
         return
     if host._fs_thread is not None and host._fs_thread.is_alive():
         return
@@ -48,7 +48,7 @@ def fs_watch_loop(host, *, monotonic=None) -> None:
     """
     clock = monotonic if monotonic is not None else _fs_monotonic
     stop = host._fs_stop
-    # Phase 1：避免纯桌宠启动即加载 PIL；该线程真正需要检测光标时才导入。
+    # 避免纯桌宠启动即加载 PIL；该线程真正需要检测光标时才导入。
     from . import cursor_visibility as cursor_mod
     polls = 0
     consecutive_errors = 0

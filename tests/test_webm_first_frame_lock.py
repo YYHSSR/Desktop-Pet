@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import subprocess
 import threading
-from pathlib import Path
 
 import pytest
 from PySide6.QtGui import QImage

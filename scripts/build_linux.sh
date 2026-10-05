@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # 构建 dsh-pet-standalone Linux onedir（本地与 CI 共用的唯一构建入口）。
 #
-# CI（.github/workflows/build-linux.yml）与本脚本必须保持一致——构建逻辑
 # 只有这一份，CI 通过调用本脚本复用，不在 workflow 内联 PyInstaller 命令，
 # 避免两处漂移（曾因本地/CI 两套命令不一致而难以追踪）。
 #
@@ -45,14 +44,14 @@ FCITX5_PLUGIN="$FCITX5_PLUGIN_DIR/libfcitx5platforminputcontextplugin.so"
 IFS=',' read -ra variant_list <<< "$VARIANTS"
 for variant in "${variant_list[@]}"; do
     case "$variant" in
-        webm-chat)  entry="packaging/pet_entry.py";            assets="assets/characters";       excludes="keyring" ;;
-        webm)       entry="packaging/pet_entry.py";    assets="assets/characters";       excludes="keyring" ;;
-        gif-chat)   entry="packaging/pet_entry.py";            assets="assets/characters_gif";   excludes="keyring" ;;
-        gif)        entry="packaging/pet_entry.py";    assets="assets/characters_gif";   excludes="keyring" ;;
+        webm-chat)  entry="scripts/pet_entry.py";            assets="assets/characters";       excludes="keyring" ;;
+        webm)       entry="scripts/pet_entry.py";    assets="assets/characters";       excludes="keyring" ;;
+        gif-chat)   entry="scripts/pet_entry.py";            assets="assets/characters_gif";   excludes="keyring" ;;
+        gif)        entry="scripts/pet_entry.py";    assets="assets/characters_gif";   excludes="keyring" ;;
         *) echo "未知变体: $variant" >&2; exit 1 ;;
     esac
     name="dsh-pet-standalone-$variant"
-    printf "VARIANT = '%s'\n" "$variant" > packaging/build_variant.py
+    printf "VARIANT = '%s'\n" "$variant" > "$WORK_DIR/build_variant.py"
 
     args=(
         --exclude-module PySide6.QtMultimedia
@@ -65,6 +64,7 @@ for variant in "${variant_list[@]}"; do
         --clean
         --onedir
         --paths .
+        --paths "$WORK_DIR"
         --distpath "$DIST_DIR"
         --workpath "$WORK_DIR"
         --name "$name"
@@ -86,9 +86,9 @@ for variant in "${variant_list[@]}"; do
 
     echo "==> 构建 $name"
     "$PYTHON_BIN" -m PyInstaller "${args[@]}" "$entry"
-    cp LICENSE THIRD_PARTY_NOTICES.md "$DIST_DIR/$name/"
+    cp LICENSE "$DIST_DIR/$name/"
     # 中文编码自检（issue #26）：字节码/资源/文件名被编码污染即中止。
-    "$PYTHON_BIN" scripts/check_bundle_encoding.py --dir "$DIST_DIR/$name"
+    "$PYTHON_BIN" tests/tools/check_bundle_encoding.py --dir "$DIST_DIR/$name"
 
 done
 

@@ -6,7 +6,7 @@
 ``llm/retry``、``assistant/message``）的滑动窗口，按规则计算卡住评分，
 达到阈值时发射信号驱动桌宠动画/气泡。
 
-设计文档详见 ``docs/STUCK_DETECTOR.md``。
+阈值配置与窗口期判定由本模块定义。
 """
 
 from __future__ import annotations

@@ -34,7 +34,7 @@ set_target_properties(pet_core PROPERTIES PREFIX "" OUTPUT_NAME "pet_core")
 
 include(CTest)
 if(BUILD_TESTING)
-    add_executable(pet_core_tests tests/test_core.cpp)
+    add_executable(pet_core_tests "${CMAKE_CURRENT_SOURCE_DIR}/../tests/native/test_core.cpp")
     target_compile_features(pet_core_tests PRIVATE cxx_std_20)
     target_link_libraries(pet_core_tests PRIVATE pet_core)
     add_test(NAME pet_core_tests COMMAND pet_core_tests)

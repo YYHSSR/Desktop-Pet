@@ -264,7 +264,7 @@ class _CollisionWorker(QObject):
             # POSIX 下被杀死/崩溃的旧协调者会残留 socket 文件，listen 报
             # AddressInUseError（Windows 命名管道随进程死亡回收，无此问题）。
             # 持有排他文件锁 ⇒ 旧协调者必死（flock 随进程死亡释放），先同步
-            # 探测同名服务确实无人应答，再清残留文件重试 listen（issue #42）。
+            # 探测同名服务确实无人应答，再清残留文件重试 listen。
             if (sys.platform != "win32"
                     and server.serverError() == QAbstractSocket.SocketError.AddressInUseError
                     and self._coordinator_lock is not None

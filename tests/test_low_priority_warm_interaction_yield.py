@@ -29,7 +29,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
-from PySide6.QtWidgets import QApplication, QMenu
+from PySide6.QtWidgets import QApplication
 
 from pet import catalog
 import pet.library as library_mod

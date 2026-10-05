@@ -113,27 +113,6 @@ def _clean_menu_appearance(value):
     return result
 
 
-def _normalize_fun_asset_path(candidate: str, default: str) -> str:
-    """绝对路径若指向应用内置 assets 目录，归一化为相对路径。
-
-    旧版设置对话框会把默认相对路径固化成安装目录绝对路径；portable
-    目录一移动/自更新即失效。此处在加载时统一还原为 assets/... 相对值。
-    """
-    candidate = str(candidate or "").strip()
-    if not candidate:
-        return default
-    path = Path(candidate).expanduser()
-    if not path.is_absolute():
-        return candidate
-    assets_root = Path(__file__).resolve().parents[1] / "assets"
-    try:
-        rel = path.resolve().relative_to(assets_root.resolve())
-        # 统一正斜杠：配置值与 legacy 迁移比较、跨平台一致
-        return str(Path("assets") / rel).replace("\\", "/")
-    except ValueError:
-        return candidate
-
-
 _RETIRED_BALANCE_KEYS = frozenset({
     "agent_cost_enabled", "click_show_balance", "balance_refresh_minutes",
     "balance_tier_labels_mode", "balance_tier_label_peak", "balance_tier_label_idle",
@@ -174,7 +153,7 @@ def _default_agent_link_data() -> dict:
     return {
         "codex": False,
         "cursor": False,
-        # 自定义联动 Agent（协议见 docs/AGENT_LINK_PROTOCOL.md §4）：只读监听
+        # 自定义联动 Agent（协议见 README 的“自定义联动事件”）：只读监听
         # 用户指定的事件文件，不写外部配置、无需授权弹窗，默认空
         "custom_agents": [],
         # 事件气泡触发概率（默认值见 pet/report_gates.py）：设置页把它们收进
@@ -249,11 +228,11 @@ def _clean_agent_link_data(raw: Any) -> dict:
         "cursor",
     ):
         if key in raw:
-            result[key] = bool(raw[key])
+            result[key] = _bool_or_default(raw[key], defaults[key])
     # 事件汇报概率门：新形状（report_gates 字典）优先；旧键一次性迁移——
     # 布尔开关 → 1.0/0.0，旧百分比 report_probability(0-100) → activity 概率。
     # 迁移后**不再写出旧键**，配置里不留兼容别名（用户可编辑文案的键名另见
-    # docs/PERSONA-PHRASES-PRESET-STORAGE-2026-09-08.md）。
+    # persona_presets/ 中的预设结构）。
     raw_gates = raw.get("report_gates")
     gates = clean_report_gates(raw_gates)
     if not isinstance(raw_gates, dict):
@@ -286,7 +265,7 @@ def _app_dir_name() -> str:
     """打包变体的独立数据目录名；源码运行时回退到共享目录。
 
     构建脚本（scripts/build_onedir.ps1）会在打包前生成
-    packaging/build_variant.py（VARIANT = "webm-chat" 等），
+    build-onedir/build_variant.py（VARIANT = "webm-chat" 等），
     使 Chat / 无 Chat 等变体各自使用独立的配置目录、会话与自启项。
     """
     try:
@@ -364,11 +343,7 @@ def _clean_character_profiles(value) -> dict:
 
 
 def _clean_collision_data(value: dict) -> dict:
-    """归一化碰撞设置：collision_* 一组 7 键。
-
-    从 Config._normalize_pet_settings 原样上提为模块级纯函数，供 Config 与
-    config_domains 的 CollisionConfig 共用；清洗逻辑本体一行未改。
-    """
+    """归一化碰撞开关、恢复系数、摩擦、质量缩放和冲量上限。"""
     result = dict(value)
     result["collision_enabled"] = _bool_or_default(value.get("collision_enabled"), True)
     result["collision_restitution"] = _float_or_default(value.get("collision_restitution"), 0.82, 0.0, 1.0)
@@ -465,7 +440,7 @@ class Config:
             "scale": catalog.DEFAULT_SCALE,
             "spawn_inherit_size": True,  # 生小肥鱼继承主肥鱼大小（False 用 spawn_scale）
             "spawn_scale": catalog.DEFAULT_SCALE,  # 关闭继承时生小肥鱼使用的尺寸
-            "user_customized": False,  # 批 C：仅当用户在该子肥鱼自己的设置界面保存过才置真
+            "user_customized": False,  # 仅当用户在该子肥鱼自己的设置界面保存过才置真
             "on_top": True,
             "show_dock_icon": True,
             "no_move": False,
@@ -507,39 +482,26 @@ class Config:
             "character_aliases": {},  # 角色显示名别名 {角色id: 自定义名}，空名=恢复默认
             "character_profiles": {},  # 角色档案：{角色id: {click_talk_bindings: {动画id: [台词]}}}
             "agent_link": _default_agent_link_data(),
-            "system_notifications_enabled": True,  # 对话完成/失败/需要授权时弹桌面系统通知
-            # 节日提醒（农历/24 节气/西方节日；命中当日用气泡告知并附氛围匹配文案）。
-            # 总开关默认关闭：属"主动打扰"型功能，升级后不应突然冒出来，由用户显式开启。
-            "festival_reminder_enabled": False,  # 节日提醒总开关
-            "festival_reminder_cn": True,  # 中国节日
-            "festival_reminder_solar_terms": True,  # 24 节气
-            "festival_reminder_west": True,  # 西方节日
-            "festival_reminder_mode": "times",  # times（按次数）/ custom（自定义时间点）
-            "festival_reminder_count": 2,  # times 模式提醒次数（1~6，均匀铺在 09:00–21:00）
-            "festival_reminder_times": "09:00",  # custom 模式时间点（HH:MM 逗号分隔）
-            "festival_reminder_show_quote": True,  # 是否附诗词/引文
-            "festival_custom_quotes_cn": "",  # 自定义中文文案（一行一条，追加到内置库）
-            "festival_custom_quotes_west": "",  # 自定义西文文案（一行一条，追加到内置库）
             **DEFAULT_COLLISION_SETTINGS,
             "media_prewarm": "balanced",  # full / balanced / minimal 素材首帧预热力度
-            # 批10-A3：默认 32→8MB。预测式预热（批10-A1）落地后，首帧 LRU 只需
+            # 默认 32→8MB。预测式预热落地后，首帧 LRU 只需
             # 装「瞬时交互核 pinned（click/turn/drag）+ 1-2 个预测位」；idle/move
             # 由预测机制与 LRU 热度自然覆盖，不再常驻。
             "first_frame_cache_max_mb": 8,  # 首帧缓存全局预算（MB），低配机可调小
-            # 批10-A1 预测式接力预热：当前动画墙钟剩余 ≤ 该提前量（毫秒）时，
+            # 当前动画墙钟剩余 ≤ 该提前量（毫秒）时，
             # 帧驱动提前掷骰决定下一动画并在后台预解码其首帧进 LRU（Phase 1）。
             "predict_prewarm_lead_ms": 350,  # 提前量（ms），范围 200-600
-            # 批11-B1：ffmpeg 圈边界定期回收阈值（分钟）。长寿循环 reader 在圈
+            # ffmpeg 圈边界定期回收阈值（分钟）。长寿循环 reader 在圈
             # 边界驻留时按进程存活时长评估回收：达到该值 → 不 park/re-arm，正常
             # 退出杀进程、下一次 start() 自然 fresh spawn（把 47→64MB 的 ffmpeg
             # 内部累积周期性清零）。0 = 关闭回收（回退保险）；否则范围 [2, 120]。
             "ffmpeg_recycle_minutes": 10,
-            # 批5.2 spike（默认关）：开 = 「生小肥鱼」从 spawn 新进程改为进程内
+            # 开 = 「生小肥鱼」从 spawn 新进程改为进程内
             # 创建第二个 PetInstance。关 = 行为与现状逐位一致（回退保险）。
             "experimental_single_process_spawn": False,
-            # 批5.3：同角色共享解码链（进程内帧扇出）开关，默认开。仅当
+            # 同角色共享解码链（进程内帧扇出）开关，默认开。仅当
             # experimental_single_process_spawn（多窗）也为开时才真正激活——
-            # 单窗无共享可言，双门关任一即回每窗独立解码（批5.2 形态）。
+            # 单窗无共享可言，双门关任一即回每窗独立解码。
             "experimental_shared_decode": True,
             # 设置页进程隔离：默认开 = 设置页拉到独立进程（--settings），关窗即
             # 进程退出，OS 连锅端走首开留下的字体/样式/模块高水位（无卸载 API）；
@@ -551,9 +513,7 @@ class Config:
         self._normalize_pet_settings()
 
     def _migrate_legacy_config(self, base) -> None:
-        """旧版各变体共用 %APPDATA%/dsh-pet-standalone；升级后首次运行时
-        把该目录的 config.json 与 sessions/ 一次性复制到变体独立目录，
-        避免用户设置与聊天会话“消失”。仅在新目录尚不存在时执行。"""
+        """首次使用变体独立目录时复制旧版配置，已有配置保持不变。"""
         if self.instance_id:
             return  # 多开实例不参与旧版迁移，避免把单开配置复制给每个实例
         if APP_DIR_NAME == "dsh-pet-standalone" or self.path.exists():
@@ -564,14 +524,11 @@ class Config:
         try:
             self.dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(legacy / "config.json", self.path)
-            src_sessions = legacy / "sessions"
-            if src_sessions.is_dir():
-                shutil.copytree(src_sessions, self.dir / "sessions", dirs_exist_ok=True)
         except OSError:
             pass
 
     def _seed_slot_config_from_main(self) -> None:
-        """新建副槽时继承主配置（批 C）：委托 slot_manager 的共享落种函数。
+        """新建副槽时继承主配置（）：委托 slot_manager 的共享落种函数。
 
         只在该槽位还没有个体配置文件时执行；已有存档的 slot-N 配置（用户改过
         的）一律保持独立记忆，「生小肥鱼」复用旧槽位也不覆盖。副本生成逻辑
@@ -661,17 +618,6 @@ class Config:
             "golden_spin_on_click",
             "golden_spin_direct",
             "edge_probe_enabled",
-            "system_notifications_enabled",
-            "festival_reminder_enabled",
-            "festival_reminder_cn",
-            "festival_reminder_solar_terms",
-            "festival_reminder_west",
-            "festival_reminder_mode",
-            "festival_reminder_count",
-            "festival_reminder_times",
-            "festival_reminder_show_quote",
-            "festival_custom_quotes_cn",
-            "festival_custom_quotes_west",
             "character_aliases",
             "character_profiles",
             "collision_enabled",
@@ -699,7 +645,7 @@ class Config:
 
 
     def _migrate_decode_broker_config(self, raw: dict) -> None:
-        """批5.3：decode_broker_enabled 退役（shm broker 下线，共享解码改由
+        """decode_broker_enabled 退役（shm broker 下线，共享解码改由
         进程内 DecodeFanoutHub 承担）。迁移语义（SETTINGS-CHANGE-GATES）：读旧值
         → 记一次 info → 忽略（键从 defaults/白名单移除，不再归一/进入 self.data）。"""
         if getattr(self, "_decode_broker_migrated", False):
@@ -846,7 +792,6 @@ class Config:
         # 终审 P1-3：必须用 _bool_or_default——bool("false") is True，字符串
         # 布尔（外部手改配置/旧版导出）会被误开；与其它布尔键同规。
         # 上游 #60 系统通知开关：同规防字符串布尔误开（bool("false") is True）。
-        self.data["system_notifications_enabled"] = _bool_or_default(self.data.get("system_notifications_enabled"), True)
         # 黄金回旋 / 边缘探头：与其它布尔键同规，防手改字符串布尔误开。
         self.data["golden_spin_on_click"] = _bool_or_default(self.data.get("golden_spin_on_click"), False)
         self.data["golden_spin_direct"] = _bool_or_default(self.data.get("golden_spin_direct"), False)
@@ -854,19 +799,19 @@ class Config:
         self.data["agent_link"] = _clean_agent_link_data(self.data.get("agent_link"))
         prewarm = str(self.data.get("media_prewarm", "balanced") or "balanced").strip().lower()
         self.data["media_prewarm"] = prewarm if prewarm in {"full", "balanced", "minimal"} else "balanced"
-        # 批10-A3：默认 32→8（预测式预热使能）；32 是批9 引入仅一天的旧默认，
+        # 默认 32→8（预测式预热使能）；32 是引入仅一天的旧默认，
         # 视为遗留值一并迁移（想调大可设 16/64 等非 32 值，32 本身被保留为迁移哨兵）。
         _ffb = _float_or_default(self.data.get("first_frame_cache_max_mb"), 8, 4, 64)
         self.data["first_frame_cache_max_mb"] = 8 if int(_ffb) == 32 else int(_ffb)
-        # 批10-A1 预测式预热提前量：夹到 [200, 600] 毫秒（默认 350）。
+        # 夹到 [200, 600] 毫秒（默认 350）。
         self.data["predict_prewarm_lead_ms"] = int(_float_or_default(self.data.get("predict_prewarm_lead_ms"), 350, 200, 600))
-        # 批11-B1：ffmpeg 圈边界回收阈值（分钟）。0 = 关闭回收；否则夹到
+        # ffmpeg 圈边界回收阈值（分钟）。0 = 关闭回收；否则夹到
         # [2, 120]（默认 10）。
         _ffr = _float_or_default(self.data.get("ffmpeg_recycle_minutes"), 10, 0, 120)
         self.data["ffmpeg_recycle_minutes"] = 0 if _ffr <= 0 else int(max(2.0, _ffr))
-        # 批5.2 spike 开关：同其它布尔键规约，防字符串布尔误开。
+        # 同其它布尔键规约，防字符串布尔误开。
         self.data["experimental_single_process_spawn"] = _bool_or_default(self.data.get("experimental_single_process_spawn"), False)
-        # 批5.3 共享解码链开关：同规防字符串布尔误开（默认开）。
+        # 同规防字符串布尔误开（默认开）。
         self.data["experimental_shared_decode"] = _bool_or_default(self.data.get("experimental_shared_decode"), True)
         # 设置页进程隔离：同规防字符串布尔误开；默认开（关掉 = 回退进程内设置页）。
         self.data["settings_process_isolation"] = _bool_or_default(self.data.get("settings_process_isolation"), True)
@@ -978,25 +923,16 @@ class Config:
             self._normalize_pet_settings()
 
 
-    # ---- 域 facade 便捷入口（批5：只建不用，调用点未迁移）----
-    # 返回对应域的轻量视图（pet/config_domains.py）。normalize 复用本模块现有
-    # _merge_*/_clean_* 函数；facade 只读，不写盘、不碰 secret 保留/version 迁移。
-
-
-    def _redacted_data(self) -> dict:
-        """深拷贝待写盘数据，并剔除敏感明文 Key。"""
+    def _data_for_save(self) -> dict:
+        """复制待写数据并清理已退出功能的配置字段。"""
         write_data = copy.deepcopy(self.data)
         return self._clean_retired_data(write_data)
 
     def save(self, force: bool = False) -> bool:
-        """把配置写入磁盘；成功返回 True，失败返回 False（并记录 warning）。
+        """通过跨进程锁保护读取、合并和原子写入；成功返回 True。
 
-        写盘使用 _redacted_data() 的副本，self.data 本身不动，保证运行期
-        key 在内存可见而不会明文落盘。
-        通过跨进程文件锁保护 read-merge-redact-replace 临界区（F02）。
-        无脏变更时避免覆盖较新磁盘配置（F01）。
-        最终待写对象统一再次脱敏（F03）。
-        """
+        只合并当前实例修改的键，避免覆盖其他进程的新设置。待写对象统一清理
+        旧功能字段；无修改时保留较新的磁盘数据。"""
         try:
             self._normalize_pet_settings()
             self.dir.mkdir(parents=True, exist_ok=True)
@@ -1020,7 +956,7 @@ class Config:
                         return True
                     write_dict = cleaned_disk
                 else:
-                    write_dict = self._redacted_data()
+                    write_dict = self._data_for_save()
 
                 if self.path.is_file() and getattr(self, "_modified_keys", None):
                     try:
@@ -1055,12 +991,12 @@ class Config:
     @staticmethod
     def _clean_retired_data(data: dict) -> dict:
         """Migrate removed integrations even when merging another process's data."""
-        for key in ('context_menu_layout', 'context_menu_template', 'dynamic_island', 'idle_low_fps_enabled', 'idle_low_fps_threshold', 'menu_easter_egg', 'spawn_inherit_dynamic_island', 'todo_reminder_enabled', 'todo_reminder_lead_minutes'):
+        for key in ('system_notifications_enabled', 'context_menu_layout', 'context_menu_template', 'dynamic_island', 'idle_low_fps_enabled', 'idle_low_fps_threshold', 'menu_easter_egg', 'spawn_inherit_dynamic_island', 'todo_reminder_enabled', 'todo_reminder_lead_minutes'):
             data.pop(key, None)
         if data.get("self_talk_texts") == ["好女孩……", "好模型……", "欧鲸鲸……", "今天也要认真工作呀。", "再陪你一会儿。"]:
             data["self_talk_texts"] = list(DEFAULT_SELF_TALK_TEXTS)
         for key in tuple(data):
-            if key.startswith(("click_sound", "collision_sound", "voice_chime", "self_talk_voice", "self_talk_speak")) or key in {"click_self_talk_speak", "festival_reminder_speak"}:
+            if key.startswith(("click_sound", "collision_sound", "voice_chime", "self_talk_voice", "self_talk_speak", "festival_")) or key == "click_self_talk_speak":
                 data.pop(key, None)
                 continue
             if key in {"chat", "proactive_screen", "file_interpret", "vision_api_key"} or key.startswith(("chat_", "modern_chat_", "vision_")):

@@ -320,19 +320,5 @@ PUBLIC_DIALOGUE_EVENTS: frozenset[str] = frozenset({
 })
 
 
-def default_phrases() -> dict[str, str]:
-    """每个事件的默认模板文案（取内置预设首个非空变体；legacy 优先、whale_maid 兜底）。"""
-    result: dict[str, str] = {}
-    for key in phrase_keys():
-        for mode in ("legacy", "whale_maid"):
-            variants = (_presets.get(mode) or {}).get(key) or []
-            if variants:
-                result[key] = variants[0]
-                break
-        else:
-            result[key] = ""
-    return result
-
-
 # 启动即加载内置预设（此后可经 reload_builtin_presets() 在「重设」时重新读盘）。
 load_builtin_presets()

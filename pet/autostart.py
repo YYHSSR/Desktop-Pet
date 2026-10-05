@@ -10,7 +10,7 @@
 冗余存储，避免两处状态不同步。
 
 命令按运行形态自适应：
-- PyInstaller 打包（sys.frozen）：Windows 自启动先用 `start /D` 切到 exe 所在目录再启动 exe；
+- PyInstaller 打包（sys.frozen）：Windows 自启动直接运行 onedir exe；
   macOS/Linux 指向 .app 内二进制自身 / onedir 内二进制自身；
 - 源码运行：Windows 用 `pythonw -m pet`，macOS/Linux 用 `python -m pet`（带工作目录）。
 """
@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import os
+import logging
 import re
 import shlex
 import sys
@@ -102,7 +103,7 @@ def _pythonw_path() -> str:
 def _iter_known_win_values() -> list[tuple[str, str]]:
     """读取注册表里所有已知 dsh-pet 自启值，返回 [(name, command), ...]。"""
     try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_QUERY_VALUE) as key:
             found = []
             for name in KNOWN_VALUE_NAMES:
                 try:
@@ -162,11 +163,13 @@ def is_enabled() -> bool:
     """当前变体是否已注册开机自启（只查当前变体自己的注册表值）。"""
     if _IS_WIN:
         try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_QUERY_VALUE) as key:
                 command, _ = winreg.QueryValueEx(key, VALUE_NAME)
                 return bool(str(command or "").strip())
+        except FileNotFoundError:
+            return False
         except OSError:
-            # 只认当前变体自己的值；其他变体的自启状态互不影响。
+            logging.warning("Cannot read Windows autostart: %s", VALUE_NAME, exc_info=True)
             return False
     if _IS_MAC:
         return _plist_path().exists()
@@ -179,12 +182,9 @@ def is_enabled() -> bool:
 
 def _win_command() -> str:
     if getattr(sys, "frozen", False):
-        # onefile 的 runtime_tmpdir="." 是相对“当前工作目录”解析的；
-        # 开机自启（HKCU Run）默认工作目录可能是 System32 等不可写目录。
-        # 用 start 先切到 exe 所在目录再启动 exe，既保证解压目录在 exe 同目录，
-        # 又不会让 cmd 窗口一直等待桌宠退出。开机自启固定指定 --slot 0。
+        # The onedir executable resolves resources independently of the login directory.
         exe = Path(sys.executable).resolve()
-        return f'cmd /c start "" /D "{exe.parent}" "{exe}" --slot 0'
+        return f'"{exe}" --slot 0'
     return f'cmd /c start "" /D "{_project_root()}" "{_pythonw_path()}" -m pet --slot 0'
 
 
@@ -203,10 +203,11 @@ def enable() -> bool:
             with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
                 winreg.SetValueEx(key, VALUE_NAME, 0, winreg.REG_SZ, _win_command())
             # 回读验证，防止写入被安全软件/策略静默拦截
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_QUERY_VALUE) as key:
                 value, _ = winreg.QueryValueEx(key, VALUE_NAME)
             return value == _win_command()
         except OSError:
+            logging.exception("Cannot enable Windows autostart: %s", VALUE_NAME)
             return False
     elif _IS_MAC:
         import plistlib
@@ -245,8 +246,11 @@ def disable() -> bool:
                     winreg.DeleteValue(key, VALUE_NAME)
                 except FileNotFoundError:
                     pass
+            return not is_enabled()
+        except FileNotFoundError:
             return True
         except OSError:
+            logging.exception("Cannot disable Windows autostart: %s", VALUE_NAME)
             return False
     elif _IS_MAC:
         try:

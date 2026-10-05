@@ -651,8 +651,6 @@ class SettingsMenuButton(QPushButton):
     def setPopupMenu(self, menu: QMenu) -> None:  # noqa: N802
         self._popup_menu = configure_settings_action_popup(menu)
 
-    def popupMenu(self) -> QMenu | None:  # noqa: N802
-        return self._popup_menu
 
     def showPopup(self) -> None:  # noqa: N802
         if self._popup_menu is None or not self.isEnabled():
@@ -699,15 +697,6 @@ class ModernSelect(QAbstractButton):
     def itemData(self, index: int):  # noqa: N802
         return self._items[index][1] if 0 <= index < len(self._items) else None
 
-    def itemText(self, index: int) -> str:  # noqa: N802
-        return self._items[index][0] if 0 <= index < len(self._items) else ""
-
-    def setItemData(self, index: int, value, role=None) -> None:  # noqa: N802
-        # Foreground roles are unnecessary because the custom popup owns its
-        # palette; other calls update the stored data payload.
-        if role is None and 0 <= index < len(self._items):
-            text, _old = self._items[index]
-            self._items[index] = (text, value)
 
     def findData(self, data) -> int:  # noqa: N802
         for index, (_, item_data) in enumerate(self._items):
@@ -1218,8 +1207,6 @@ class CollapsibleGroup(QWidget):
     def set_expanded(self, expanded: bool) -> None:
         self.toggle.setChecked(bool(expanded))
 
-    def is_expanded(self) -> bool:
-        return self.toggle.isChecked()
 
     def _set_expanded(self, expanded: bool) -> None:
         self.body.setVisible(expanded)
@@ -1295,9 +1282,6 @@ class SettingsTabContainer(QWidget):
     def labels(self) -> tuple[str, ...]:
         return tuple(self._labels)
 
-    def currentKey(self) -> str:  # noqa: N802
-        index = self.stack.currentIndex()
-        return self._keys[index] if 0 <= index < len(self._keys) else ""
 
     def setCurrentIndex(self, index: int) -> None:  # noqa: N802
         if not 0 <= index < self.stack.count():
@@ -1339,12 +1323,6 @@ class _SettingsPageShell(QWidget):
             available = max(0, self.width() - 30 - 28)
             self.heading_host.setFixedWidth(min(self.content_max_width, available))
 
-def _line_edit(text: str = "", *, password: bool = False, width: int = 240) -> QLineEdit:
-    edit = QLineEdit(text)
-    edit.setMinimumWidth(width)
-    if password:
-        edit.setEchoMode(QLineEdit.EchoMode.Password)
-    return edit
 
 class QuickLaunchItemRow(QWidget):
     """Two-line quick-launch row; the owning list keeps selection and drag."""

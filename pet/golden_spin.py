@@ -53,17 +53,10 @@ class GoldenSpinController(QObject):
     def active(self) -> bool:
         return self._active
 
-    @property
-    def queued_turns(self) -> int:
-        """尚待完成的整圈数（含正在旋转的当前圈）。"""
-        return self._remaining_turns
 
     def current_angle_deg(self) -> float:
         return self._angle_deg
 
-    @property
-    def pending_after_click(self) -> bool:
-        return self._pending_after_click
 
     # ------------------------------------------------------------ 启动/取消
     def start(self) -> None:

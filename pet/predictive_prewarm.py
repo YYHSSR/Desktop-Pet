@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-"""批10-A1：预测式接力预热 —— 帧驱动提前掷骰 + 后台预解码首帧。
-
-设计来源：GLM-5.3 咨询（_plan/current/memory/CONSULT_batch10_glm53_reply.md）
-方案卡 A-1 与 §A1-A6（逐条遵守）。
+"""预测式接力预热 —— 帧驱动提前掷骰 + 后台预解码首帧。
 
 - 决策点前置：当前动画墙钟剩余 ≤ 提前量（帧驱动，按 decode_throttle_divisor
   修正闲置降帧的墙钟——不许用纯时间 QTimer），掷骰决定下一个动画，并在后台
@@ -14,13 +11,13 @@
   与当前动画一致且代次未变（gap 期间另要求 gap 仍激活），不符即弃、现场掷骰
   —— 退化为现状行为。点击/拖拽/联动/唱歌打断全部经「换掉 self.anim」自然
   作废，不在各交互入口手动清状态。
-- 预热深度 = Phase 1 only：只调 MovieLibrary.warm_predicted（复用交互让路/
-  隐藏暂停/幂等三重闸门），webm_clip.py 零改动；不预起 reader（Phase 2 挂起）。
+- 预热仅覆盖首帧：只调 MovieLibrary.warm_predicted（复用交互让路/
+  隐藏暂停/幂等三重闸门）；不预起持续解码 reader。
 - perfstats 计数器：predict.made / predict.hit / predict.miss_invalid /
   prewarm.ff_ms（后者在 library.warm_predicted 内计时，见 library.py）。
 
 本模块是纯控制器：不 import window / webm_clip；对窗口的依赖（掷骰、预热、
-可否预测判定）经构造注入回调，避免循环依赖（docs/WINDOW_PY_SPLIT_GUIDE.md）。
+可否预测判定）经构造注入回调，避免循环依赖。
 
 只在 GUI 线程使用（被 _on_frame / _pick_next / _switch 帧驱动触发）。
 """
@@ -73,7 +70,7 @@ def roll_next(pools, exclude: str | None = None) -> str | None:
 class PredictivePrewarm:
     """预测式接力预热的单槽状态机（GUI 线程使用）。
 
-    window.py 只保留薄钩子（docs/WINDOW_PY_SPLIT_GUIDE.md §3）：
+    window.py 只保留薄钩子：
     - ``_switch`` → ``begin_anim(name)``（换动画代次：作废旧预测）；
     - ``_on_frame`` → ``on_frame(...)``（帧驱动触发掷骰 + 预热）；
     - ``_pick_next`` → ``consume(...)``（消费预测）；
@@ -89,10 +86,6 @@ class PredictivePrewarm:
         # 观测计数（供 perfstats 打点 / 测试直接断言）
         self.counts = {"made": 0, "hit": 0, "miss_invalid": 0}
 
-    @property
-    def prediction(self) -> dict | None:
-        """当前预测记录（只读，非 None 即本代次已预测）。"""
-        return self._prediction
 
     @property
     def generation(self) -> int:

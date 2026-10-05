@@ -31,7 +31,7 @@ from ctypes import wintypes
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QAbstractNativeEventFilter, QObject, Signal
 from PySide6.QtWidgets import QApplication
 
 from pet import session_watcher as session_watcher_mod
@@ -433,6 +433,65 @@ def test_install_without_qapplication_is_a_noop():
     watcher = SessionWatcher(app=None, on_session_end=lambda: None)
     watcher.install()
     assert watcher.armed is False
+
+
+def test_real_qt_accepts_native_filter_and_install_is_idempotent(app):
+    watcher = SessionWatcher(app=app)
+    try:
+        assert watcher.install() is True
+        if session_watcher_mod.os.name == "nt":
+            assert isinstance(watcher._native_filter, QAbstractNativeEventFilter)
+            assert watcher._native_filter_installed is True
+        assert watcher.install() is True
+    finally:
+        if watcher._native_filter_installed:
+            app.removeNativeEventFilter(watcher._native_filter)
+
+
+@pytest.mark.skipif(session_watcher_mod.os.name != "nt", reason="Windows native filter")
+def test_native_install_failure_is_reported_and_can_retry(monkeypatch, caplog):
+    class RejectOnceApp(_FakeApp):
+        attempts = 0
+
+        def installNativeEventFilter(self, filter_obj):  # noqa: N802
+            self.attempts += 1
+            assert isinstance(filter_obj, QAbstractNativeEventFilter)
+            if self.attempts == 1:
+                raise TypeError("native registration failed")
+
+    target = RejectOnceApp()
+    watcher = SessionWatcher(app=target)
+    assert watcher.install() is False
+    assert watcher._installed is False
+    assert watcher._signals_connected is True
+    assert "原生事件过滤器失败" in caplog.text
+    assert watcher.install() is True
+    assert target.attempts == 2
+
+
+def test_native_adapter_accepts_qt_void_pointer(fake_app):
+    import shiboken6
+
+    watcher = SessionWatcher(app=fake_app, install_native_filter=False)
+    addr, keepalive = _msg_pointer(session_watcher_mod.WM_QUERYENDSESSION)
+    assert watcher._native_filter.nativeEventFilter(
+        b"windows_generic_MSG", shiboken6.VoidPtr(addr)
+    ) == (False, 0)
+    assert watcher.armed is True
+    assert keepalive is not None
+
+
+def test_session_signal_arguments_do_not_replace_log_reason(caplog):
+    class ParameterApp(QObject):
+        commitDataRequest = Signal(object)
+
+    target = ParameterApp()
+    watcher = SessionWatcher(app=target, install_native_filter=False)
+    watcher.install()
+    with caplog.at_level("INFO", logger="pet.session_watcher"):
+        target.commitDataRequest.emit(object())
+    assert watcher.armed is True
+    assert "qt_commit_data_request" in caplog.text
 
 
 # ---------------------------------------------------------------------------

@@ -105,7 +105,7 @@ def test_private_header_change_updates_native_build_id(tmp_path):
 
 
 def test_circle_chain_uses_each_members_world_coordinates():
-    from scripts.bench_collision_backends import scene
+    from tests.benchmarks.bench_collision_backends import scene
 
     members = scene(3, "circles")
     for member in members:
@@ -122,7 +122,7 @@ def test_circle_chain_uses_each_members_world_coordinates():
 
 
 def test_held_scene_sets_dragging_flag_only_on_held_pet():
-    from scripts.bench_collision_backends import scene
+    from tests.benchmarks.bench_collision_backends import scene
 
     members = scene(3, "held")
     assert members[0].is_infinite_mass
