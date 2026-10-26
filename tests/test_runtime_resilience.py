@@ -62,7 +62,7 @@ class PackagingTests(unittest.TestCase):
         import tools.build as builder
         from PIL import Image
         with tempfile.TemporaryDirectory() as folder:
-            root=Path(folder);materials=root/'materials';(materials/'quality-v1').mkdir(parents=True)
+            root=Path(folder).resolve();materials=root/'materials';(materials/'quality-v1').mkdir(parents=True)
             Image.new('RGBA',(256,256),'white').save(materials/'quality-v1/idle.webp',lossless=True)
             native=root/'python/Library/bin';native.mkdir(parents=True)
             names=('ffi.dll','sqlite3.dll','liblzma.dll','LIBBZ2.dll','libexpat.dll','libmpdec-4.dll')

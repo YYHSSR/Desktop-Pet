@@ -132,7 +132,7 @@ def import_character(source,destination):
         return dest.name,manifest
     except Exception:
         # Remove only a freshly created staging directory within our character library.
-        if stage.is_relative_to(Path(destination).resolve()) and stage.name.startswith('import-'):shutil.rmtree(stage)
+        if stage.resolve().is_relative_to(Path(destination).resolve()) and stage.name.startswith('import-'):shutil.rmtree(stage)
         raise
 
 def codex_desktop_open():
