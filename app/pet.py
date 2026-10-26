@@ -72,7 +72,7 @@ class Pet(QWidget):
         self.setWindowTitle('白龙桌宠');self.setFixedSize(256,256)
         self.manifest=json.loads((getattr(self,'asset_root',ASSETS)/'素材清单.json').read_text(encoding='utf-8'))
         self.variants=[v for v in self.manifest['variants'] if self.asset_path(v).is_file()]
-        self.idles=[self.manifest['idle']]+self.manifest.get('additionalIdleAnimations',[])[:1]
+        self.idles=[self.manifest['idle']]
         self.cache=OrderedDict();self.pinned_frames={};self.frames=[];self.current=None;self.mode='idle';self.index=0
         self.frame_size=min(512,max(256,round(256*max(s.devicePixelRatio() for s in QApplication.screens()))))
         self.transition=None
@@ -150,8 +150,7 @@ class Pet(QWidget):
         self.frames=self.load(item);self.current=item;self.mode=mode;self.index=0;self.started=time.monotonic();self.update_frame()
         self.transition=None
     def idle(self):
-        item=random.choices(self.idles,weights=[4,1][:len(self.idles)])[0]
-        self.play(item,'idle')
+        self.play(self.idles[0],'idle')
     def update_frame(self):
         # Windows layered windows use per-pixel alpha. A binary mask would
         # dither the soft character edges and damage transparent rendering.

@@ -35,8 +35,8 @@ class Tests(unittest.TestCase):
     def test_all_assets_and_idle_weights(self):
         self.assertEqual(len(self.pet.variants),10)
         for item in self.pet.idles+self.pet.variants:self.assertEqual(len(self.pet.load(item)),round(item['durationMs']*24/1000))
-        with patch('pet.random.choices',return_value=[self.pet.idles[1]]) as choice:
-            self.pet.idle();self.assertEqual(choice.call_args.kwargs['weights'],[4,1])
+        self.assertEqual([item['id'] for item in self.pet.idles],['idle'])
+        self.pet.idle();self.assertEqual(self.pet.current['id'],'idle')
     def test_click_disambiguation(self):
         with patch.object(self.pet,'single_click') as single,patch.object(self.pet,'quota') as quota:
             # Timer slot was connected earlier; inspect resulting state instead below.

@@ -7,6 +7,7 @@ import shutil
 import sys
 import time
 from collections import deque
+from action_picker import ActionPicker
 from pathlib import Path
 from PySide6.QtCore import Qt,QTimer,QPoint,QPointF,QRect,QRectF,QUrl,QEvent,Signal
 from PySide6.QtGui import QCursor,QDesktopServices,QTransform
@@ -31,7 +32,7 @@ class DesktopPet(EnhancedPet):
     def __init__(self,monitor=True):
         self._video_yielded=False;self.video_yield=None
         self._desktop_hidden=False;self._card_anchor=None;self._visibility_ready=False
-        self._card_revealed=False
+        self._card_revealed=False;self.picker=ActionPicker()
         from codex_connection import data_home
         from connection_health import CapabilityHealth
         try:previous=json.loads((STATE_DIR/'runtime.json').read_text(encoding='utf-8')).get('connection_health')
@@ -84,7 +85,7 @@ class DesktopPet(EnhancedPet):
             except (OSError,ValueError,KeyError):
                 self.settings['character']='builtin';self.say('角色包不可用，已恢复白龙默认素材。',6000)
         self.restore_saved_position()
-        self.next_chain=time.monotonic()+self.settings['random_interval']
+        self.next_chain=time.monotonic()+self.picker.delay(self.settings['random_interval'])
         self.motion_clock=time.monotonic()
         self.tray.setToolTip('白龙桌宠 · 点击恢复 / 右键设置')
         self.tray.activated.disconnect()
@@ -124,7 +125,7 @@ class DesktopPet(EnhancedPet):
 
     def idle(self):
         self.gate.state='idle'
-        self.play(random.choice(self.idles),'idle')
+        self.play(self.idles[0],'idle')
 
     @measured('pet_animation_event')
     def animate(self):
@@ -176,7 +177,7 @@ class DesktopPet(EnhancedPet):
                 dedicated=previous=='reaction' and str(self.current.get('id','')).startswith('work')
                 self.reactions.finished(now,0 if was_sustained else max(2 if dedicated else 8,self.settings.get('action_gap',2)))
                 self.buffer_until=now+max(.8,self.settings.get('action_gap',2))
-            if previous in ('click','landing','task','quota','reaction'):self.next_chain=self.buffer_until+self.settings.get('random_interval',25)
+            if previous in ('click','landing','task','quota','reaction'):self.next_chain=self.buffer_until+self.picker.delay(self.settings.get('random_interval',12))
             if self._pending_material:self.apply_material()
             if self.play_status_reaction(now):return
             if previous=='idle' and self.autonomous_boundary(now):return
@@ -189,7 +190,8 @@ class DesktopPet(EnhancedPet):
         if self.gate.state!='idle' or not self.status_animation_allowed() or not self.player or not self.player.ended:return False
         selected=self.reactions.take_completion(now) or self.reactions.take_opening(now)
         desired=self.continuous.target(self.reactions,now)
-        items={item['id']:item for item in all_items(self.manifest)}
+        retired={item.get('id') for item in self.manifest.get('additionalIdleAnimations',[])}
+        items={item['id']:item for item in all_items(self.manifest) if item['id'] not in retired}
         if selected is None and desired and now>=self.reactions.earliest:
             item=items.get(desired.action_id)
             try:profile=profile_paths(self.asset_root,item) if item else None
@@ -223,16 +225,19 @@ class DesktopPet(EnhancedPet):
         if not self.isVisible() or self.dragging or self.throwing or self.walking:return False
         if now<max(self.next_chain,self.buffer_until,self.status_hold):return False
         if self.settings.get('status_actions',True) and self.reactions.busy(now):return False
-        self.next_chain=now+self.settings['random_interval']+self.settings['action_gap']
-        choices=['idle'];weights=[30]
-        if self.random_actions:choices+=['turn','variant'];weights+=[10,40]
+        interval=self.settings['random_interval']
+        self.next_chain=now+self.picker.delay(interval)+self.settings['action_gap']
+        choices=['idle'];weights=[10]
+        if self.random_actions:choices+=['turn','variant'];weights+=[8,62]
         if self.wandering and not self.settings['no_move']:choices+=['walk'];weights+=[20]
-        selected=random.choices(choices,weights)[0]
+        selected=self.picker.rng.choices(choices,weights)[0]
         if selected=='walk':self.start_walk();return self.walking
         if selected=='turn':
             self.walk_direction*=-1;self.settings['facing']=self.walk_direction
-            return self.play(random.choice(self.manifest.get('turnAnimations') or self.idles),'turn')
-        if selected=='variant' and self.variants:self.choose(random.choice(self.variants));return True
+            return self.play(self.picker.pick(self.manifest.get('turnAnimations') or self.idles),'turn')
+        if selected=='variant' and self.variants:self.choose(self.picker.pick(self.variants));return True
+        # A skipped turn retries sooner instead of waiting a whole interval.
+        self.next_chain=now+self.picker.delay(interval)*.5
         return False
 
     def frame_transform(self,canvas):
@@ -288,7 +293,7 @@ class DesktopPet(EnhancedPet):
     def single_click(self):
         self.last_click=None;self.press_feedback=time.monotonic()
         pool=self.manifest.get('clickAnimations') or [v for v in self.variants if v['id'] in ('01','08','09','10','11','17','20','26') ] or self.variants or self.idles
-        self.choose(random.choice(pool),interactive=True)
+        self.choose(self.picker.pick(pool),interactive=True)
 
     def say(self,text,ms=4000):
         if self.enhanced_ready:
@@ -314,7 +319,7 @@ class DesktopPet(EnhancedPet):
         self.walk_direction=1 if tx>=self.x() else -1;self.settings['facing']=self.walk_direction
         self._fx,self._fy=float(self.x()),float(self.y());self.walk_target=(tx,ty,(area.left(),area.top(),area.right()-self.width()+1,area.bottom()-self.height()+1))
         pool=self.manifest.get('moveAnimations') or [self.manifest.get('dragAnimation') or self.idles[0]]
-        self.walking=True;self.gate.state='idle';self.play(random.choice(pool),'walk');self.gesture_until=time.monotonic()+15
+        self.walking=True;self.gate.state='idle';self.play(self.picker.pick(pool),'walk');self.gesture_until=time.monotonic()+15
 
     def motion_tick(self):
         self.movement_wakeups+=1
@@ -473,7 +478,7 @@ class DesktopPet(EnhancedPet):
         self.bubble.redraw();self.position_bubble()
         if self._visibility_ready:self.apply_surface_visibility()
         if self.video_yield:self.video_yield.reconcile()
-        self.next_chain=time.monotonic()+self.settings['random_interval']
+        self.next_chain=time.monotonic()+self.picker.delay(self.settings['random_interval'])
         self.schedule_animation()
         if save:
             try:self.save_settings()
@@ -744,7 +749,7 @@ class DesktopPet(EnhancedPet):
         self.stop_walk();self.throwing=False;self.gate.state='idle'
         self.sustained.cancel();self.continuous.clear()
         try:
-            self.asset_root=root;self.manifest=m;self.idles=[m['idle']]+m.get('additionalIdleAnimations',[]);self.variants=m.get('variants',[])
+            self.asset_root=root;self.manifest=m;self.idles=[m['idle']];self.variants=m.get('variants',[])
             self.reactions.set_actions(item['id'] for item in all_items(m))
             self.idle()
         except Exception:
@@ -775,7 +780,7 @@ class DesktopPet(EnhancedPet):
             if self.player:self.player.close()
             self.player=StreamPlayer();self.player.ended=True
             self.cache.clear();self.pinned_frames.clear()
-            self.asset_root=root;self.manifest=m;self.idles=[m['idle']]+m.get('additionalIdleAnimations',[]);self.variants=m.get('variants',[])
+            self.asset_root=root;self.manifest=m;self.idles=[m['idle']];self.variants=m.get('variants',[])
             self.current=m['idle'];self.gate.state='idle'
             self.reactions.set_actions(item['id'] for item in all_items(m))
             self.materials.applied();return True

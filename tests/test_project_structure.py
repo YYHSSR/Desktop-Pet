@@ -144,6 +144,10 @@ class DesktopLifecycleTests(unittest.TestCase):
         self.assertTrue(all(groups.values()))
         self.assertNotIn('转向', groups)
         self.assertNotIn('移动', groups)
+        self.assertEqual([item['id'] for item in groups['待机']], ['idle'])
+        retired = {item['id'] for item in self.pet.manifest.get('additionalIdleAnimations', [])}
+        for _ in range(40):
+            self.assertNotIn(self.pet.picker.pick(self.pet.variants)['id'], retired)
         menu = QMenu()
         self.pet.build_menu(menu)
         manual = next(child for child in menu.findChildren(QMenu) if child.title() == '手动动作')

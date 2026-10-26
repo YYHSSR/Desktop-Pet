@@ -5,8 +5,8 @@ import math
 import os
 from pathlib import Path
 
-DEFAULTS=dict(schema=2,scale=1.0,playback_speed=1.0,action_gap=2.0,
-    random_interval=25.0,move_speed=55.0,move_range=0.75,drag_physics=True,
+DEFAULTS=dict(schema=3,scale=1.0,playback_speed=1.0,action_gap=2.0,
+    random_interval=12.0,move_speed=55.0,move_range=0.75,drag_physics=True,
     on_top=True,video_fullscreen_yield=True,no_move=False,wandering=True,random_actions=True,
     commentary=True,sound=True,bubble=True,quota_visible=True,character_visible=True,card_anchor=None,
     status_actions=True,status_action_interval=12.,status_response_revision=2,token_chart_range='all',
@@ -28,6 +28,8 @@ def normalized(raw):
     if isinstance(raw,dict) and raw.get('status_response_revision',0)!=2 and raw.get('status_action_interval')==18:
         out['status_action_interval']=12.
     out['status_response_revision']=2
+    if isinstance(raw,dict) and raw.get('schema',2)<3 and raw.get('random_interval')==25:
+        out['random_interval']=12.
     for k,lo,hi in [('scale',.4,2.5),('playback_speed',.25,3),('action_gap',0,60),
         ('random_interval',3,600),('move_speed',10,300),('move_range',.1,1),
         ('status_action_interval',8,120),('card_hide_delay',3,120)]:
@@ -50,7 +52,7 @@ def normalized(raw):
         if isinstance(preferences,dict):preferences.pop('talk_lines',None)
     if not isinstance(out['character'],str) or not out['character'] or len(out['character'])>128:out['character']='builtin'
     for key in REMOVED:out.pop(key,None)
-    out['schema']=2
+    out['schema']=3
     return out
 
 PRIORITY={'idle':0,'turn':1,'walk':1,'variant':2,'reaction':2,'click':5,'quota':5,'task':7,'landing':8,'throw':9,'drag':10}

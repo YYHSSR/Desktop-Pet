@@ -20,7 +20,7 @@ CORE = (
     'test_connection_and_sessions', 'test_enhanced_core', 'test_quota',
     'test_token_calendar', 'test_token_charts', 'test_daily_report',
     'test_refresh_flow',
-    'test_runtime_resilience',
+    'test_runtime_resilience', 'test_action_picker',
 )
 
 
@@ -73,6 +73,9 @@ def main(argv=None):
         print(f'{"PASS" if code == 0 else "FAIL"} {name}', flush=True)
         if code:
             print(log[-3500:], flush=True)
+            if os.environ.get('GITHUB_ACTIONS'):
+                tail = log[-3000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                print(f'::error title={name}::{tail}', flush=True)
     report = dict(passed=all(r['passed'] for r in records), modules=len(records),
                   tests=sum(r['tests'] for r in records), records=records)
     (output / 'results.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
