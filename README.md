@@ -17,16 +17,15 @@ Windows 桌面白龙助手，使用 Python 和 PySide6 实现。
 desktop-pet/
 ├── app/                 # 桌宠、界面、Codex 联动和数据服务
 │   ├── fonts/           # 字体及许可证
-│   ├── licenses/        # 第三方组件与素材的许可声明
-│   └── sounds/          # 音效及许可声明
+│   ├── licenses/        # 第三方组件的许可证原文
+│   └── sounds/          # 音效
 ├── assets/character/    # 角色素材清单和播放资源
 ├── docs/                # 开发说明与架构
 ├── tests/               # 自动化回归测试
 │   └── manual/          # 需要桌面和完整素材的验收脚本
 ├── tools/               # 构建、素材导入和验证工具
 ├── requirements.txt     # 固定的开发和运行依赖
-├── LICENSE              # 项目许可证（CC BY-NC 4.0）
-└── NOTICE.md            # 依赖与素材许可说明
+└── LICENSE              # 项目许可证（CC BY-NC 4.0）
 ```
 
 缓存与检查结果写入 `build/`，独立程序写入 `dist/`。文件夹统一使用英文命名，界面与说明保留中文。
@@ -41,7 +40,7 @@ python tools/import_assets.py --source "D:\materials"
 python app/enhanced.py
 ```
 
-角色资源位于 `assets/character/`，构建还可复用 `build/materials/light/` 中已校验的轻量资源。仓库中只包含素材清单，不包含角色播放文件；运行前需先导入素材：`--source` 需要指向含 `素材清单.json` 及其引用的播放文件、循环接缝的目录。检查素材是否齐全：
+角色资源位于 `assets/character/`，构建还可复用 `build/materials/light/` 中已校验的轻量资源。仓库已包含全部轻量角色动画（约 590 MB），克隆后即可运行；更换素材时用 `--source` 指向含 `素材清单.json` 及其引用的播放文件、循环接缝的目录。检查素材是否齐全：
 
 ```powershell
 python tools/import_assets.py --check
@@ -62,10 +61,10 @@ python tools/build.py
 
 ## 许可证
 
-本项目原创的源代码与文档采用 [知识共享 署名-非商业性使用 4.0 国际许可协议（CC BY-NC 4.0）](https://creativecommons.org/licenses/by-nc/4.0/deed.zh-hans) 授权，全文见 [LICENSE](LICENSE)：
+本项目的源代码、文档和角色动画素材采用 [知识共享 署名-非商业性使用 4.0 国际许可协议（CC BY-NC 4.0）](https://creativecommons.org/licenses/by-nc/4.0/deed.zh-hans) 授权，全文见 [LICENSE](LICENSE)：
 
 - 允许：复制、分发、修改、二次创作，以及基于本项目发布衍生作品。
 - 要求：注明原作者与出处、附上许可协议链接，并说明是否做了修改。
 - 禁止：任何商业性使用，包括出售本项目或其衍生作品、将其用于付费产品或服务。
 
-第三方依赖、字体、音效和角色素材不在此许可范围内，分别适用其原有许可，详见 [NOTICE.md](NOTICE.md)。
+第三方依赖和字体不在此许可范围内，分别适用其原有许可（见 `app/licenses/` 和 `app/fonts/OFL.txt`）。

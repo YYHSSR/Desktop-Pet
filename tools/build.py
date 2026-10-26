@@ -76,7 +76,7 @@ def build(output=None,onefile=True,hd_source=None):
     # One-file builds embed the character files outside PyInstaller's archive so
     # launches do not re-extract hundreds of megabytes into a temporary folder.
     data=[*( (ROOT/'app'/name,'app/'+name) for name in ('sounds','fonts','licenses') ),
-          (ROOT/'app/material_catalog.json','app'),(ROOT/'NOTICE.md','.')]
+          (ROOT/'app/material_catalog.json','app')]
     if not onefile:data.insert(0,(materials,'assets/character'))
     for source,destination in data:command.extend(['--add-data',str(source)+';'+destination])
     env=os.environ.copy()

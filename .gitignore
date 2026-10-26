@@ -14,8 +14,6 @@ auth.json
 settings.json
 task-notifications.json
 app/cache/
-assets/character/**
-!assets/character/素材清单.json
 *.exe
 *.zip
 *.7z
