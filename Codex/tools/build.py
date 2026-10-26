@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT), str(ROOT / 'app'), str(ROOT / 'tools')]
+sys.path[:0] = [str(ROOT), str(ROOT / 'app'), str(ROOT / 'tools'), str(ROOT.parent)]
 
 
 def prepare_materials():
@@ -70,7 +70,7 @@ def build(output=None,onefile=True,hd_source=None):
     command=[
         sys.executable,'-m','PyInstaller.utils.cliutils.makespec','--windowed',
         '--onefile' if onefile else '--onedir','--name','DesktopPet','--specpath',str(work),
-        '--paths',str(ROOT/'app'),'--icon',str(icon),'--noupx',
+        '--paths',str(ROOT/'app'),'--paths',str(ROOT.parent),'--icon',str(icon),'--noupx',
         '--exclude-module','imageio_ffmpeg',
     ]
     # One-file builds embed the character files outside PyInstaller's archive so
@@ -79,15 +79,8 @@ def build(output=None,onefile=True,hd_source=None):
           (ROOT/'app/material_catalog.json','app')]
     if not onefile:data.insert(0,(materials,'assets/character'))
     for source,destination in data:command.extend(['--add-data',str(source)+';'+destination])
-    env=os.environ.copy()
-    # A venv over Conda does not inherit Conda's native DLL search setup.
-    # Ship the interpreter's dependencies instead of relying on the build PC.
-    native=Path(sys.base_prefix)/'Library/bin'
-    if native.is_dir():
-        env['PATH']=str(native)+os.pathsep+env.get('PATH','')
-        for name in ('ffi.dll','sqlite3.dll','liblzma.dll','LIBBZ2.dll','libexpat.dll','libmpdec-4.dll'):
-            path=native/name
-            if path.is_file():command.extend(['--add-binary',str(path)+';.'])
+    from shared.pet_engine.packaging import native_build_environment
+    env=native_build_environment(command)
     command.append(str(ROOT/'app/enhanced.py'))
     subprocess.run(command,cwd=ROOT,env=env,check=True)
     spec=work/'DesktopPet.spec';trim_spec(spec)

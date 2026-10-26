@@ -13,8 +13,8 @@ from collections import OrderedDict
 from pathlib import Path
 from PIL import Image
 from PySide6.QtGui import QImage,QPixmap
-from loop_cache import DecodedLoopCache
-from decode_runtime import STATS,opened
+from .loop_cache import DecodedLoopCache
+from .decode_runtime import STATS,opened
 
 class PreparedSegment:
     """Decode a tail ahead of time; one first frame plus a six-frame queue."""

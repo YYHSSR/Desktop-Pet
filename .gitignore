@@ -1,4 +1,3 @@
-.venv/
 __pycache__/
 *.py[cod]
 build/
@@ -13,9 +12,9 @@ dist/
 auth.json
 settings.json
 task-notifications.json
-app/cache/
 *.exe
 *.zip
 *.7z
 .DS_Store
 En-SKILL.md
+/Claude/

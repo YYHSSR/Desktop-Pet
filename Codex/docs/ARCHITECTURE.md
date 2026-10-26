@@ -43,3 +43,7 @@ app/enhanced.py → DesktopPet
 人物显示时状态卡片默认隐藏：点击人物、任务完成、托盘或设置入口会显示卡片，并按 `card_hide_delay` 计时自动收起；指针停留、详情展开、日报或编辑页打开时延后收起。只显示卡片时卡片常驻。Codex 数据目录与 CLI 只通过自动识别或 `BAILONG_CODEX_HOME`、`BAILONG_CODEX` 环境变量指定。
 
 Codex 完成消息进入未读提醒账本；实际查看或手动确认后移除。视频全屏可临时取消置顶，但不能压过未读完成提醒；用户手动关闭的置顶不会自动打开。
+
+## 跨角色共享
+
+`StreamPlayer`、`PreparedSegment`、`DecodedLoopCache` 和解码统计单例已提取到同级 `../shared/pet_engine/`，Codex 的原模块路径保留为同一模块对象的兼容导入入口。共享目录目前仅由 Codex 使用；平台连接、额度、日报和原界面仍留在本目录。共享组件范围见 `../../shared/README.md`。

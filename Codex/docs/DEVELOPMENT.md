@@ -1,5 +1,9 @@
 # 开发指南
 
+## 共享工作区
+
+动画播放器、解码生命周期和循环缓存的实现位于同级 `../shared/pet_engine/`。`app/stream_player.py`、`decode_runtime.py` 和 `loop_cache.py` 保留兼容导入接口。源码运行、测试与打包需要完整保留 `desktop-pet/shared`；构建脚本已加入该父目录的模块搜索路径。备份或分发源码时应包含整个 `desktop-pet` 工作区。
+
 ## 环境
 
 目标平台为 Windows x64，使用 Python 3.13。项目不自带虚拟环境，本机直接使用 py13 解释器（`E:\minconda\envs\py13\python.exe`），依赖列于根目录 `requirements.txt`；所有命令从项目根目录执行，下文的 `python` 均指该解释器。
