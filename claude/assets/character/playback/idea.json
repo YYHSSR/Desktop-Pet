@@ -1,0 +1,40 @@
+{
+  "id": "idea",
+  "name": "灵感来了",
+  "group": "日常",
+  "file": "playback/idea.webp",
+  "loop": false,
+  "random": true,
+  "durationMs": 15958,
+  "frames": 383,
+  "bytes": 99101850,
+  "sha256": "e691e105d88352e883d4832531c27ee0464f2b84f4800bf874aab5ff9e7ec576",
+  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94",
+  "source": "特殊/灵光一闪.webp",
+  "sourceSha256": "f34323367b75fdafa175e7cb1f4bb74cf67e4297c368f33a1955e1233f1fcef4",
+  "transform": {
+    "scale": 0.6422287390029325,
+    "centre": 357.5,
+    "baseline": 707,
+    "union": [
+      24,
+      14,
+      693,
+      708
+    ],
+    "effectsCrop": true
+  },
+  "sourceEndFrame": null,
+  "holdTailMs": 0,
+  "loopPreparation": null,
+  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
+  "baseSha256": "bf52fa95c43fb0bffcc89c04c7854d1ca41e0b3c92eccab4dc2f39a9ec2853a9",
+  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
+  "entryBridgeFrames": 12,
+  "exitBridgeFrames": 11,
+  "endpointDifference": 0.0,
+  "bridgeCut": [
+    0,
+    360
+  ]
+}

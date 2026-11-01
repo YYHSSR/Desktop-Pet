@@ -1,0 +1,47 @@
+{
+  "id": "drag",
+  "name": "被拖着走",
+  "group": "互动",
+  "file": "playback/drag.webp",
+  "loop": false,
+  "random": false,
+  "durationMs": 1624,
+  "frames": 39,
+  "bytes": 9816492,
+  "sha256": "5211b7e21c53e307f1a6ae8ae9cb07750fe37c4a70080c272c8cfb60b05ea7af",
+  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94-safe-drag-40-65",
+  "source": "互动/拖拽.webp",
+  "sourceSha256": "f5fdff2175cc2ce22fb5d1115e811247a76f9a01531269ec9f2d4dd45da581b2",
+  "transform": {
+    "scale": 0.47895024603608527,
+    "centre": 493.25,
+    "baseline": 953,
+    "union": [
+      32,
+      21,
+      959,
+      954
+    ],
+    "effectsCrop": true
+  },
+  "sourceStartFrame": 40,
+  "sourceEndFrame": 65,
+  "holdTailMs": 0,
+  "loopPreparation": null,
+  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
+  "baseSha256": "e282174811f9e911d1983f6460264523102e484e43addc1fa28fea9a0237f832",
+  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
+  "entryBridgeFrames": 4,
+  "exitBridgeFrames": 11,
+  "endpointDifference": 0.0,
+  "bridgeCut": [
+    0,
+    24
+  ],
+  "dragStartFrame": 3,
+  "dragLoopEnd": 27,
+  "dragLoopFile": "playback/drag-held.webp",
+  "dragLoopFrames": 32,
+  "dragLoopSha256": "b10bdaf4556ee54bbd9082e92c158c67c962fd2cc1349dd5843abe836770ee2c",
+  "dragLoopBytes": 8136040
+}

@@ -1,0 +1,36 @@
+{
+  "id": "chase",
+  "name": "追逐尾巴",
+  "group": "活泼",
+  "file": "playback/chase.webp",
+  "durationMs": 16375,
+  "frames": 393,
+  "loop": false,
+  "random": false,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 25190408,
+  "sha256": "3543d4adc09d820b56dc88462dc81c56c0d0bfcfcc3483e8016ecf269c668cee",
+  "source": "动作/追尾巴.webp",
+  "sourceSha256": "b09cae7cb5f602e61b050b55d0e5ab4b32f138de9a4dda97659235d5a7f3f91f",
+  "transform": {
+    "scale": 0.8930581613508443,
+    "centre": 277.5,
+    "baseline": 520,
+    "union": [
+      27,
+      26,
+      544,
+      520
+    ]
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "9ece8981c894b0a240301adcb5247cf25d3d85cd31f57c4f243c3af0c5d7e0a9",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 13,
+  "exitBridgeFrames": 21,
+  "endpointDifference": 7.5e-05,
+  "bridgeCut": [
+    0,
+    360
+  ]
+}

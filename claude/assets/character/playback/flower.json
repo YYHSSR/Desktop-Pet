@@ -1,0 +1,40 @@
+{
+  "id": "flower",
+  "name": "书中赠花",
+  "group": "特别",
+  "file": "playback/flower.webp",
+  "loop": false,
+  "random": false,
+  "durationMs": 13125,
+  "frames": 315,
+  "bytes": 82657230,
+  "sha256": "8ef5db6b632ab05596f59f7511d6fc217046eccb3b6417e3da36253cce6c78dc",
+  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94",
+  "source": "特殊/送出花朵.webp",
+  "sourceSha256": "93a5b79b34b4c781ce6902e7774b586fc0a7e9fa7884465b2e41463edb691a11",
+  "transform": {
+    "scale": 0.6532438478747203,
+    "centre": 359.0,
+    "baseline": 710,
+    "union": [
+      25,
+      26,
+      691,
+      711
+    ],
+    "effectsCrop": true
+  },
+  "sourceEndFrame": null,
+  "holdTailMs": 0,
+  "loopPreparation": null,
+  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
+  "baseSha256": "db34d8faf4b01ac82aded2f60bb8f5f778dfcb9f4a9eab662dd8eb1808e5d3c4",
+  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
+  "entryBridgeFrames": 12,
+  "exitBridgeFrames": 15,
+  "endpointDifference": 0.0,
+  "bridgeCut": [
+    0,
+    288
+  ]
+}

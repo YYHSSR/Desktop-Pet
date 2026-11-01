@@ -1,0 +1,40 @@
+{
+  "id": "peek",
+  "name": "书后偷看",
+  "group": "互动",
+  "file": "playback/peek.webp",
+  "loop": false,
+  "random": true,
+  "durationMs": 10958,
+  "frames": 263,
+  "bytes": 68754784,
+  "sha256": "94aa89382959bc36750aced87e9fb4c8f899b1bb9c60e92519f5bc65a4d9a3a7",
+  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94",
+  "source": "情绪/书挡脸.webp",
+  "sourceSha256": "90531404a1d51bb27795adc43dc6c69ed416c74338684bd318f3d495d3d6a97a",
+  "transform": {
+    "scale": 0.6422287390029325,
+    "centre": 360.5,
+    "baseline": 707,
+    "union": [
+      27,
+      20,
+      692,
+      708
+    ],
+    "effectsCrop": true
+  },
+  "sourceEndFrame": null,
+  "holdTailMs": 0,
+  "loopPreparation": null,
+  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
+  "baseSha256": "94cde7dd7a42f1c25e2cc35e3acdcb9f4142df2fbf0f9345155a2a03e075d03a",
+  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
+  "entryBridgeFrames": 12,
+  "exitBridgeFrames": 11,
+  "endpointDifference": 0.0,
+  "bridgeCut": [
+    0,
+    240
+  ]
+}

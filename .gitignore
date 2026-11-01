@@ -17,4 +17,5 @@ task-notifications.json
 *.7z
 .DS_Store
 En-SKILL.md
-/Claude/
+.venv/
+**/app/cache/

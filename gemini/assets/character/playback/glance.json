@@ -1,0 +1,36 @@
+{
+  "id": "glance",
+  "name": "回眸一笑",
+  "group": "日常",
+  "file": "playback/glance.webp",
+  "durationMs": 11125,
+  "frames": 267,
+  "loop": false,
+  "random": true,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 19331386,
+  "sha256": "4a72541886a51a188d27c84ac9c583c6b899808018b10c5628705199eea572ae",
+  "source": "情绪/惊鸿一瞥.webp",
+  "sourceSha256": "fe95af5ad00c361b7722c682e4872be09cfb24d7961e3b5ac4c04dc531b8dd10",
+  "transform": {
+    "scale": 0.6738461538461539,
+    "centre": 620.5,
+    "baseline": 698,
+    "union": [
+      304,
+      30,
+      941,
+      699
+    ]
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "80e108cdb63d457821272ec9a6f6754d5651d3cd88426028f6199d5afd8cbccc",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 13,
+  "exitBridgeFrames": 16,
+  "endpointDifference": 7e-05,
+  "bridgeCut": [
+    0,
+    239
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "pounce",
+  "name": "扑向你",
+  "group": "活泼",
+  "file": "playback/pounce.webp",
+  "durationMs": 16417,
+  "frames": 394,
+  "loop": false,
+  "random": false,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 25099902,
+  "sha256": "128aae3e0d3ba55a3e975d01ca47b402466016b9990bb347604b4a67f75edbd6",
+  "source": "动作/扑过来.webp",
+  "sourceSha256": "1dd91d1eea94776273c86c631eae60c5926ed28324db1976003bc9b5266f0ff7",
+  "transform": {
+    "scale": 0.8607594936708861,
+    "centre": 276.5,
+    "baseline": 537,
+    "union": [
+      0,
+      20,
+      544,
+      538
+    ]
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "891b292a0fd3bb88eeb67704a92a593e93c0ec8559ea95df412ab443c0e141b4",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 15,
+  "exitBridgeFrames": 20,
+  "endpointDifference": 7e-05,
+  "bridgeCut": [
+    0,
+    360
+  ]
+}

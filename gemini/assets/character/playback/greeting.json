@@ -1,0 +1,36 @@
+{
+  "id": "greeting",
+  "name": "向你招手",
+  "group": "互动",
+  "file": "playback/greeting.webp",
+  "durationMs": 11250,
+  "frames": 270,
+  "loop": false,
+  "random": false,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 19401130,
+  "sha256": "c5146a275714768edf6501364da7f5ff3e49eeccda2c50281ff41948052734de",
+  "source": "招呼/打招呼.webp",
+  "sourceSha256": "856c1fd18033772124f9c28c30acf4eb4eaff85ec777cd3e53bae491c82aab2d",
+  "transform": {
+    "scale": 0.6985645933014354,
+    "centre": 615.0,
+    "baseline": 688,
+    "union": [
+      280,
+      50,
+      922,
+      688
+    ]
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "e052c5ba3f1eb0b8d474dcd33256122008f858901bf94011f9b6e191a2192791",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 14,
+  "exitBridgeFrames": 18,
+  "endpointDifference": 0.002048,
+  "bridgeCut": [
+    0,
+    239
+  ]
+}

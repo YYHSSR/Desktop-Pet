@@ -1,0 +1,52 @@
+{
+  "id": "drag",
+  "name": "被拖着走",
+  "group": "互动",
+  "file": "playback/drag.webp",
+  "durationMs": 8125,
+  "frames": 195,
+  "loop": false,
+  "random": false,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100-body-fit",
+  "bytes": 33734144,
+  "sha256": "8eae1c22a2cf12529c1f422f04641b62f10150bc9a1bdd618fbadf134ad3ceab",
+  "source": "互动/拖拽.webp",
+  "sourceSha256": "f1389c019ad8a0e5561d29f142df59a395b638f16bc6118b4f10d7d28e57e5bc",
+  "transform": {
+    "scale": 0.5026399155227033,
+    "centre": 491.5,
+    "baseline": 907,
+    "union": [
+      17,
+      0,
+      935,
+      908
+    ],
+    "effectsCrop": true
+  },
+  "transitionRecipe": "gemini-short-entry-independent-drag-relaxed-held-exact-v2",
+  "baseSha256": "4105f253b9d670950bf4bc1c84177278af9957f3ddef78e6d1c4621ba70b044c",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 4,
+  "exitBridgeFrames": 11,
+  "endpointDifference": 0.0,
+  "bridgeCut": [
+    60,
+    240
+  ],
+  "randomWeight": 0.0,
+  "dragStartFrame": 3,
+  "dragLoopEnd": 173,
+  "dragLoopFile": "playback/drag-held.webp",
+  "dragLoopFrames": 58,
+  "dragLoopBytes": 9141720,
+  "dragLoopSha256": "67250c7fc93fe2f8f79742ac11adc8adf53b4f9c98f1acf8f43e7f30d36a356d",
+  "dragSourceStartFrame": 60,
+  "dragLoopSourceRange": [
+    180,
+    230
+  ],
+  "dragLoopRecipe": "gemini-short-entry-independent-drag-relaxed-held-exact-v2",
+  "sourceStartFrame": 60,
+  "sourceEndFrame": 241
+}

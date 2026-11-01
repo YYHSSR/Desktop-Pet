@@ -1,0 +1,37 @@
+{
+  "id": "catch",
+  "name": "接住星光",
+  "group": "星光",
+  "file": "playback/catch.webp",
+  "durationMs": 16417,
+  "frames": 394,
+  "loop": false,
+  "random": false,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100-body-fit",
+  "bytes": 34042630,
+  "sha256": "55a26689105d2bb047d24deaed4fc7d77cbce8efa276b658307d2663873c5567",
+  "source": "特殊/接住星星.webp",
+  "sourceSha256": "635e8e4f71da482d1d981f7d314204c14a644939174617f1b75c85891af6a5ed",
+  "transform": {
+    "scale": 0.9279661016949152,
+    "centre": 279.5,
+    "baseline": 513,
+    "union": [
+      0,
+      0,
+      544,
+      544
+    ],
+    "effectsCrop": true
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "5852e6f7478f0b32890c2f8e198290c13ccef1455bbaca34f9e2b8f336c86189",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 13,
+  "exitBridgeFrames": 22,
+  "endpointDifference": 0.0,
+  "bridgeCut": [
+    0,
+    360
+  ]
+}

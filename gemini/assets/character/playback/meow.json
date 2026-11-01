@@ -1,0 +1,36 @@
+{
+  "id": "meow",
+  "name": "喵喵回应",
+  "group": "互动",
+  "file": "playback/meow.webp",
+  "durationMs": 11500,
+  "frames": 276,
+  "loop": false,
+  "random": true,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 16706450,
+  "sha256": "2ae72c6fa7c6d37c95856769283015fad1d2ab33b047720981fe75756ef98042",
+  "source": "动作/喵喵喵.webp",
+  "sourceSha256": "1e97c785bddb40a731a4e4fbdb0e8e3b5e11babc3e71f761d0746ba1e16995c9",
+  "transform": {
+    "scale": 0.6897637795275591,
+    "centre": 637.0,
+    "baseline": 702,
+    "union": [
+      358,
+      49,
+      911,
+      703
+    ]
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "1650b1b9c13145b1ca2fe4fe6ef3384e153f37d654b5bcfb0627391ef9d0c5d0",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 17,
+  "exitBridgeFrames": 21,
+  "endpointDifference": 7e-05,
+  "bridgeCut": [
+    0,
+    239
+  ]
+}

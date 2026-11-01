@@ -1,0 +1,36 @@
+{
+  "id": "pout",
+  "name": "哄哄猫猫",
+  "group": "互动",
+  "file": "playback/pout.webp",
+  "durationMs": 13000,
+  "frames": 312,
+  "loop": false,
+  "random": false,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 20655182,
+  "sha256": "19ae64aad7731c357d1e1ebd2a829ec0c518d7600bdf109094609e6854073c16",
+  "source": "情绪/生气又软下来.webp",
+  "sourceSha256": "dfa32fca1e79d3a0338076c35996ccf6926c5cafb7083ad5aa5fc8b6906a6fe0",
+  "transform": {
+    "scale": 0.9201680672268907,
+    "centre": 288.0,
+    "baseline": 519,
+    "union": [
+      53,
+      14,
+      535,
+      520
+    ]
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "f4330ba772ab2a7fbee0442e6d765020a4abf3c84288c6f43aae372812395803",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 15,
+  "exitBridgeFrames": 20,
+  "endpointDifference": 7.5e-05,
+  "bridgeCut": [
+    10,
+    288
+  ]
+}

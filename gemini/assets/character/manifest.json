@@ -1,0 +1,142 @@
+{
+  "character": "gemini",
+  "kind": "webp-animations",
+  "background": "white",
+  "files": [
+    {
+      "file": "待机/平常.webp",
+      "category": "待机",
+      "name": "平常",
+      "note": "站着轻晃，耳朵、尾巴和星星挂饰轻轻动。",
+      "bytes": 5039318,
+      "sha256": "ae7903dcd89f59829ec08556ef31b9fe99cc1967a59787b24525d32d0f8f1df8",
+      "source": "平常.mp4"
+    },
+    {
+      "file": "待机/日常.webp",
+      "category": "待机",
+      "name": "日常",
+      "note": "安静站着，周围有细小闪光。",
+      "bytes": 5269972,
+      "sha256": "ec7bb871280dfb699520c0915730776914be4dfb84829d5143166529f865f216",
+      "source": "日常.mp4"
+    },
+    {
+      "file": "待机/伸懒腰.webp",
+      "category": "待机",
+      "name": "伸懒腰",
+      "note": "举手伸懒腰，打哈欠，再揉眼睛。",
+      "bytes": 7873884,
+      "sha256": "389daba19191fc4cf4b35419b2d4752ad1293987e3cf72c653fb79fcfda1e404",
+      "source": "chibi-cat-girl-stretch.mp4"
+    },
+    {
+      "file": "招呼/打招呼.webp",
+      "category": "招呼",
+      "name": "打招呼",
+      "note": "面向镜头打招呼。",
+      "bytes": 7710516,
+      "sha256": "856c1fd18033772124f9c28c30acf4eb4eaff85ec777cd3e53bae491c82aab2d",
+      "source": "打招呼.mp4"
+    },
+    {
+      "file": "情绪/好奇.webp",
+      "category": "情绪",
+      "name": "好奇",
+      "note": "歪头，耳朵竖起，尾巴向上卷。",
+      "bytes": 7093498,
+      "sha256": "560b8526403219cb281075c3a8bc0ec65e86ec9649812ab49f5363499d65cb38",
+      "source": "好奇.mp4"
+    },
+    {
+      "file": "情绪/惊鸿一瞥.webp",
+      "category": "情绪",
+      "name": "惊鸿一瞥",
+      "note": "看向镜头，像忽然注意到什么。",
+      "bytes": 8113322,
+      "sha256": "fe95af5ad00c361b7722c682e4872be09cfb24d7961e3b5ac4c04dc531b8dd10",
+      "source": "惊鸿一瞥.mp4"
+    },
+    {
+      "file": "情绪/生气又软下来.webp",
+      "category": "情绪",
+      "name": "生气又软下来",
+      "note": "鼓腮跺脚，然后偷偷看一眼，耳朵慢慢竖起来。",
+      "bytes": 6995246,
+      "sha256": "dfa32fca1e79d3a0338076c35996ccf6926c5cafb7083ad5aa5fc8b6906a6fe0",
+      "source": "chibi-cat-girl-pout.mp4"
+    },
+    {
+      "file": "动作/喵喵喵.webp",
+      "category": "动作",
+      "name": "喵喵喵",
+      "note": "举起爪子，做出喵喵的样子。",
+      "bytes": 6224190,
+      "sha256": "1e97c785bddb40a731a4e4fbdb0e8e3b5e11babc3e71f761d0746ba1e16995c9",
+      "source": "喵喵喵.mp4"
+    },
+    {
+      "file": "动作/跳一跳.webp",
+      "category": "动作",
+      "name": "轻轻一跳",
+      "note": "连跳两下，两次都是一样的闭眼笑。白底。",
+      "bytes": 4839862,
+      "sha256": "a394c5e53b6c25f874e331816ff3bd1fb15cffd2425d595e61ed18c9ae9c11da",
+      "source": "gemini-hop-v2.mp4"
+    },
+    {
+      "file": "动作/追尾巴.webp",
+      "category": "动作",
+      "name": "追尾巴",
+      "note": "转着小圈追自己的尾巴，最后有点晕。",
+      "bytes": 8518898,
+      "sha256": "b09cae7cb5f602e61b050b55d0e5ab4b32f138de9a4dda97659235d5a7f3f91f",
+      "source": "chibi-cat-girl-chase-tail.mp4"
+    },
+    {
+      "file": "动作/扑过来.webp",
+      "category": "动作",
+      "name": "扑过来",
+      "note": "蹲低后朝镜头扑过来，落地摆个姿势。",
+      "bytes": 9197148,
+      "sha256": "1dd91d1eea94776273c86c631eae60c5926ed28324db1976003bc9b5266f0ff7",
+      "source": "chibi-cat-girl-pounce.mp4"
+    },
+    {
+      "file": "互动/被拎起来.webp",
+      "category": "互动",
+      "name": "被拎起来",
+      "note": "被拎起来时耳朵先贴下去再竖起，举爪扭一下，然后放松。",
+      "bytes": 3231472,
+      "sha256": "10c83cd510c4af85cfe30686cec271ad5d98c9f18e564beff9e497fd9a882c8c",
+      "source": "gemini-drag-cat.mp4"
+    },
+    {
+      "file": "互动/拖拽.webp",
+      "category": "互动",
+      "name": "拖拽",
+      "note": "先站着，再被拎在画面中间晃，蹬腿甩尾巴，然后软下来。",
+      "bytes": 17995894,
+      "sha256": "f1389c019ad8a0e5561d29f142df59a395b638f16bc6118b4f10d7d28e57e5bc",
+      "source": "gemini-drag-2.mp4"
+    },
+    {
+      "file": "特殊/星星魔法.webp",
+      "category": "特殊",
+      "name": "星星魔法",
+      "note": "抬手，星星闪光绕在身边。",
+      "bytes": 11937216,
+      "sha256": "4ee3a99400cd0d74db5f3948ef273ec44192767389147aef510f43bf6e5dd431",
+      "source": "星星魔法.mp4"
+    },
+    {
+      "file": "特殊/接住星星.webp",
+      "category": "特殊",
+      "name": "接住星星",
+      "note": "星星水晶落下，她接住一颗再吹出去。",
+      "bytes": 11086566,
+      "sha256": "635e8e4f71da482d1d981f7d314204c14a644939174617f1b75c85891af6a5ed",
+      "source": "chibi-cat-girl-star-snow.mp4"
+    }
+  ]
+}

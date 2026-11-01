@@ -1,0 +1,40 @@
+{
+  "id": "bow",
+  "name": "转圈行礼",
+  "group": "互动",
+  "file": "playback/bow.webp",
+  "loop": false,
+  "random": false,
+  "durationMs": 12958,
+  "frames": 311,
+  "bytes": 73909978,
+  "sha256": "de8410900c70bc1ccd82f8ef7b26eb14b1cd9d085c98409f407326923b1f3ac3",
+  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94",
+  "source": "动作/转圈行礼.webp",
+  "sourceSha256": "16113abac6b83f453f056dc405e3f403cb54b8f7f80260fcd0316ad5a1f8e0cc",
+  "transform": {
+    "scale": 0.6537313432835821,
+    "centre": 359.75,
+    "baseline": 707,
+    "union": [
+      0,
+      25,
+      720,
+      708
+    ],
+    "effectsCrop": true
+  },
+  "sourceEndFrame": null,
+  "holdTailMs": 0,
+  "loopPreparation": null,
+  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
+  "baseSha256": "0c10f7362abf13906ac7d76e0ab528276624ce855d2547f7cb8c88ca43dfdb35",
+  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
+  "entryBridgeFrames": 12,
+  "exitBridgeFrames": 11,
+  "endpointDifference": 0.0,
+  "bridgeCut": [
+    0,
+    288
+  ]
+}

@@ -1,0 +1,2 @@
+# Shared Windows x64 / Python 3.13 dependencies.
+-r ../share/requirements.txt

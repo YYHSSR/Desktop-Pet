@@ -1,0 +1,38 @@
+{
+  "id": "idle",
+  "name": "星光待机",
+  "group": "待机",
+  "file": "playback/idle.webp",
+  "durationMs": 9750,
+  "frames": 234,
+  "loop": true,
+  "random": false,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 17272630,
+  "sha256": "fbc9f7265075beb71971dc30054b0017a20f48498bc75f8c3e703e763bdb02f4",
+  "source": "待机/平常.webp",
+  "sourceSha256": "ae7903dcd89f59829ec08556ef31b9fe99cc1967a59787b24525d32d0f8f1df8",
+  "transform": {
+    "scale": 1.0656934306569343,
+    "centre": 241.0,
+    "baseline": 450,
+    "union": [
+      39,
+      27,
+      448,
+      451
+    ]
+  },
+  "loopPreparation": {
+    "startFrame": 0,
+    "endFrame": 239,
+    "overlapFrames": 5,
+    "poseDifference": 0.000726
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "67d93f0b2782f00e280cd650d121f543f27dcbef54b20d147f698a1650de8eec",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 0,
+  "exitBridgeFrames": 14,
+  "endpointDifference": 7.5e-05
+}

@@ -7,14 +7,21 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: Codex
+        working-directory: chatgpt
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: pip
-          cache-dependency-path: Codex/requirements.txt
-      - run: python -m pip install -r requirements.txt
-      - run: python -m compileall -q app tools tests ../shared
+          cache-dependency-path: |
+            chatgpt/requirements.txt
+            share/requirements.txt
+            share/requirements-assets.txt
+      - run: python -m pip install -r requirements.txt -r ../share/requirements-assets.txt
+      - run: python -m compileall -q app tools tests ../share ../claude ../gemini
       - run: python tools/check.py
+      - run: python ../claude/tools/check.py
+      - run: python ../gemini/tools/check.py

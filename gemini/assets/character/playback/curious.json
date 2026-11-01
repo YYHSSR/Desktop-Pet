@@ -1,0 +1,36 @@
+{
+  "id": "curious",
+  "name": "好奇探头",
+  "group": "互动",
+  "file": "playback/curious.webp",
+  "durationMs": 11417,
+  "frames": 274,
+  "loop": false,
+  "random": true,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 20171916,
+  "sha256": "2d58eaef4f268fd89a777d04771bc80298b10e2c78b79bb0270110a98d59615a",
+  "source": "情绪/好奇.webp",
+  "sourceSha256": "560b8526403219cb281075c3a8bc0ec65e86ec9649812ab49f5363499d65cb38",
+  "transform": {
+    "scale": 0.8880597014925373,
+    "centre": 276.0,
+    "baseline": 513,
+    "union": [
+      23,
+      24,
+      544,
+      514
+    ]
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "bd6b63e717a6197aab7cd4cb2dc5d4dd0ec4491e6dad6377c1c9078fb7898c48",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 14,
+  "exitBridgeFrames": 21,
+  "endpointDifference": 0.002,
+  "bridgeCut": [
+    0,
+    240
+  ]
+}

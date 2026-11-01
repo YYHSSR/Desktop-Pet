@@ -1,0 +1,37 @@
+{
+  "id": "hop",
+  "name": "轻轻一跳",
+  "group": "日常",
+  "file": "playback/hop.webp",
+  "durationMs": 9334,
+  "frames": 224,
+  "loop": false,
+  "random": true,
+  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
+  "bytes": 14745522,
+  "sha256": "7bef19c69314b79eabe10432974ab54c65dc7530957dea66df3014fe84d4900b",
+  "source": "动作/跳一跳.webp",
+  "sourceSha256": "a394c5e53b6c25f874e331816ff3bd1fb15cffd2425d595e61ed18c9ae9c11da",
+  "transform": {
+    "scale": 0.8782287822878229,
+    "centre": 273.0,
+    "baseline": 521,
+    "union": [
+      14,
+      0,
+      544,
+      522
+    ],
+    "effectsCrop": false
+  },
+  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
+  "baseSha256": "d9ff9adc40a44f5e732b0e8352fb1dd8ce4f34df38395e2a38357f8b6265538a",
+  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "entryBridgeFrames": 14,
+  "exitBridgeFrames": 19,
+  "endpointDifference": 7e-05,
+  "bridgeCut": [
+    0,
+    192
+  ]
+}

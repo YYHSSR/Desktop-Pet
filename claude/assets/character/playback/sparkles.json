@@ -1,0 +1,40 @@
+{
+  "id": "sparkles",
+  "name": "书页花光",
+  "group": "特别",
+  "file": "playback/sparkles.webp",
+  "loop": false,
+  "random": false,
+  "durationMs": 16125,
+  "frames": 387,
+  "bytes": 108107288,
+  "sha256": "c1c627a05de879d3124ad775522ff893db5b6e943ed599e3fb5305398a25a374",
+  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94",
+  "source": "特殊/书页光点.webp",
+  "sourceSha256": "8f734703f1ce580454e241d3cc34017fb1e01038ae8c655bd7fd87c48c76d948",
+  "transform": {
+    "scale": 0.6460176991150443,
+    "centre": 360.5,
+    "baseline": 708,
+    "union": [
+      0,
+      0,
+      720,
+      720
+    ],
+    "effectsCrop": true
+  },
+  "sourceEndFrame": null,
+  "holdTailMs": 0,
+  "loopPreparation": null,
+  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
+  "baseSha256": "4a1367797f6005056dc10e8cad441eb29ff1263f419819e60b1af0531750359a",
+  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
+  "entryBridgeFrames": 12,
+  "exitBridgeFrames": 15,
+  "endpointDifference": 0.0,
+  "bridgeCut": [
+    0,
+    360
+  ]
+}

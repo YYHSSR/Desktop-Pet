@@ -1,0 +1,101 @@
+{
+  "character": "claude",
+  "kind": "webp-animations",
+  "background": "white",
+  "removed": [
+    "翻页陪伴",
+    "抱书小憩"
+  ],
+  "files": [
+    {
+      "file": "陪伴/抱书静候.webp",
+      "category": "陪伴",
+      "name": "抱书静候",
+      "note": "站着抱书，眨眼，头发轻轻晃。白底。",
+      "bytes": 11081984,
+      "sha256": "4005bcdb2a31859c5604129260c1cf1acc9b248944b98a618d7dfd9b76f962b0",
+      "source": "claude-idle.mp4"
+    },
+    {
+      "file": "互动/拖拽.webp",
+      "category": "互动",
+      "name": "被拖着走",
+      "note": "双手始终抱着书，被往侧面拖动，头发和裙摆跟着飘。",
+      "bytes": 38694120,
+      "sha256": "f5fdff2175cc2ce22fb5d1115e811247a76f9a01531269ec9f2d4dd45da581b2",
+      "source": "claude-drag-3.mp4"
+    },
+    {
+      "file": "招呼/挥手.webp",
+      "category": "招呼",
+      "name": "挥手",
+      "note": "单手抱书，另一只手挥手歪头。",
+      "bytes": 26667210,
+      "sha256": "583fe05a39e91a966d0903f5561696fd6949728bfb3e087702018a29922916b6",
+      "source": "claude-wave.mp4"
+    },
+    {
+      "file": "情绪/书挡脸.webp",
+      "category": "情绪",
+      "name": "书挡脸",
+      "note": "把书举起来挡住下半张脸，从书沿偷偷看。",
+      "bytes": 26645618,
+      "sha256": "90531404a1d51bb27795adc43dc6c69ed416c74338684bd318f3d495d3d6a97a",
+      "source": "claude-peek.mp4"
+    },
+    {
+      "file": "情绪/被风吹乱.webp",
+      "category": "情绪",
+      "name": "被风吹乱",
+      "note": "风吹起头发和裙子，她按住头发。",
+      "bytes": 30595932,
+      "sha256": "b0a016be42a22427fc373df6ea4b07f249228faca36de258689d9556c34cbfbd",
+      "source": "claude-wind.mp4"
+    },
+    {
+      "file": "动作/转圈行礼.webp",
+      "category": "动作",
+      "name": "转圈行礼",
+      "note": "抱着书转一圈，裙摆张开，最后行个小礼。",
+      "bytes": 25990644,
+      "sha256": "16113abac6b83f453f056dc405e3f403cb54b8f7f80260fcd0316ad5a1f8e0cc",
+      "source": "claude-bow.mp4"
+    },
+    {
+      "file": "特殊/书页光点.webp",
+      "category": "特殊",
+      "name": "书页光点",
+      "note": "打开书，金光和花瓣从书页里飘出来。",
+      "bytes": 38781894,
+      "sha256": "8f734703f1ce580454e241d3cc34017fb1e01038ae8c655bd7fd87c48c76d948",
+      "source": "claude-sparkles.mp4"
+    },
+    {
+      "file": "特殊/送出花朵.webp",
+      "category": "特殊",
+      "name": "书中赠花",
+      "note": "打开书，拈起书页上的一朵花递到镜头前。白底，不推近。",
+      "bytes": 29953542,
+      "sha256": "93a5b79b34b4c781ce6902e7774b586fc0a7e9fa7884465b2e41463edb691a11",
+      "source": "claude-flower.mp4"
+    },
+    {
+      "file": "特殊/灵光一闪.webp",
+      "category": "特殊",
+      "name": "灵光一闪",
+      "note": "托腮想事情，眼睛一亮，打开书写下来。",
+      "bytes": 39336938,
+      "sha256": "f34323367b75fdafa175e7cb1f4bb74cf67e4297c368f33a1955e1233f1fcef4",
+      "source": "claude-idea.mp4"
+    },
+    {
+      "file": "特殊/萤火虫.webp",
+      "category": "特殊",
+      "name": "萤火虫",
+      "note": "夜里抱着书，萤火虫聚到书页上。深色背景，不进入透明播放。",
+      "bytes": 29641036,
+      "sha256": "182c7dca2d13dd519744813e9e8db496a8b28fc34051081ee7654f047ec767e5",
+      "source": "claude-fireflies.mp4"
+    }
+  ]
+}
