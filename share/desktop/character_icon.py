@@ -1,13 +1,15 @@
 """Small, transparent character portraits made from the current idle image."""
 from PySide6.QtCore import Qt, QRect
-from PySide6.QtGui import QBitmap, QIcon, QImageReader, QPixmap, QRegion
+from PySide6.QtGui import QBitmap, QIcon, QImage, QPixmap, QRegion
+from PIL import Image
 
 
 def character_icon(path):
-    reader = QImageReader(str(path))
-    image = reader.read()
-    if image.isNull():
-        raise ValueError(f'Cannot read character icon: {path}')
+    # The compact packages decode WebP with Pillow and omit Qt's WebP plugin.
+    with Image.open(path) as source:
+        rgba = source.convert('RGBA')
+        image = QImage(rgba.tobytes(), rgba.width, rgba.height,
+                       rgba.width * 4, QImage.Format.Format_RGBA8888).copy()
     bounds = QRegion(QBitmap.fromImage(image.createAlphaMask())).boundingRect()
     if bounds.isEmpty():
         bounds = image.rect()
