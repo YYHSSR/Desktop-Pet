@@ -360,7 +360,6 @@ class RolloutTail:
         return events
 
 
-
 def motion_step(x, y, tx, ty, speed, dt, bounds):
     left, top, right, bottom = bounds
     tx, ty = max(left,min(tx,right)), max(top,min(ty,bottom))

@@ -8,7 +8,7 @@
 | --- | --- |
 | `app/main.py` | 入口：把 `Companion` 交给共用的 `share.desktop.companion_app.run()` |
 | `app/companion.py` | `CompanionApp` 子类：卡片、图标、今日 Token 统计来源和角色动作 |
-| `app/model.py` | Claude 的设置表（在共用表上加单击 / 双击动作、完成礼物、彩蛋开关）、随机动作权重、完成礼物、时段招呼 |
+| `app/model.py` | Claude 的设置表（沿用共用表）、内置的随机动作 / 行走 / 单击双击回应权重、时段招呼 |
 | `app/claude_link.py` | 读取 Claude 桌面端本机的 `plan-usage-history.json`，转成 5 小时 / 本周额度快照 |
 | `app/card.py` | Gpt 同款紧凑卡片：工具栏、七个页面、草稿设置、书签与读书记录 |
 | `app/ornaments.py` | 绘制件与配色：火花、墨水进度线、书页堆、书签丝带、图标按钮 |
@@ -28,7 +28,7 @@
 ## 运行时约定
 
 - 独立存储目录 `%LOCALAPPDATA%\ClaudeDesktopPet`；单实例通信名 `claude-reading-local`。测试使用独立目录与带路径摘要的通信名。
-- 手动动作默认立即接管（`ActionDirector.request(interrupt=True)` + `SpriteWindow.play(takeover=True)`），两段动画交叠 0.32 秒；关闭“立即切换”后恢复为收尾后播放、只保留最后一次选择。拖动期间停止推进动画，释放后继续当前动作。自动活动不会打断互动，且不播放声音。
+- 手动动作默认立即接管（`ActionDirector.request(interrupt=True)` + `SpriteWindow.play(takeover=True)`），两段动画都在动地交叠 0.25 秒；自然播完的动作直接切换，自动动作在待机循环接缝处切入；关闭“立即切换”后恢复为收尾后播放、只保留最后一次选择。拖动期间停止推进动画，释放后继续当前动作。自动活动不会打断互动；角色没有任何声音。
 - 卡片只在可见时刷新计时文字；静止时不运行卡片环境动效定时器。彩蛋场景的 33 ms 定时器只在约 11 秒的场景中运行，结束即隐藏。
 - 全屏让位：每秒检查一次前台窗口，若其他程序铺满人物所在显示器就隐藏人物（解码随之停止），结束后恢复；从托盘“找回”会对当前全屏程序破例。
 - 未捕获异常写入 `diagnostics.log`（256 KB 轮换），窗口版程序不会因为没有控制台而静默丢失错误。新接入的显示器同样监听可用区域变化。

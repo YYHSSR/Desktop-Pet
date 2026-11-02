@@ -1,4 +1,4 @@
-# 开发指南
+﻿# 开发指南
 
 ## 共享工作区
 
@@ -14,7 +14,7 @@
 
 ## 素材与启动
 
-`assets/character/` 保存角色素材。当前清单引用 22 个逻辑动作、2 段工作接缝和1段持续拖拽循环。实际播放使用 `playbackFile`，缺失时才使用 `file`。干净源码若只有清单，需要先导入实际播放文件。
+`assets/character/` 保存角色素材。The active character uses three original MP4 clips: idle, move-left, and move-right. The old WebP pack is retained for reference and excluded from the active manifest.实际播放使用 `playbackFile`，缺失时才使用 `file`。干净源码若只有清单，需要先导入实际播放文件。
 
 ```powershell
 python tools/import_assets.py --source "D:\materials"
@@ -43,12 +43,6 @@ python tools/check.py --suite all
 
 每个模块在独立进程运行，超时会终止该进程及其子进程。结果与日志保存在 `build/checks/`。GitHub Actions 使用相同入口。
 
-`tests/manual/` 保存实际桌面验收脚本，使用模块方式启动：
-
-```powershell
-python -m tests.manual.qa_desktop
-```
-
 真实全屏播放、系统缩放和原生窗口交接需要完整资源与实际桌面操作。
 
 ## 独立程序
@@ -68,7 +62,7 @@ python tools/build.py
 - 生产代码放 `app/`，测试放 `tests/`，工具放 `tools/`。
 - 字体和许可放在原资源目录，不混入历史说明或发布记录。
 - 用户数据、数据库、日志、密钥、构建缓存和可执行文件不提交到源码。
-- 保持自动动作静音、人物比例和完整收尾；完成提醒优先于全屏让位。
+- 角色不发出任何声音；保持人物比例和完整收尾；完成提醒优先于全屏让位。
 - 解码取消不得在 GUI 线程等待，动画时钟与业务时钟分开使用。
 - 不重新加入软件更新、应用发布编号、作者介绍或更新日志。
 
@@ -80,4 +74,18 @@ python tools/build.py
 
 ## 当前角色素材处理
 
-更换分类目录内的原始 WebP 后，运行 `python tools/prepare_character.py`，再运行 `python tools/check.py test_new_character test_native_interactions test_settings_journeys`。原片不改写；播放包、共同姿势、拖拽循环、完整性描述一起更新；只保留原尺寸 512px 播放包。
+For the current character, update the three MP4 files and run `python tools/prepare_mp4_character.py`, followed by `python tools/check.py test_mp4_matte test_mp4_character`. Originals remain unchanged. Legacy WebP reconstruction is not used while these MP4 sources are present.
+
+## MP4 character preparation
+
+The current built-in character has only three active actions: `idle`, `move-left`, and `move-right`. Source MP4 files stay under `assets/character/MP4/` with their supplied names. Processed files are isolated in `assets/character/playback-mp4/`; older classified WebP files remain untouched and are not bundled.
+
+Run `python tools/prepare_mp4_character.py` to regenerate this pack. The canonical `prepare_character.py` entry also dispatches to the MP4 pipeline when MP4 sources are present. The supplied videos are 480 x 480 at 24 fps. Their native pixels are centered on a 512px transparent canvas without enlargement or per-frame registration.
+
+`tools/mp4_matte.py` removes only border-connected neutral white backdrop and selected enclosed outer negative spaces, preserving pale fabric and central highlights inside drawn outlines. Opaque source RGB remains exact. No inpainting, hidden-colour reconstruction, or optical-flow texture borrowing is used. Every source frame is retained. Short additional whole-frame dissolves connect the supplied poses to the common idle anchor; all clips have identical first and last RGBA frames.
+
+The right-click action menu exposes the three actions. A selected directional walk moves the window when there is room, or previews in place while locked. Dragging uses idle until a dedicated drag clip is supplied. Missing work, quota, and celebration gestures do not enable old assets; Codex data and completion reminders remain available.
+
+Run `python tools/check.py test_mp4_matte test_mp4_character test_exit_and_single_pack` plus the default core suite. `build/mp4-rebuild/verification.json` records source hashes, frame counts, exact opaque-pixel preservation, endpoint preparation, and lossless output verification. Legacy full-pack artwork checks in `test_new_character` are skipped for this explicitly limited pack.
+
+The 12-second idle loop uses a bounded 160 MB cache with a 128 MB entry limit. Runtime decoding is capped at the native 512px canvas; Qt scales the displayed result for larger windows.

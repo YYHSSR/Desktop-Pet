@@ -23,7 +23,7 @@ class Tests(unittest.TestCase):
         manifest=dict(idle=item('idle'),additionalIdleAnimations=[item('idle2')],variants=[item('v'+str(i)) for i in range(10)],
                       dragAnimation=item('drag'),landingAnimation=item('landing',originalDurationMs=2000),quotaAnimation=item('quota'))
         (assets/'素材清单.json').write_text(json.dumps(manifest),encoding='utf-8')
-        self.patches=[patch('pet.ASSETS',assets),patch('pet.ROOT',assets),patch.object(Pet,'play_click_sound')]
+        self.patches=[patch('pet.ASSETS',assets),patch('pet.ROOT',assets)]
         for p in self.patches:p.start()
         self.pet=Pet();self.pet.show()
     def tearDown(self):

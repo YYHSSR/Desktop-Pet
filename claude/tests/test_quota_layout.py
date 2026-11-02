@@ -2,7 +2,7 @@
 import os
 os.environ['QT_QPA_PLATFORM']='offscreen'
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 import hashlib
@@ -66,28 +66,69 @@ class CurrentClaudeTests(unittest.TestCase):
         self.pet.sprite.mousePressEvent(press);self.pet.sprite.mouseMoveEvent(move)
         return press
 
-    def test_drag_animates_while_pressed_and_releases_without_replaying_the_lift(self):
-        p=self.pet; press=self.drag(); sprite=p.sprite
+    def test_a_long_drag_holds_the_settled_swing_and_sets_her_down_on_release(self):
+        p=self.pet; press=self.drag(); sprite=p.sprite; item=p.pack.actions['drag']
         self.assertTrue(sprite.dragging);self.assertEqual(sprite.action,'drag')
-        self.assertEqual(sprite.player.frame_index,p.pack.actions['drag']['dragStartFrame'])
-        first=sprite.player.frame_index;pump(300)
-        self.assertTrue(sprite.dragging);self.assertGreater(sprite.player.frame_index,first)
-        pump(950)
-        self.assertEqual(sprite.player.path.name,'drag-held.webp')
+        self.assertEqual(sprite.player.frame_index,0)
+        # The hold sways through the frames just before release, ending on it.
+        self.assertTrue(item['liftCompletes'])
+        self.assertEqual(item['dragLoopEnd'],item['releaseFrame'])
+        self.assertLessEqual(item['dragLoopFrames'],20)
+        pump(300)
+        self.assertTrue(sprite.dragging);self.assertGreater(sprite.player.frame_index,0)
+        deadline=time.monotonic()+9
+        while sprite.player.path.name!='drag-held.webp' and time.monotonic()<deadline:pump(30)
+        self.assertEqual(sprite.player.path.name,'drag-held.webp');self.assertEqual(sprite.lift,'held')
+        self.assertTrue(sprite.release_tail.ready.is_set())
         sprite.mouseReleaseEvent(press)
-        self.assertFalse(sprite.dragging);self.assertEqual(sprite.action,'idle')
-        self.assertEqual(p.director.current,'idle')
+        self.assertFalse(sprite.dragging);self.assertEqual(sprite.action,'drag')
+        self.assertEqual(sprite.player.frame_index,item['releaseFrame'])
+        self.assertIsNotNone(sprite.outgoing)
+        deadline=time.monotonic()+5
+        while sprite.action=='drag' and time.monotonic()<deadline:pump(20)
+        self.assertEqual(sprite.action,'idle');self.assertEqual(p.director.current,'idle')
+
+    def test_a_quick_release_still_plays_the_whole_lift_before_she_comes_down(self):
+        p=self.pet; press=self.drag(); sprite=p.sprite; item=p.pack.actions['drag']
+        pump(300)
+        reached=sprite.player.frame_index
+        sprite.mouseReleaseEvent(press)
+        self.assertFalse(sprite.dragging);self.assertTrue(sprite.landing_due)
+        self.assertEqual((sprite.action,sprite.lift,p.director.current),('drag','lift','drag'))
+        self.assertGreaterEqual(sprite.player.frame_index,reached)
+        self.assertLess(sprite.player.frame_index,item['releaseFrame'])
+        deadline=time.monotonic()+9
+        while sprite.landing_due and time.monotonic()<deadline:pump(10)
+        # The lift ends on the release frame, so the way down is a plain cut.
+        self.assertFalse(sprite.landing_due);self.assertEqual(sprite.action,'drag')
+        self.assertGreaterEqual(sprite.player.frame_index,item['releaseFrame'])
+        self.assertIsNone(sprite.outgoing)
+        deadline=time.monotonic()+5
+        while sprite.action=='drag' and time.monotonic()<deadline:pump(20)
+        self.assertEqual(sprite.action,'idle');self.assertEqual(p.director.current,'idle')
+
+    def test_catching_her_again_during_the_lift_carries_it_on(self):
+        p=self.pet; press=self.drag(); sprite=p.sprite
+        pump(300)
+        sprite.mouseReleaseEvent(press)
+        reached=sprite.player.frame_index
+        self.drag()
+        self.assertTrue(sprite.dragging);self.assertFalse(sprite.landing_due)
+        self.assertEqual((sprite.action,sprite.lift),('drag','lift'))
+        self.assertGreaterEqual(sprite.player.frame_index,reached)
 
     def test_current_pack_matches_all_selected_originals_and_has_common_endpoints(self):
         p=self.pet
-        self.assertEqual(len(p.pack.actions),9)
+        self.assertEqual(len(p.pack.actions),11)
         self.assertEqual(len({a['referencePose'] for a in p.pack.actions.values()}),1)
         for action in p.pack.actions.values():
             with (p.pack.root/action['source']).open('rb') as stream:
                 self.assertEqual(hashlib.file_digest(stream,'sha256').hexdigest(),action['sourceSha256'])
             self.assertEqual(action['endpointDifference'],0)
-        drag=p.pack.actions['drag']
-        self.assertEqual((drag['sourceStartFrame'],drag['sourceEndFrame']),(40,65))
+        self.assertEqual(p.pack.actions['drag']['sourceWindow'],[24,191])
+        for key,direction in (('walk-left',-1),('walk-right',1)):
+            walk=p.pack.actions[key]['walk']
+            self.assertEqual(walk['direction'],direction);self.assertLess(walk['start'],walk['end'])
 
     def test_home_has_only_two_quota_tiles_and_today_tokens(self):
         p=self.pet;p.show_panel();p.card.finish_transition();pump(50)

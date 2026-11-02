@@ -1,6 +1,6 @@
 """Claude's paper card, character actions and local usage readers."""
 from share.desktop.companion_app import CompanionApp
-from model import SCHEMA, action_weight
+from model import SCHEMA, CLICK_WEIGHTS, DOUBLE_WEIGHTS, WALK_WEIGHT, action_weight
 from messages import MESSAGES
 
 
@@ -17,12 +17,13 @@ class Companion(CompanionApp):
     LINES = MESSAGES
     QUOTA_CELEBRATE = 'sparkles'
     QUOTA_WORRY = 'peek'
+    CLICK_WEIGHTS = CLICK_WEIGHTS
+    DOUBLE_WEIGHTS = DOUBLE_WEIGHTS
+    WALK_WEIGHT = WALK_WEIGHT
 
     def make_token_source(self):
         from claude_tokens import ClaudeCodeTokens
         return ClaudeCodeTokens()
-
-
 
     def create_card(self):
         from card import CompanionCard

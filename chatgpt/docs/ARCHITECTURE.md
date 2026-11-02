@@ -10,7 +10,6 @@ app/main.py → DesktopPet
                   ├── CompactBubble → 状态卡片和今日 Token
                   ├── ActivityThread → Codex 会话状态与用量
                   ├── QuotaWorker → 账户额度
-                  ├── MaterialController → 资源校验与画质切换
                   └── VideoYield → 全屏检测与置顶协调
 ```
 
@@ -25,7 +24,7 @@ app/main.py → DesktopPet
 | 卡片与窗口过渡 | `compact_bubble`、`surface_morph`、`panel_transition`、`linked_report_motion`、`card_motion` |
 | Codex 数据与会话 | `codex_connection`、`codex_live_status`、`conversation_roster`、`session_read_state`、`completion_ledger`、`quota` |
 | Token 用量 | `token_calendar`、`token_analytics`、`token_charts` |
-| 角色资源 | `desktop_services`、`material_store`、`material_controller`、`embedded_assets` |
+| 角色资源 | `desktop_services`、`material_store`、`embedded_assets` |
 | 系统集成 | `codex_startup`、`autostart`、`video_fullscreen`、`firefox_video`、`video_yield` |
 
 ## 数据与存储

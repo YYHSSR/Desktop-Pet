@@ -15,20 +15,21 @@ GREETINGS = (
 )
 
 CONSTELLATION = 7  # Gemini: a week of stars joins into the twins.
-ACTIONS = ('stretch', 'greeting', 'curious', 'pout', 'glance', 'meow', 'hop', 'chase', 'pounce', 'catch', 'lift', 'drag')
-MENU_ORDER = ('idle','greeting','curious','glance','meow','stretch','hop','pout','chase','pounce','catch','lift','drag')
+WALKS = ('walk-left', 'walk-right')
+MENU_ORDER = ('idle','greeting','curious','glance','meow','stretch','hop','pout','chase','pounce','catch','lift','drag', *WALKS)
 # How often each action turns up on its own: small cat moments are common,
 # the big chase and pounce are rare treats, catching a star is kept for
-# manual interaction.
+# manual interaction. Walks only happen when she may wander.
 ACTION_WEIGHTS = dict(glance=3., curious=2.8, meow=2.5, greeting=1.4, stretch=1.6,
-                      hop=1.1, pout=.35, chase=.25, pounce=.12, catch=0., lift=0., drag=0.)
+                      hop=1.1, pout=.35, chase=.25, pounce=.12, catch=0., lift=0., drag=0.,
+                      **dict.fromkeys(WALKS, 0.))
+WALK_WEIGHT = 3.2                      # a prowl, against the actions above
+CLICK_WEIGHTS = dict(curious=3., meow=2., glance=1.)
+DOUBLE_WEIGHTS = dict(meow=2., hop=2., chase=1.)
 SCHEMA = extended(
-    poke_action=('choice', 'curious', ACTIONS),
-    double_action=('choice', 'meow', ACTIONS),
     ear_meow=('bool', True),
     hop_after_drag=('bool', True),
     sparkles=('bool', True),
-    paw_prints=('bool', True),
 )
 
 

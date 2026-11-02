@@ -7,9 +7,9 @@
   "frames": 270,
   "loop": false,
   "random": false,
-  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
-  "bytes": 19401130,
-  "sha256": "c5146a275714768edf6501364da7f5ff3e49eeccda2c50281ff41948052734de",
+  "recipe": "backdrop-colour-matte-temporal-repair-rgb94-alpha100",
+  "bytes": 19468650,
+  "sha256": "936cada185d1f3ea999e5d309e338a761c961fe9b83df6c1c861eb5946340474",
   "source": "招呼/打招呼.webp",
   "sourceSha256": "856c1fd18033772124f9c28c30acf4eb4eaff85ec777cd3e53bae491c82aab2d",
   "transform": {
@@ -21,16 +21,25 @@
       50,
       922,
       688
-    ]
+    ],
+    "effectsCrop": false
   },
-  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
-  "baseSha256": "e052c5ba3f1eb0b8d474dcd33256122008f858901bf94011f9b6e191a2192791",
-  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
-  "entryBridgeFrames": 14,
-  "exitBridgeFrames": 18,
-  "endpointDifference": 0.002048,
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 16781
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2",
+  "baseSha256": "df2f0cf739f178d18e6aa21f23548998d288065612b58d178240d6ac0872456b",
+  "referencePose": "4d7e9a2cc12eaf8a040e2f7522d464a86c307fb9c58c5b02c45f673f9c5fe6e6",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
+  "entryBridgeFrames": 13,
+  "exitBridgeFrames": 19,
   "bridgeCut": [
     0,
     239
-  ]
+  ],
+  "endpointDifference": 0.002071
 }

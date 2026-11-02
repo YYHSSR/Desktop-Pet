@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QDialog,QVBoxLayout,QHBoxLayout,QFormLayout,QTabW
 from desktop_core import DEFAULTS
 from desktop_services import autostart_enabled,set_autostart
 from settings_draft import SettingsDraft
-from ui_theme import MUTED,PRIMARY
+from ui_theme import PRIMARY
 
 
 class SettingsDialog(QDialog):
@@ -40,16 +40,9 @@ class SettingsDialog(QDialog):
         behavior=self.tab('动作与陪伴')
         self.section(behavior,'人物行为')
         self.check(behavior,'random_actions','自动随机动作')
+        self.check(behavior,'wandering','在桌面上走动')
         self.check(behavior,'status_actions','根据 Codex 当前状态播放动作（播完后再切换）')
-        self.check(behavior,'sound','主动点击人物或手动动作时播放音效')
-        self.advanced_button=QPushButton('展开高级参数');self.advanced_button.setCheckable(True);behavior.addRow(self.advanced_button)
-        advanced=QWidget();advanced_form=QFormLayout(advanced);advanced_form.setContentsMargins(0,0,0,0)
-        self.number(advanced_form,'status_action_interval','单次状态动作重复间隔（秒）',8,120,1)
-        self.check(advanced_form,'drag_physics','拖拽松手后启用惯性与反弹')
-        for key,title,lo,hi,step in [('playback_speed','播放速度（倍）',.25,3,.25),('action_gap','动作结束后等待（秒）',0,60,1),('random_interval','自主动作间隔（秒）',3,600,1),('move_speed','自主走动速度（像素/秒）',10,300,5)]:self.number(advanced_form,key,title,lo,hi,step)
-        self.number(advanced_form,'move_range','自主活动范围',.1,1,.1,factor=100,suffix='% 屏幕')
-        self.advanced_card=advanced;self.behavior_form=behavior;behavior.addRow(advanced);behavior.setRowVisible(advanced,False)
-        self.advanced_button.toggled.connect(self.set_advanced)
+        self.check(behavior,'drag_physics','拖拽松手后启用惯性与反弹')
         self.status=QLabel();self.status.setWordWrap(True);outer.addWidget(self.status)
         row=QHBoxLayout()
         self.defaults_button=QPushButton('本页恢复默认');self.defaults_button.clicked.connect(self.defaults);row.addWidget(self.defaults_button)
@@ -64,16 +57,6 @@ class SettingsDialog(QDialog):
         if hasattr(pet,'settingsChanged'):pet.settingsChanged.connect(self.sync_from_pet)
     def section(self,form,title):
         name=QLabel(title);name.setStyleSheet(f'font-size:13px;font-weight:600;color:{PRIMARY};margin-top:3px;');form.addRow(name)
-    def set_advanced(self,checked):
-        # One relayout and one repaint; animating the row resized the whole
-        # translucent card every frame and dragged the scroll position along.
-        window=self.window();enabled=window.updatesEnabled();window.setUpdatesEnabled(False)
-        try:
-            self.advanced_button.setText('收起高级参数' if checked else '展开高级参数')
-            self.behavior_form.setRowVisible(self.advanced_card,checked)
-            page=self.advanced_card.parentWidget()
-            if page.layout():page.layout().activate()
-        finally:window.setUpdatesEnabled(enabled)
     def tab(self,title):
         widget=QWidget();form=QFormLayout(widget)
         if self.embedded:
@@ -138,8 +121,7 @@ class SettingsDialog(QDialog):
         self.apply_button.setToolTip(text)
         self.defaults_button.setEnabled(any(tab==self.tabs.currentIndex() and key in DEFAULTS for key,tab in self.field_tabs.items()))
         locked=self.pet.settings['no_move']
-        for key in ('drag_physics','move_speed','move_range'):self.fields[key].setEnabled(not locked)
-        self.fields['status_action_interval'].setEnabled(self.fields['status_actions'].isChecked())
+        for key in ('drag_physics','wandering'):self.fields[key].setEnabled(not locked)
     def defaults(self):
         for key,tab in self.field_tabs.items():
             if tab==self.tabs.currentIndex() and key in DEFAULTS:self.draft.set(key,DEFAULTS[key])

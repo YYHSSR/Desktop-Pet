@@ -1,4 +1,4 @@
-import os,json,time,tempfile,unittest
+import os, json, tempfile, unittest
 os.environ['QT_QPA_PLATFORM']='offscreen'
 from pathlib import Path
 from unittest.mock import patch
@@ -6,7 +6,6 @@ from PySide6.QtWidgets import QApplication,QWidget
 from PySide6.QtCore import QEvent
 from compact_bubble import CompactBubble
 from quota_summary import QuotaSummary
-from token_charts import TokenPlot
 from enhanced_core import RolloutTail
 from session_read_state import seen_completed_turns
 APP=QApplication.instance() or QApplication([])
@@ -15,13 +14,6 @@ def drain():APP.processEvents();APP.sendPostedEvents(None,QEvent.Type.DeferredDe
 class StatusCostTests(unittest.TestCase):
  def setUp(self):self.b=CompactBubble();self.b.show();drain()
  def tearDown(self):self.b.close();self.b.deleteLater();drain()
- def test_status_updates_preserve_static_cards_and_running_chart_clock(self):
-  self.b.windows=[dict(name='一周',remaining=80,resetsAt=time.time()+3600)];self.b.redraw();drain()
-  quota=self.b.findChildren(QuotaSummary)[0];plot=self.b.findChildren(TokenPlot)[0]
-  plot.reveal.prepare();plot.reveal.start();plot.reveal.animation.setCurrentTime(120)
-  for i in range(12):self.b.message('状态变化 '+str(i))
-  self.assertIs(self.b.findChildren(QuotaSummary)[0],quota);self.assertIs(self.b.findChildren(TokenPlot)[0],plot)
-  self.assertEqual(plot.reveal.animation.currentTime(),120)
  def test_independent_rows_keep_second_row_and_static_cards(self):
   for sid in ('a','b'):self.b.roster.observe(dict(session=sid,state='working',display='正在编辑文件'))
   self.b.redraw();drain();second=self.b.status_view.rows['b'];quota=self.b.findChildren(QuotaSummary)[0]

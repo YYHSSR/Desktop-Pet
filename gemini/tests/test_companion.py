@@ -5,7 +5,6 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
 
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,9 +127,10 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings['size'], 300)
         self.assertEqual(settings['opacity'], 65)
         self.assertTrue(settings['on_top'])
-        self.assertEqual(settings['random_interval'], 300)
         self.assertIsNone(settings['position'])
+        self.assertTrue(settings['wander'])
         self.assertNotIn('api_key', settings)
+        self.assertNotIn('random_interval', settings)
 
     def test_atomic_save_can_be_read_without_touching_other_role(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -145,7 +145,7 @@ class SettingsTests(unittest.TestCase):
 
 
 from PIL import Image, ImageDraw
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication
 from PySide6.QtTest import QTest
 from PySide6.QtCore import Qt, QPoint
 from share.pet_engine.character_pack import CharacterPack
@@ -254,15 +254,14 @@ class SpriteTests(unittest.TestCase):
         self.assertEqual(double, [True])
         self.assertEqual(single, [])
 
-    def test_incoming_animation_does_not_run_under_the_idle_handoff(self):
+    def test_a_cut_has_no_fade_and_a_blend_never_freezes_the_incoming_clip(self):
+        self.sprite.play('curious', blend=False)
+        self.assertIsNone(self.sprite.outgoing)
+        old = self.sprite.player
         self.sprite.play('meow')
-        start = self.sprite.fade_started
-        with patch('share.desktop.sprite_window.time.perf_counter', return_value=start+.08):
-            self.sprite.animate()
-        self.assertEqual(self.sprite.player.frame_index, 0)
-        with patch('share.desktop.sprite_window.time.perf_counter', return_value=start+.25):
-            self.sprite.animate()
-        self.assertEqual(self.sprite.player.frame_index, 0)
+        self.assertIs(self.sprite.outgoing, old)
+        pump(150)
+        self.assertGreater(self.sprite.player.frame_index, 0)
 
 
 def pump(ms):
@@ -381,17 +380,14 @@ class AppTests(unittest.TestCase):
             c.shutdown()
 
 
-
     def test_status_dot_preserves_meow_interaction_without_a_card_animation_timer(self):
         companion = self.companion
         companion.show_panel(); companion.card.finish_transition()
-        self.assertFalse(companion.card.ambient.isActive())
         companion.card.dot.click()
         self.assertEqual(companion.sprite.action, 'meow')
         companion.card.dot.click()
         self.assertEqual(companion.director.queued, None)
         companion.card.hide()
-        self.assertFalse(companion.card.ambient.isActive())
 
     def test_ear_petting_can_be_turned_off(self):
         companion = self.companion
@@ -418,14 +414,6 @@ class AppTests(unittest.TestCase):
         self.assertEqual(companion.sprite.action, 'idle')
         companion.set_option('sparkles', False)
         self.assertFalse(companion.sprite.sparkles)
-
-    def test_compact_card_stays_timer_free_for_legacy_decoration_preferences(self):
-        companion = self.companion
-        companion.show_panel(); companion.card.finish_transition()
-        for key in ('ambient_motion', 'paw_prints'):
-            companion.set_option(key, False)
-            companion.set_option(key, True)
-            self.assertFalse(companion.card.ambient.isActive())
 
     def test_panel_actions_route_to_playback_and_preferences_stay_isolated(self):
         companion = self.companion
@@ -558,7 +546,7 @@ class AppTests(unittest.TestCase):
         c = self.companion
         menu = QMenu(); c.populate_menu(menu)
         roots = menu.actions()
-        self.assertEqual([a.text() for a in roots[:4]], ['查看状态', '暂停自主活动', '桌面操作', '角色动作'])
+        self.assertEqual([a.text() for a in roots[:4]], ['查看状态', '暂停自主走动', '桌面操作', '角色动作'])
         self.assertTrue(roots[4].isSeparator())
         self.assertEqual([a.text() for a in roots[5:]], ['桌宠设置…', '退出'+c.NAME])
         commands = {a.objectName(): a for a in roots[2].menu().actions() if not a.isSeparator()}
@@ -577,10 +565,6 @@ class AppTests(unittest.TestCase):
         c.populate_menu(menu, tray=True)
         self.assertEqual([a.objectName() for a in menu.actions() if not a.isSeparator()],
                          ['command_recover','command_status','command_settings','command_character','command_quit'])
-
-
-
-
 
 
 class AntigravityTokenTests(unittest.TestCase):

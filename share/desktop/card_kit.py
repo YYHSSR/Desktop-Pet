@@ -5,10 +5,9 @@ module only supplies structure: the current-page stack, compact settings
 sections behind a segmented switch, and a seven-day history chart.
 """
 from dataclasses import dataclass
-from PySide6.QtCore import Qt, QRectF, QSize, Signal, QPointF
-from PySide6.QtGui import QColor, QPainter, QPen, QFontMetrics
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                               QSlider, QStackedWidget, QVBoxLayout, QWidget)
+from PySide6.QtCore import Qt, QRectF, QSize
+from PySide6.QtGui import QColor, QPainter
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout, QWidget
 
 WEEKDAYS = '一二三四五六日'
 
@@ -61,52 +60,6 @@ class CurrentPageStack(QStackedWidget):
         if page is None:
             return 100
         return page.heightForWidth(width) if page.hasHeightForWidth() else page.sizeHint().height()
-
-
-class Segmented(QWidget):
-    """A small pill switch: 常规 / 动作 / 角色."""
-    changed = Signal(int)
-
-    def __init__(self, titles, palette):
-        super().__init__()
-        self.titles, self.palette, self.index = list(titles), palette, 0
-        self.setFixedHeight(24)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setAccessibleName('设置分类')
-
-    def set_index(self, index):
-        if index != self.index:
-            self.index = index
-            self.update()
-            self.changed.emit(index)
-
-    def mousePressEvent(self, event):
-        width = self.width()/len(self.titles)
-        self.set_index(max(0, min(len(self.titles)-1, int(event.position().x()//width))))
-
-    def keyPressEvent(self, event):
-        if event.key() in (Qt.Key.Key_Left, Qt.Key.Key_Right):
-            step = -1 if event.key() == Qt.Key.Key_Left else 1
-            self.set_index((self.index+step) % len(self.titles))
-        else:
-            super().keyPressEvent(event)
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(self.palette.track))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(.5, .5, -.5, -.5), 11, 11)
-        width = self.width()/len(self.titles)
-        p.setBrush(QColor(self.palette.surface))
-        p.setPen(QPen(QColor(self.palette.accent_soft), 1))
-        p.drawRoundedRect(QRectF(self.index*width+2, 2, width-4, self.height()-4), 9, 9)
-        font = p.font()
-        font.setPixelSize(11)
-        p.setFont(font)
-        for index, title in enumerate(self.titles):
-            p.setPen(QColor(self.palette.accent if index == self.index else self.palette.muted))
-            p.drawText(QRectF(index*width, 0, width, self.height()), Qt.AlignmentFlag.AlignCenter, title)
 
 
 from .settings_panel import SettingsPanel
@@ -243,100 +196,3 @@ class QuotaPanel(QWidget):
         self.note.setText(' · '.join(parts))
 
 
-class QuotaChip(QPushButton):
-    """Footer shortcut: a small ring with what is left, e.g. 「额度 69%」."""
-    def __init__(self, palette):
-        super().__init__()
-        self.palette, self.left = palette, None
-        self.setObjectName('link')
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(74, 20)
-
-    def set_left(self, left, tooltip=''):
-        self.left = left
-        self.setToolTip(tooltip)
-        self.update()
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        ring = QRectF(3, 4, 12, 12)
-        p.setPen(QPen(QColor(self.palette.track), 2.4))
-        p.drawEllipse(ring)
-        if self.left is not None:
-            p.setPen(QPen(QColor('#d0644e' if self.left < .2 else self.palette.accent), 2.4,
-                          Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-            p.drawArc(ring, 90*16, -round(360*16*self.left))
-        font = p.font()
-        font.setPixelSize(10)
-        p.setFont(font)
-        p.setPen(QColor(self.palette.accent))
-        text = '额度 —' if self.left is None else f'额度 {round(self.left*100)}%'
-        p.drawText(QRectF(19, 0, self.width()-19, self.height()), Qt.AlignmentFlag.AlignVCenter, text)
-
-
-class HistoryBars(QWidget):
-    """Seven days of focus minutes; today is highlighted, empty days stay as ticks."""
-    def __init__(self, palette, unit='分钟'):
-        super().__init__()
-        self.palette, self.unit = palette, unit
-        self.days = []
-        self.setMinimumHeight(86)
-        self.setMouseTracking(True)
-
-    def set_days(self, days):
-        """days: [(date, sessions, minutes)] oldest first."""
-        days = list(days)
-        if days != self.days:
-            self.days = days
-            self.update()
-
-    def bar_rects(self):
-        if not self.days:
-            return []
-        top, bottom = 14, self.height()-16
-        step = self.width()/len(self.days)
-        peak = max(1, max(minutes for _, _, minutes in self.days))
-        rects = []
-        for index, (_, sessions, minutes) in enumerate(self.days):
-            width = min(18, step*.55)
-            height = max(3, (bottom-top)*minutes/peak) if minutes else 3
-            rects.append(QRectF(step*(index+.5)-width/2, bottom-height, width, height))
-        return rects
-
-    def mouseMoveEvent(self, event):
-        for (day, sessions, minutes), rect in zip(self.days, self.bar_rects()):
-            if rect.adjusted(-6, -40, 6, 16).contains(event.position()):
-                self.setToolTip(f'{day.month}月{day.day}日 · {sessions} 轮 · {minutes} {self.unit}')
-                return
-        self.setToolTip('')
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        bottom = self.height()-16
-        p.setPen(QPen(QColor(self.palette.track), 1))
-        p.drawLine(QPointF(0, bottom+.5), QPointF(self.width(), bottom+.5))
-        font = p.font()
-        font.setPixelSize(9)
-        p.setFont(font)
-        metrics = QFontMetrics(font)
-        last = len(self.days)-1
-        if not any(minutes for _, _, minutes in self.days):
-            p.setPen(QColor(self.palette.muted))
-            p.drawText(QRectF(0, 0, self.width(), bottom-6), Qt.AlignmentFlag.AlignCenter, '还没有记录，从第一轮专注开始吧')
-        for index, ((day, sessions, minutes), rect) in enumerate(zip(self.days, self.bar_rects())):
-            today = index == last
-            p.setPen(Qt.PenStyle.NoPen)
-            colour = QColor(self.palette.accent if today else self.palette.accent_soft)
-            if not minutes:
-                colour = QColor(self.palette.track)
-            p.setBrush(colour)
-            p.drawRoundedRect(rect, 3, 3)
-            if minutes:
-                p.setPen(QColor(self.palette.muted))
-                text = str(minutes)
-                p.drawText(QRectF(rect.center().x()-20, rect.top()-13, 40, 12), Qt.AlignmentFlag.AlignCenter, text)
-            p.setPen(QColor(self.palette.accent if today else self.palette.muted))
-            name = '今' if today else WEEKDAYS[day.weekday()]
-            p.drawText(QRectF(rect.center().x()-12, bottom+3, 24, metrics.height()), Qt.AlignmentFlag.AlignCenter, name)

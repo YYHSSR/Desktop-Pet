@@ -8,17 +8,17 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT.parent), str(ROOT/'build/asset-tools')]
+sys.path[:0] = [str(ROOT.parent)]
 from share.asset_tools.animation_pack import prepare_bridges
 
 
 def prepare(records=None):
     base = ROOT/'build/animation-base'
+    from gemini.tools.prepare_assets import CHOICES, WALKS
     if records is None:
-        from prepare_assets import CHOICES
         records = [json.loads((base/(choice[0]+'.json')).read_text(encoding='utf-8')) for choice in CHOICES]
     drag=next(item for item in records if item['id']=='drag')
-    prepare_bridges(ROOT, [item for item in records if item['id']!='drag'])
+    prepare_bridges(ROOT, [item for item in records if item['id']!='drag'], walks=WALKS)
     descriptor=ROOT/'assets/character/character.json'
     data=json.loads(descriptor.read_text(encoding='utf-8'));data['actions'].append(drag)
     descriptor.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

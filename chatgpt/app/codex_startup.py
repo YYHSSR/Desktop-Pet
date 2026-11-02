@@ -98,8 +98,6 @@ class LaunchGate:
         return launch
 
 
-
-
 def main():
     kernel=ctypes.WinDLL('kernel32',use_last_error=True)
     kernel.CreateMutexW.argtypes=[ctypes.c_void_p,ctypes.c_bool,ctypes.c_wchar_p]

@@ -226,8 +226,6 @@ class EnhancedPet(Pet):
         self.wandering=self.settings.get('wandering',True)
         self.random_actions=self.settings.get('random_actions',True)
         self.commentary=self.settings.get('commentary',True)
-        self.sound=self.settings.get('sound',True)
-        self._interaction_sound=False
         self.silent_notifier=None
         self.quota_windows=[]
         self.quota_observed=0
@@ -302,7 +300,7 @@ class EnhancedPet(Pet):
 
     def save_settings(self):
         self.settings.update(wandering=self.wandering,random_actions=self.random_actions,
-                             commentary=self.commentary,sound=self.sound,bubble=self.bubble.enabled,
+                             commentary=self.commentary,bubble=self.bubble.enabled,
                              quota_visible=self.bubble.show_quota,position=[self.x(),self.y()])
         save_json(CONFIG,self.settings)
 
@@ -397,17 +395,11 @@ class EnhancedPet(Pet):
 
     def choose(self,item,interactive=False):
         if self.enhanced_ready:self.stop_walk()
-        self._interaction_sound=interactive
-        try:super().choose(item)
-        finally:self._interaction_sound=False
+        super().choose(item)
 
     def single_click(self):
         self.last_click=None
         if self.variants:self.choose(random.choice(self.variants),interactive=True)
-
-    def play_click_sound(self):
-        if self.enhanced_ready and self.sound and self._interaction_sound:
-            super().play_click_sound()
 
     def refresh_quota(self):
         if self.closing:return None
@@ -429,9 +421,6 @@ class EnhancedPet(Pet):
         return run
 
     def quota(self):
-        self._interaction_sound=True
-        try:self.play_click_sound()
-        finally:self._interaction_sound=False
         self.stop_walk()
         self.click_timer.stop()
         self.last_click=None
@@ -649,7 +638,7 @@ class EnhancedPet(Pet):
         menu.addAction('立即刷新额度',self.quota)
         menu.addAction('刷新重置消息',self.refresh_reset_feed)
         menu.addAction('查看重置公告来源',lambda:QDesktopServices.openUrl(QUrl(SOURCE_URL)))
-        for label,attr in [('桌面自由移动','wandering'),('随机播放动作','random_actions'),('气泡展示 Codex 回复摘要','commentary'),('主动点击音效','sound')]:
+        for label,attr in [('桌面自由移动','wandering'),('随机播放动作','random_actions'),('气泡展示 Codex 回复摘要','commentary')]:
             action=menu.addAction(label)
             action.setCheckable(True)
             action.setChecked(getattr(self,attr))
@@ -705,7 +694,7 @@ class EnhancedPet(Pet):
                'quota_source':self.quota_source,'quota_observed':self.quota_observed,
                'notifications':len(self.notify_history),'at':time.time(),
                'bubble_bounds':[self.bubble.x(),self.bubble.y(),self.bubble.width(),self.bubble.height()],
-               'bubble_owned':self.bubble.parentWidget() is self,'automatic_sound':False,
+               'bubble_owned':self.bubble.parentWidget() is self,
                'reset_feed_checked':self.reset_checked,'reset_feed_error':self.bubble.reset_feed_error,
                'scheduled_reset':(self.bubble.reset_snapshot or {}).get('scheduled'),
                'dashboard_card':self.bubble.dashboard_page,'token_month':(self.bubble.token_snapshot or {}).get('month'),

@@ -1,0 +1,54 @@
+{
+  "id": "walk-left",
+  "name": "向左走走",
+  "group": "移动",
+  "file": "playback/walk-left.webp",
+  "loop": false,
+  "durationMs": 13250,
+  "frames": 318,
+  "bytes": 69788010,
+  "sha256": "91714b586322a0533a92f9e418ed386e7bcc7045c5650681f3e48388e59e252a",
+  "recipe": "claude-lace-matte-temporal-repair-exact",
+  "source": "移动/向左.webp",
+  "sourceSha256": "3e99b48cd5fb6effd2663f4923fa251d522e27b86a2c82351e365051adf5f7bf",
+  "transform": {
+    "scale": 0.47686445291235713,
+    "centre": 531.5,
+    "baseline": 956,
+    "union": [
+      0,
+      0,
+      960,
+      956
+    ],
+    "effectsCrop": true
+  },
+  "sourceWindow": null,
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 6242
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
+  "baseSha256": "838583ae009b180dd9d15ea2887e12ab104d18f6f3500326d8f451277348893d",
+  "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
+  "bridgeSettings": {
+    "walk": [
+      -1,
+      26,
+      218
+    ],
+    "drag": null
+  },
+  "entryBridgeFrames": 16,
+  "exitBridgeFrames": 22,
+  "bridgeCut": [
+    0,
+    281
+  ],
+  "walk": {
+    "direction": -1,
+    "start": 41,
+    "end": 233
+  },
+  "endpointDifference": 0.0
+}

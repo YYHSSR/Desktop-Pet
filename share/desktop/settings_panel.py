@@ -2,7 +2,7 @@
 from PySide6.QtCore import Qt, QObject, Signal, QRectF, QPointF
 from PySide6.QtGui import QShortcut, QKeySequence, QPainter, QPen, QColor
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QTabWidget,
-    QScrollArea, QLabel, QCheckBox, QComboBox, QLineEdit, QDoubleSpinBox, QPushButton, QStyle, QStyleOptionButton)
+    QScrollArea, QLabel, QCheckBox, QLineEdit, QDoubleSpinBox, QPushButton, QStyle, QStyleOptionButton)
 
 
 class EditorCheckBox(QCheckBox):
@@ -59,15 +59,6 @@ class SettingsPanel(QWidget):
             keys = []
             for row in rows:
                 kind = row[0]
-                if kind == 'advanced':
-                    self.advanced_button = QPushButton('展开高级参数'); self.advanced_button.setCheckable(True)
-                    form.addRow(self.advanced_button)
-                    self.advanced_card = QWidget(); advanced_form = QFormLayout(self.advanced_card)
-                    advanced_form.setContentsMargins(0,0,0,0); advanced_form.setVerticalSpacing(9)
-                    self.behavior_form = form; form.addRow(self.advanced_card)
-                    self.advanced_button.toggled.connect(self.set_advanced)
-                    form = advanced_form
-                    continue
                 if kind == 'note':
                     text = QLabel(row[1]); text.setWordWrap(True); form.addRow(text); continue
                 if kind == 'link':
@@ -88,12 +79,6 @@ class SettingsPanel(QWidget):
                     item.setSuffix(row[6] if len(row)>6 else ''); item.setValue(values.get(key, row[3]))
                     self.scales[key] = scale
                     item.valueChanged.connect(lambda value, k=key, s=scale: self.edit(k, value if s != 1 else int(value)))
-                    form.addRow(text, item)
-                elif kind == 'choice':
-                    item = QComboBox()
-                    for data, caption in row[3]: item.addItem(caption, data)
-                    item.setCurrentIndex(max(0, item.findData(values.get(key))))
-                    item.currentIndexChanged.connect(lambda index, k=key, w=item: self.edit(k, w.itemData(index)))
                     form.addRow(text, item)
                 elif kind == 'text':
                     item = QLineEdit(values.get(key) or ''); item.setPlaceholderText(row[3]); item.setMaxLength(row[4])
@@ -116,16 +101,7 @@ class SettingsPanel(QWidget):
         layout.addLayout(row)
         self.shortcut = QShortcut(QKeySequence('Ctrl+S'), self)
         self.shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut); self.shortcut.activated.connect(self.apply)
-        if hasattr(self,'advanced_card'):self.behavior_form.setRowVisible(self.advanced_card,False)
         self.update_status()
-
-    def set_advanced(self,checked):
-        window=self.window();enabled=window.updatesEnabled();window.setUpdatesEnabled(False)
-        try:
-            self.advanced_button.setText('收起高级参数' if checked else '展开高级参数')
-            self.behavior_form.setRowVisible(self.advanced_card,checked)
-            if self.layout():self.layout().activate()
-        finally:window.setUpdatesEnabled(enabled)
 
     def edit(self, key, value):
         if self.writing: return
@@ -140,7 +116,6 @@ class SettingsPanel(QWidget):
         self.writing = True; item.blockSignals(True)
         try:
             if isinstance(item, QCheckBox): item.setChecked(bool(value))
-            elif isinstance(item, QComboBox): item.setCurrentIndex(max(0, item.findData(value)))
             elif isinstance(item, QLineEdit): item.setText(value or '')
             else: item.setValue(value/self.ratios[key] if key in self.ratios else value)
         finally: item.blockSignals(False); self.writing = False
@@ -179,8 +154,7 @@ class SettingsPanel(QWidget):
         self.status.setText('桌宠设置已保存。' if not self.dirty else '部分修改尚未保存，请检查后重试。')
 
 
-def companion_sections(role, actions):
-    choices=[(key,item['name']) for key,item in actions.items() if key!='idle']
+def companion_sections(role):
     general=(
         ('check','autostart','登录 Windows 时启动'),
         ('ratio','size','角色大小（倍）',180,460,300),
@@ -193,12 +167,8 @@ def companion_sections(role, actions):
     )
     behavior=[
         ('check','random_actions','自动随机动作'),
+        ('check','wander','在桌面上走动'),
         ('check','instant_switch','点选动作时立即切换（柔和过渡）'),
-        ('advanced',),
-        ('slider','random_interval','自主动作间隔（秒）',30,300),
-        ('slider','playback_speed','播放速度（倍）',.5,2,4),
-        ('choice','poke_action','单击人物',choices),
-        ('choice','double_action','双击人物',choices),
     ]
     if role=='gemini':
         behavior.extend((('check','ear_meow','点击状态点时喵一声'),

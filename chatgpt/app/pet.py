@@ -9,7 +9,7 @@ from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from quota import read_quota, quota_windows
 from typography import FONT_CSS
 
-from runtime_paths import resource_root, asset_file
+from runtime_paths import resource_root
 from material_manifest import manifest_path
 ROOT=resource_root()
 ASSETS=ROOT/'assets/character'
@@ -213,23 +213,15 @@ class Pet(QWidget):
     def dismiss_bubble(self):
         self.bubble.hide()
         if self.mode=='quota':self.idle()
-    def play_click_sound(self):
-        if sys.platform=='win32':
-            import winsound
-            sound=asset_file('sounds/click.wav')
-            if sound.is_file():
-                try:winsound.PlaySound(str(sound),winsound.SND_FILENAME|winsound.SND_ASYNC|winsound.SND_NODEFAULT)
-                except RuntimeError:pass
     def choose(self,item):
         self.click_timer.stop();self.last_click=None;self.generation+=1
-        try:self.play_click_sound();self.play(item,'variant');self.say(item.get('line',''),4000)
+        try:self.play(item,'variant');self.say(item.get('line',''),4000)
         except Exception as error:self.idle();self.say('这段动画暂时无法播放：'+str(error))
     def single_click(self):
         self.last_click=None
         if self.variants:self.choose(random.choice(self.variants))
     def quota(self):
         self.click_timer.stop();self.last_click=None;self.generation+=1;token=self.generation
-        self.play_click_sound()
         self.play(self.manifest.get('quotaAnimation') or self.idles[0],'quota')
         self.say('让我看看额度还有多少。。。。。。',0)
         if self.quota_inflight:

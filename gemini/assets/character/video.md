@@ -45,6 +45,11 @@ The chibi cat-ear girl crouches low, wiggles her hips with her tail swishing and
 - `互动/被拎起来.webp`：被拎起来时耳朵先贴下去再竖起，举爪扭一下，然后放松。白底。
 - `互动/拖拽.webp`：先站着，再被拎在画面中间晃，蹬腿甩尾巴，然后软下来。白底。
 
+## 移动
+
+- `移动/向右.webp`：蹲下往右扑，转回正面后挥爪抓星星。白底。
+- `移动/向左.webp`：追着尾巴转到左边，转回正面后捂嘴笑。白底。
+
 ## 特殊
 
 - `特殊/星星魔法.webp`：抬手，星星闪光绕在身边。

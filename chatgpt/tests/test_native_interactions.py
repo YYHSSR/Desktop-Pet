@@ -41,7 +41,7 @@ class InteractionTests(unittest.TestCase):
         self.patches=[patch(m+'.'+k,root/('settings.json' if k=='CONFIG' else '')) for m in ('desktop','enhanced') for k in ('CONFIG','STATE_DIR')]
         for p in self.patches:p.start()
         self.pet=DesktopPet(monitor=False);self.pet.tick.stop();self.pet.motion_timer.stop()
-        self.pet.apply_settings(dict(wandering=False,random_actions=False,drag_physics=False,sound=False),save=False)
+        self.pet.apply_settings(dict(wandering=False,random_actions=False,drag_physics=False),save=False)
         self.pet.show();APP.processEvents()
     def tearDown(self):
         self.pet.close();APP.processEvents()
@@ -80,7 +80,9 @@ class InteractionTests(unittest.TestCase):
         self.assertEqual(self.pet.mode,'idle')
     def test_normal_release_wins_over_deferred_ungrab(self):
         self.drag();APP.sendEvent(self.pet,QEvent(QEvent.Type.UngrabMouse));self.pet.mouseReleaseEvent(self.press)
-        APP.processEvents();self.assertEqual(self.pet.mode,'landing');self.assertFalse(self.pet.dragging)
+        # A release this early lets the lift finish, then she is set down.
+        APP.processEvents();self.assertEqual((self.pet.mode,self.pet.gate.state),('drag','landing'))
+        self.assertTrue(self.pet._landing_due);self.assertFalse(self.pet.dragging)
     def test_late_release_after_cancellation_is_not_a_click(self):
         self.drag();self.pet.cancel_pointer();self.pet.mouseReleaseEvent(self.press)
         APP.processEvents();self.assertFalse(self.pet.click_timer.isActive());self.assertFalse(self.pet.dragging)

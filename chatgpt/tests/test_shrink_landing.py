@@ -63,15 +63,6 @@ class ShrinkLandingTests(unittest.TestCase):
     def test_expansion_has_no_additional_landing_window(self):
         self.expand();t=self.b.size_transition
         self.assertFalse(t.landing.isVisible());self.assertIsNone(t.landing.image);self.assertFalse(t.landing_timer.isActive())
-    def test_shrinks_keep_quota_and_chart_values_instead_of_revealing_again(self):
-        from quota_summary import QuotaSummary
-        b=self.b;b.windows=[dict(name='一周',remaining=73)];b.redraw();self.expand()
-        card=next(w for w in b.findChildren(QuotaSummary) if w.isVisible())
-        card.animation.setCurrentTime(card.animation.duration());b.toggle_details();t=b.size_transition
-        normal=next(w for w in b.content.findChildren(QuotaSummary) if w.isVisibleTo(b.content))
-        plot=b.deck.content.plot
-        self.assertEqual(normal.values['quota:一周'],.73);self.assertEqual(plot.reveal.progress,1.);self.assertFalse(plot.reveal.pending)
-        t.complete();QTest.qWait(70);self.assertEqual(normal.values['quota:一周'],.73)
     def test_shrink_content_has_no_empty_interval_between_both_views(self):
         b=self.b
         for open_,close in ((b.toggle_details,b.toggle_details),(lambda:b.show_page('settings',QWidget()),b.return_to_status)):

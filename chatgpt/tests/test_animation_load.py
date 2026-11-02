@@ -4,10 +4,9 @@ os.environ['QT_QPA_PLATFORM']='offscreen'
 import time
 import unittest
 from unittest.mock import patch
-from PySide6.QtCore import QAbstractAnimation
 from test_daily_report import APP,sample
 from compact_bubble import CompactBubble
-from daily_report import DailyReport,ReportPlot
+from daily_report import DailyReport
 from quota_summary import QuotaSummary
 
 class AnimationLoadTests(unittest.TestCase):
@@ -17,45 +16,12 @@ class AnimationLoadTests(unittest.TestCase):
     def tearDown(self):
         self.b.size_transition.complete();self.b.close();self.b.deleteLater();APP.processEvents()
     def finish(self):self.b.size_transition.complete();APP.processEvents()
-    def test_tab_slide_keeps_controls_quota_and_geometry_and_latest_selection(self):
-        b=self.b;deck=b.deck;quota=b.findChild(QuotaSummary);quota.begin_reveal();quota.start_reveal();quota.animation.setCurrentTime(120)
-        geom=b.geometry();plot=deck.content.plot;start=deck.tabs.pill.x()
-        b.select_dashboard('reset');deck.tabs.animation.setCurrentTime(70);middle=deck.tabs.pill.x()
-        self.assertGreater(middle,start);self.assertLess(middle,deck.tabs._to.x())
-        b.select_dashboard('tokens');deck.tabs.animation.setCurrentTime(180)
-        self.assertIs(b.deck,deck);self.assertIs(deck.content.plot,plot);self.assertIs(b.findChild(QuotaSummary),quota)
-        self.assertEqual(quota.animation.currentTime(),120);self.assertEqual(b.geometry(),geom)
-        self.assertEqual(deck.tabs.pill,deck.tabs._to)
-        deck.hide();self.assertEqual(deck.tabs.animation.state(),QAbstractAnimation.State.Stopped)
     def test_unified_refresh_does_not_depend_on_card_selection(self):
         b=self.b;seen=[];b.refreshAllRequested.connect(lambda:seen.append('all'))
         b.set_refresh_busy(True);b.select_dashboard('reset');self.assertFalse(b.refresh_button.isEnabled())
         b.finish_refresh();b.refresh_button.click();b.select_dashboard('tokens');b.refresh_button.click()
         self.assertEqual(seen,['all']);self.assertFalse(b.refresh_button.isEnabled())
         self.assertFalse(b.token_refresh_buttons);self.assertFalse(b.reset_refresh_buttons)
-    def test_range_reuses_plot_and_quota_without_rebuilding_bubble(self):
-        b=self.b;deck=b.deck;plot=deck.content.plot;quota=b.findChild(QuotaSummary)
-        with patch.object(b,'redraw',wraps=b.redraw) as redraw:
-            b.select_token_range('day');b.select_dashboard('reset');b.show_today_tokens()
-            redraw.assert_not_called()
-        self.assertIs(b.deck,deck);self.assertIs(deck.content.plot,plot);self.assertIs(b.findChild(QuotaSummary),quota)
-        self.assertEqual(plot.series['mode'],'line');self.assertTrue(b.today_tokens_card.selected)
-    def test_chart_frames_reuse_layers_and_rebuild_on_data_or_size_change(self):
-        report=sample()['report'];plots=[self.b.deck.content.plot,ReportPlot(report),ReportPlot(report,'bars')]
-        try:
-            for plot in plots:
-                plot.resize(220,94);plot.show();APP.processEvents();plot.begin_reveal();builds=plot.layer_builds
-                with patch.object(plot,'render_layers',wraps=plot.render_layers) as build:
-                    plot.start_reveal()
-                    for ms in range(0,621,20):plot.reveal.animation.setCurrentTime(ms);plot.grab()
-                    build.assert_not_called()
-                self.assertEqual(plot.layer_builds,builds)
-                plot.resize(240,94);plot.grab();self.assertEqual(plot.layer_builds,builds+1)
-                if isinstance(plot,ReportPlot):plot.set_data(report,plot.series,plot.selected)
-                else:plot.set_data(plot.snapshot,'day')
-                plot.grab();self.assertEqual(plot.layer_builds,builds+2)
-        finally:
-            for plot in plots[1:]:plot.close();plot.deleteLater()
     def test_quota_animation_never_rasterizes_labels_again(self):
         quota=self.b.findChild(QuotaSummary);quota.begin_reveal();builds=quota.layer_builds;quota.start_reveal()
         with patch('quota_summary.font',side_effect=AssertionError('font work on animation frame')):

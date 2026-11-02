@@ -64,8 +64,3 @@ class CapabilityHealth:
         for key,value in result.items():
             if value['state']=='available' and now-value['checked']>TTL[key]:value.update(state='degraded',code='stale')
         return dict(home_key=self.home_key,capabilities=result)
-
-def success_time(value,now=None):
-    now=time.time() if now is None else now
-    if not isinstance(value,(int,float)) or not math.isfinite(value) or value<=0 or value>now+5:return '尚无成功记录'
-    return time.strftime('%H:%M:%S' if time.localtime(value)[:3]==time.localtime(now)[:3] else '%m/%d %H:%M',time.localtime(value))

@@ -3,13 +3,13 @@
   "name": "好奇探头",
   "group": "互动",
   "file": "playback/curious.webp",
-  "durationMs": 11417,
-  "frames": 274,
+  "durationMs": 11459,
+  "frames": 275,
   "loop": false,
   "random": true,
-  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
-  "bytes": 20171916,
-  "sha256": "2d58eaef4f268fd89a777d04771bc80298b10e2c78b79bb0270110a98d59615a",
+  "recipe": "backdrop-colour-matte-temporal-repair-rgb94-alpha100",
+  "bytes": 20231398,
+  "sha256": "a498649c2456f975902a40ffc2ad5bb92ed53965276bf6aa7a4eefd062e76b9b",
   "source": "情绪/好奇.webp",
   "sourceSha256": "560b8526403219cb281075c3a8bc0ec65e86ec9649812ab49f5363499d65cb38",
   "transform": {
@@ -21,16 +21,25 @@
       24,
       544,
       514
-    ]
+    ],
+    "effectsCrop": false
   },
-  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
-  "baseSha256": "bd6b63e717a6197aab7cd4cb2dc5d4dd0ec4491e6dad6377c1c9078fb7898c48",
-  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 19317
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2",
+  "baseSha256": "60203ff13bb295fac0760dc26863a3e81d686f8cd07d87bdea0bfd94403f13ba",
+  "referencePose": "4d7e9a2cc12eaf8a040e2f7522d464a86c307fb9c58c5b02c45f673f9c5fe6e6",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
   "entryBridgeFrames": 14,
-  "exitBridgeFrames": 21,
-  "endpointDifference": 0.002,
+  "exitBridgeFrames": 22,
   "bridgeCut": [
     0,
     240
-  ]
+  ],
+  "endpointDifference": 0.002071
 }

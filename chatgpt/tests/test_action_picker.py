@@ -31,11 +31,10 @@ class PickerTests(unittest.TestCase):
 
 
 class SettingsTests(unittest.TestCase):
-    def test_old_default_interval_migrates_but_custom_values_stay(self):
-        self.assertEqual(normalized({})['random_interval'],12)
-        self.assertEqual(normalized({'schema':2,'random_interval':25})['random_interval'],12)
-        self.assertEqual(normalized({'schema':2,'random_interval':40})['random_interval'],40)
-        self.assertEqual(normalized({'schema':3,'random_interval':25})['random_interval'],25)
+    def test_action_pacing_is_built_in_and_old_tuning_is_dropped(self):
+        old=normalized({'schema':2,'random_interval':40,'action_gap':9,'playback_speed':2,'move_speed':90,'move_range':.3})
+        for key in ('random_interval','action_gap','playback_speed','move_speed','move_range'):self.assertNotIn(key,old)
+        self.assertTrue(normalized({})['wandering'])
 
 
 if __name__=='__main__':unittest.main()

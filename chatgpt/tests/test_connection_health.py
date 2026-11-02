@@ -1,7 +1,7 @@
 """Capability failures, honest statistics and keyboard/pointer user journeys."""
 import os
 os.environ['QT_QPA_PLATFORM']='offscreen'
-import copy,json,sqlite3,tempfile,time,unittest
+import json, sqlite3, tempfile, time, unittest
 from pathlib import Path
 from unittest.mock import patch
 from PySide6.QtCore import Qt,QPoint,QRect
@@ -14,7 +14,6 @@ from enhanced_core import RolloutTail
 from token_calendar import TokenUsageIndex
 from ui_theme import contrast,PRIMARY,ON_PRIMARY,SURFACE,INK,MUTED
 import test_settings_journeys as journeys
-from test_daily_report import sample as report_sample
 APP=journeys.APP
 
 

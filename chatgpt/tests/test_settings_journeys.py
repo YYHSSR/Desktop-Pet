@@ -46,13 +46,13 @@ class InteractionTests(unittest.TestCase):
     def settings(self):
         self.pet.open_settings();settle(self.pet);return self.pet.settings_dialog
     def test_external_toggle_and_cross_tab_edits_are_not_overwritten(self):
-        s=self.settings();s.fields['scale'].setValue(1.2);s.fields['move_speed'].setValue(123)
+        s=self.settings();s.fields['scale'].setValue(1.2);s.fields['drag_physics'].setChecked(False)
         self.pet.apply_settings(dict(random_actions=True,on_top=False))
         self.assertTrue(s.fields['random_actions'].isChecked());self.assertNotIn('on_top',s.fields);self.assertFalse(self.pet.settings['on_top'])
         with patch.object(self.pet,'apply_settings',wraps=self.pet.apply_settings) as apply:
-            s.apply();self.assertEqual(set(apply.call_args.args[0]),{'scale','move_speed'})
+            s.apply();self.assertEqual(set(apply.call_args.args[0]),{'scale','drag_physics'})
         self.assertTrue(self.pet.settings['random_actions']);self.assertFalse(self.pet.settings['on_top'])
-        self.assertEqual(self.pet.settings['scale'],1.2);self.assertEqual(self.pet.settings['move_speed'],123)
+        self.assertEqual(self.pet.settings['scale'],1.2);self.assertFalse(self.pet.settings['drag_physics'])
         self.startup.assert_not_called();self.assertFalse(s.draft.dirty)
     def test_conflict_is_visible_and_discard_uses_current_values(self):
         s=self.settings();s.fields['scale'].setValue(1.3);self.pet.apply_settings(dict(scale=1.1))
@@ -75,9 +75,10 @@ class InteractionTests(unittest.TestCase):
     def test_defaults_are_per_tab_and_movement_dependencies_are_explicit(self):
         s=self.settings();s.fields['scale'].setValue(1.2);s.startup.setChecked(True);s.tabs.setCurrentIndex(1)
         self.pet.apply_settings(dict(no_move=True));settle(self.pet)
-        self.assertNotIn('no_move',s.fields);self.assertNotIn('wandering',s.fields)
-        self.assertFalse(s.fields['move_range'].isEnabled());self.assertEqual(s.fields['move_range'].value(),75)
-        self.assertEqual(s.fields['status_action_interval'].decimals(),0)
+        self.assertNotIn('no_move',s.fields)
+        self.assertFalse(s.fields['wandering'].isEnabled());self.assertFalse(s.fields['drag_physics'].isEnabled())
+        for key in ('move_speed','move_range','random_interval','action_gap','playback_speed','status_action_interval'):
+            self.assertNotIn(key,s.fields)
         s.defaults_button.click();self.assertTrue(self.pet.settings['no_move']);self.assertEqual(s.fields['scale'].value(),1.2)
         self.assertTrue(s.startup.isChecked());self.startup.assert_not_called()
     def test_menus_have_separate_roles_and_share_live_settings(self):
@@ -117,13 +118,5 @@ class InteractionTests(unittest.TestCase):
         self.assertEqual(b.panel_page,'status');self.assertTrue(b.expanded)
         self.pet.open_settings();settle(self.pet);b.collapse_to_normal();settle(self.pet)
         self.assertEqual(b.panel_page,'status');self.assertFalse(b.expanded)
-    def test_advanced_parameters_toggle_in_one_step_and_keep_drafts(self):
-        s=self.settings();b=self.pet.bubble;native=b.geometry();s.tabs.setCurrentIndex(1);APP.processEvents()
-        s.fields['move_speed'].setValue(123)
-        for expanded in (True,False,True):
-            s.advanced_button.click()
-            self.assertEqual(s.advanced_card.isVisibleTo(s),expanded);self.assertEqual(b.geometry(),native)
-            self.assertEqual(s.advanced_button.text(),'收起高级参数' if expanded else '展开高级参数')
-        self.assertTrue(s.window().updatesEnabled());self.assertEqual(s.fields['move_speed'].value(),123);self.assertTrue(s.draft.dirty)
 
 if __name__=='__main__':unittest.main()

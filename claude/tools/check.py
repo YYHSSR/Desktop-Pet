@@ -45,10 +45,10 @@ def main():
             result['originals'].append(item['file'])
         descriptor = json.loads((originals/'character.json').read_text(encoding='utf-8'))
         actions = {item['id']: item for item in descriptor['actions']}
-        if (len(actions) != 9 or 'doze' in actions or descriptor.get('drag') != 'drag'
-                or actions['flower'].get('sourceEndFrame') is not None
-                or actions['flower'].get('holdTailMs', 0) != 0
-                or actions['idle']['source'] != '陪伴/抱书静候.webp'):
+        if (len(actions) != 11 or descriptor.get('drag') != 'drag'
+                or actions['flower'].get('sourceWindow') is not None
+                or actions['idle']['source'] != '陪伴/抱书静候.webp'
+                or {actions[key]['walk']['direction'] for key in ('walk-left', 'walk-right')} != {-1, 1}):
             raise ValueError('Claude action selection is incorrect')
         source_checksums = {item['file']: item['sha256'] for item in inventory['files']}
         if any(item['sourceSha256'] != source_checksums[item['source']] for item in actions.values()):

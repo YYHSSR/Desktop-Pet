@@ -10,7 +10,6 @@ from collections import deque
 from action_picker import ActionPicker
 from share.pet_engine.action_catalog import populate_action_menu, unique_actions
 from share.desktop.context_menu import populate_menu as populate_shared_menu
-from pathlib import Path
 from PySide6.QtCore import Qt,QTimer,QPoint,QPointF,QRect,QRectF,QUrl,QEvent,Signal
 from PySide6.QtGui import QCursor,QDesktopServices,QTransform
 from PySide6.QtWidgets import QApplication,QMenu,QSystemTrayIcon
@@ -21,18 +20,27 @@ from performance_metrics import measured
 from desktop_core import (normalized,atomic_json,ActionGate,physics_step,relative_position,
     restore_position)
 from desktop_services import all_items,open_codex
-from stream_player import StreamPlayer
+from stream_player import PreparedSegment,StreamPlayer
+from loop_cache import DecodedLoopCache
 from status_reactions import StatusReactions
 from continuous_work import ContinuousWork
 from sustained_player import SustainedPlayback
 from sustained_assets import profile_paths,seam_items
 from material_manifest import manifest_path
 from pose_handoff import PoseHandoff
+from share.desktop.sprite_window import stride
 
 # How often each built-in variant turns up on its own: everyday gestures are
 # common, the dragon-lore pieces stay special. Imported characters fall back to 1.
 VARIANT_WEIGHTS={'01':3.,'20':2.7,'08':2.5,'04':2.2,'05':1.8,'14':1.1,'09':.9,'17':1.3,
     '13':.3,'18':0.,'22':.25,'25':.15,'21':.1,'24':.65,'26':.2}
+
+# Built-in pacing; these used to be advanced settings.
+ACTIVITY_SECONDS=12.   # average pause between things she does on her own
+ACTION_GAP=2.          # breather after every action
+STATUS_REPEAT=12.      # a Codex state animates again at most this often
+WALK_SPEED=.26         # sprite widths per second while she walks
+PLAN_AHEAD=20          # idle frames before its seam at which the next move is picked and decoded
 
 def variant_weight(item,hour=None):
     hour=time.localtime().tm_hour if hour is None else hour
@@ -49,7 +57,7 @@ class DesktopPet(EnhancedPet):
     def __init__(self,monitor=True):
         self._video_yielded=False;self.video_yield=None
         self._desktop_hidden=False;self._card_anchor=None;self._visibility_ready=False
-        self._card_revealed=False;self.picker=ActionPicker()
+        self._card_revealed=False;self.picker=ActionPicker();self.stroll=None;self.planned=None;self.upcoming=None
         from codex_connection import data_home
         from connection_health import CapabilityHealth
         try:previous=json.loads((STATE_DIR/'runtime.json').read_text(encoding='utf-8')).get('connection_health')
@@ -57,7 +65,7 @@ class DesktopPet(EnhancedPet):
         self.connection_health=CapabilityHealth(data_home(),previous)
         from material_store import MaterialStore
         self.material_store=MaterialStore(ROOT,STATE_DIR)
-        self.player=None;self.gate=ActionGate();self.handoff=PoseHandoff();self._drag_loop_phase=None;self.asset_root=self.material_store.root
+        self.player=None;self.gate=ActionGate();self.handoff=PoseHandoff();self._drag_loop_phase=None;self._landing_due=False;self.release_tail=None;self.asset_root=self.material_store.root
         self.animation_wakeups=0;self.movement_wakeups=0
         self.sustained=SustainedPlayback();self.continuous=ContinuousWork();self._resume_idle=False
         self._interactive_action=False;self._manual_action=False;self._priority=0
@@ -97,7 +105,7 @@ class DesktopPet(EnhancedPet):
             except (OSError,ValueError,KeyError):
                 self.settings['character']='builtin';self.say('角色包不可用，已恢复ChatGpt 默认素材。',6000)
         self.restore_saved_position()
-        self.next_chain=time.monotonic()+self.picker.delay(self.settings['random_interval'])
+        self.next_chain=time.monotonic()+self.picker.delay(ACTIVITY_SECONDS)
         self.motion_clock=time.monotonic()
         self.tray.setToolTip('ChatGpt')
         self.tray.activated.disconnect()
@@ -119,17 +127,40 @@ class DesktopPet(EnhancedPet):
         if self._visibility_ready and (self._desktop_hidden or not self.settings.get('character_visible',True)):return False
         if self._interactive_action and mode=='variant':mode='click'
         if not self.gate.request(mode,item,force=self._interactive_action or self._manual_action):return False
+        if mode=='drag' and self._landing_due and item is self.current:
+            # Caught again before she was set down: the lift simply carries on.
+            self._landing_due=False;self.mode=mode;return True
         previous_frame=self.frames[self.index] if getattr(self,'frames',None) else None
         previous_item=getattr(self,'current',None)
+        # Every clip ends exactly on the shared pose and the next one starts
+        # there, so a clip that ran to its end is followed by a plain cut.
+        natural=self.player is not None and self.player.ended and mode not in ('drag','throw')
+        upcoming,self.upcoming=self.upcoming,None
+        if mode!='idle':self.planned=None
         self.sustained.cancel()
-        self._drag_loop_phase=None
-        if self.player is None:self.player=StreamPlayer()
+        self._drag_loop_phase=None;self._landing_due=False
+        if mode not in ('drag','throw'):self.drop_release()
+        if self.player is None:
+            self.player=StreamPlayer()
+            # Native detailed lace exceeds the engine's small generic entry cap.
+            # Keep complete idle/held loops instead of decoding them every repeat.
+            self.player.loop_cache=DecodedLoopCache(limit=160*1024*1024)
+            self.player.loop_cache.entry_limit=128*1024*1024
         try:
             options={}
             if mode in ('drag','throw') and item.get('dragLoopFile'):
-                options=dict(start_frame=item['dragStartFrame'],end_frame=item['dragLoopEnd'])
+                # Lift through the clip's short entrance; decode the way down meanwhile.
+                options=dict(end_frame=item['dragLoopEnd'])
                 self._drag_loop_phase='enter'
-            frame=self.player.start(self.asset_path(item),self.frame_size,item.get('durationMs',4000)/1000,cache_loop=mode=='idle',**options)
+                self.prepare_release(item)
+            path=self.asset_path(item)
+            # A clip picked ahead of the idle seam is already decoding: cut straight in.
+            ready=(upcoming is not None and not options and upcoming[0]==path and upcoming[1].ready.is_set()
+                   and not upcoming[1].error and upcoming[1].size==self.frame_size)
+            if upcoming is not None and not ready:upcoming[1].close()
+            if ready:frame=self.player.adopt(upcoming[1])
+            else:frame=self.player.start(path,self.frame_size,item.get('durationMs',4000)/1000,
+                                        cache_loop=mode=='idle' or item.get('loop',False),**options)
         except (OSError,ValueError,KeyError) as error:
             self.decode_error=type(error).__name__;self.gate.state='idle'
             if self.current and self.current is not item:
@@ -139,14 +170,56 @@ class DesktopPet(EnhancedPet):
             raise
         self.frames=[frame];self._hit_image=frame.toImage();self.current=item;self.mode=mode;self.index=0
         self.started=time.monotonic();self.transition=None
-        if previous_frame is not None and previous_item is not None:
+        if previous_frame is not None and previous_item is not None and not natural:
             self.handoff.begin(previous_frame,previous_item,.12 if mode=='drag' else .22)
         self.update_frame()
         self.schedule_animation()
         return True
 
+    def prepare_release(self,item):
+        self.drop_release()
+        if item.get('releaseFrame') is not None and item['releaseFrame']<item['frames']-1:
+            self.release_tail=PreparedSegment(self.asset_path(item),self.frame_size,item['releaseFrame'],item['frames']-1)
+
+    def drop_release(self):
+        if self.release_tail is not None:self.release_tail.close();self.release_tail=None
+
+    def prepare_next(self,item):
+        self.drop_upcoming()
+        try:path=self.asset_path(item);self.upcoming=(path,PreparedSegment(path,self.frame_size,0,item['frames']-1))
+        except (OSError,ValueError,KeyError):pass
+
+    def drop_upcoming(self):
+        if self.upcoming is not None:self.upcoming[1].close();self.upcoming=None
+
+    def land(self):
+        """Set her down: the drag clip's own return to the shared pose, then idle."""
+        if self._drag_loop_phase=='enter' and self.mode in ('drag','throw') and self.player and not self.player.ended:
+            # A quick release still plays the whole lift; she comes down from its end.
+            self._landing_due=True;self.mode='drag';self.gate.state='landing';return True
+        self._landing_due=False
+        natural=self.player is not None and self.player.ended
+        tail,self.release_tail=self.release_tail,None
+        item=self.manifest.get('dragAnimation')
+        if not item and not self.manifest.get('landingAnimation'):
+            if tail is not None:tail.close()
+            self.idle()
+            return True
+        ready=tail is not None and tail.ready.is_set() and not tail.error and tail.size==self.frame_size
+        if ready and item and self.gate.request('landing',item):
+            previous=self.frames[self.index] if self.frames else None
+            self.sustained.cancel();self._drag_loop_phase=None
+            frame=self.player.adopt(tail)
+            self.frames=[frame];self._hit_image=frame.toImage();self.current=item;self.mode='landing';self.index=0
+            self.started=time.monotonic();self.transition=None
+            if previous is not None and not natural:self.handoff.begin(previous,item,.2)
+            self.update_frame();self.schedule_animation()
+            return True
+        if tail is not None:tail.close()
+        return self.play(self.manifest.get('landingAnimation') or self.idles[0],'landing')
+
     def repeat_drag_loop(self):
-        item=self.current
+        item=self.current;self._drag_loop_phase='held'
         frame=self.player.start(self.asset_root/item['dragLoopFile'],self.frame_size,
                                 end_frame=item['dragLoopFrames']-1,cache_loop=True)
         self.frames=[frame];self.index=0;self._hit_image=frame.toImage();self.update_frame()
@@ -172,8 +245,7 @@ class DesktopPet(EnhancedPet):
     def schedule_animation(self):
         self.schedule_movement()
         if not hasattr(self,'tick') or not self.tick.isActive() or not self.player:return
-        speed=self.settings.get('playback_speed',1)*self.sustained.speed_factor(self.player)
-        interval=self.player.next_delay_ms(speed)
+        interval=self.player.next_delay_ms(self.sustained.speed_factor(self.player))
         if getattr(self,'handoff',None) and self.handoff.active():interval=min(16,interval)
         if self.press_feedback and time.monotonic()-self.press_feedback<.5:interval=min(16,interval)
         self.tick.setInterval(interval)
@@ -187,9 +259,11 @@ class DesktopPet(EnhancedPet):
         if was_sustained:
             owner=self.sustained.owner
             self.sustained.request(bool(desired and (desired.session,desired.turn,desired.action_id)==(owner.session,owner.turn,owner.action_id)))
-        frame,ended=self.player.advance(self.frame_size,getattr(self,'settings',{}).get('playback_speed',1)*self.sustained.speed_factor(self.player))
+        frame,ended=self.player.advance(self.frame_size,self.sustained.speed_factor(self.player))
         if frame is not None:
             self.frames=[frame];self.index=0;self._hit_image=frame.toImage();self.update_frame()
+            if self.mode=='idle' and self.planned is None and self.player.frame_index>=self.current.get('frames',0)-PLAN_AHEAD:
+                self.plan_ahead(now)
         if self.handoff.active() or self.press_feedback and time.monotonic()-self.press_feedback<.5:self.update()
         if ended:
             if was_sustained:
@@ -200,17 +274,23 @@ class DesktopPet(EnhancedPet):
                 self.decode_error=self.player.error
                 if self.enhanced_ready:self.say('这段素材读取失败，已回到待机。',5000)
             if self.mode in ('drag','throw') and self.current.get('dragLoopFile'):
-                self.repeat_drag_loop();return
-            if self.mode in ('drag','throw') or (self.mode=='walk' and self.walking):
+                if self._landing_due:self.land()
+                else:self.repeat_drag_loop()
+                return
+            if self.mode in ('drag','throw') or (self.mode=='walk' and self.walking and not self.stroll):
                 mode=self.mode;self.gate.state=mode;self.play(self.current,mode);return
+            if self.stroll:
+                # A walk clip plays once: she has arrived, and settles into idle.
+                self.walking=False;self.stroll=None;self.save_settings()
             previous=self.mode;self.gate.finish();now=time.monotonic()
+            plan,self.planned=self.planned,None
             if previous!='idle':
                 dedicated=previous=='reaction' and str(self.current.get('id','')).startswith('work')
-                self.reactions.finished(now,0 if was_sustained else max(2 if dedicated else 8,self.settings.get('action_gap',2)))
-                self.buffer_until=now+max(.8,self.settings.get('action_gap',2))
-            if previous in ('click','landing','task','quota','reaction'):self.next_chain=self.buffer_until+self.picker.delay(self.settings.get('random_interval',12))
+                self.reactions.finished(now,0 if was_sustained else max(2 if dedicated else 8,ACTION_GAP))
+                self.buffer_until=now+max(.8,ACTION_GAP)
+            if previous in ('click','landing','task','quota','reaction','walk'):self.next_chain=self.buffer_until+self.picker.delay(ACTIVITY_SECONDS)
             if self.play_status_reaction(now):return
-            if previous=='idle' and self.autonomous_boundary(now):return
+            if previous=='idle' and self.autonomous_boundary(now,plan):return
             self.idle()
 
     def status_animation_allowed(self):
@@ -251,26 +331,44 @@ class DesktopPet(EnhancedPet):
         self.last_reaction=selected
         return True
 
-    def autonomous_boundary(self,now):
-        if not self.isVisible() or self.dragging or self.throwing or self.walking:return False
-        if now<max(self.next_chain,self.buffer_until,self.status_hold):return False
-        if self.settings.get('status_actions',True) and self.reactions.busy(now):return False
-        interval=self.settings['random_interval']
-        self.next_chain=now+self.picker.delay(interval)+self.settings['action_gap']
+    def roll_autonomous(self,now):
+        """What she does on her own at an idle seam: (kind, clip) or None to stay idle."""
+        if not self.isVisible() or self.dragging or self.throwing or self.walking:return None
+        if now<max(self.next_chain,self.buffer_until,self.status_hold):return None
+        if self.settings.get('status_actions',True) and self.reactions.busy(now):return None
+        self.next_chain=now+self.picker.delay(ACTIVITY_SECONDS)+ACTION_GAP
         choices=['idle'];weights=[10]
-        if self.random_actions:choices+=['turn','variant'];weights+=[8,62]
+        if self.random_actions:
+            if self.manifest.get('additionalIdleAnimations') or self.manifest.get('turnAnimations'):
+                choices.append('turn');weights.append(8)
+            if self.variants:choices.append('variant');weights.append(62)
         if self.wandering and not self.settings['no_move']:choices+=['walk'];weights+=[20]
         selected=self.picker.rng.choices(choices,weights)[0]
-        if selected=='walk':self.start_walk();return self.walking
+        if selected=='walk':return 'walk',self.walk_plan() if self.directional() else None
         if selected=='turn':
             if self.settings.get('character','builtin')=='builtin' and self.manifest.get('additionalIdleAnimations'):
-                return self.play(self.picker.pick(self.manifest['additionalIdleAnimations']),'turn')
-            self.walk_direction*=-1;self.settings['facing']=self.walk_direction
-            return self.play(self.picker.pick(self.manifest.get('turnAnimations') or self.idles),'turn')
-        if selected=='variant' and self.variants:self.choose(self.picker.pick(self.variants,weight=variant_weight));return True
+                return 'turn',self.picker.pick(self.manifest['additionalIdleAnimations'])
+            return 'flip',self.picker.pick(self.manifest.get('turnAnimations') or self.idles)
+        if selected=='variant' and self.variants:return 'variant',self.picker.pick(self.variants,weight=variant_weight)
         # A skipped turn retries sooner instead of waiting a whole interval.
-        self.next_chain=now+self.picker.delay(interval)*.5
-        return False
+        self.next_chain=now+self.picker.delay(ACTIVITY_SECONDS)*.5
+        return None
+
+    def plan_ahead(self,now):
+        """Pick the coming seam's move a little early and start decoding its clip."""
+        self.planned=self.roll_autonomous(now+PLAN_AHEAD/24) or False
+        if self.planned and self.planned[1]:
+            clip=self.planned[1]
+            self.prepare_next(clip[0] if isinstance(clip,tuple) else clip)
+
+    def autonomous_boundary(self,now,plan=None):
+        if plan is None:plan=self.roll_autonomous(now)
+        if not plan or not self.isVisible() or self.dragging or self.throwing or self.walking:return False
+        kind,clip=plan
+        if kind=='walk':self.start_walk(clip);return self.walking
+        if kind=='flip':self.walk_direction*=-1;self.settings['facing']=self.walk_direction
+        if kind in ('turn','flip'):return self.play(clip,'turn')
+        self.choose(clip);return True
 
     def frame_transform(self,canvas):
         transform=QTransform()
@@ -279,9 +377,13 @@ class DesktopPet(EnhancedPet):
             squash=math.sin(elapsed/.5*math.pi*2)*.075*math.exp(-elapsed*5)
             transform.translate(canvas.center().x(),canvas.bottom())
             transform.scale(1+squash,1-squash);transform.translate(-canvas.center().x(),-canvas.bottom())
-        if getattr(self,'walk_direction',1)<0:
+        if getattr(self,'walk_direction',1)<0 and not self.directional():
             transform.translate(canvas.x()*2+canvas.width(),0);transform.scale(-1,1)
         return transform
+
+    def directional(self):
+        """Walk clips that already face their way are never mirrored."""
+        return any(item.get('walk') for item in getattr(self,'manifest',{}).get('moveAnimations',[]))
 
     def draw_frame(self,painter,canvas):
         painter.save();painter.setTransform(self.frame_transform(canvas),True)
@@ -318,6 +420,16 @@ class DesktopPet(EnhancedPet):
         if self._visibility_ready and (self._desktop_hidden or not self.settings.get('character_visible',True)):return
         if not interactive and not manual and self.gate.state not in ('idle','turn','walk','variant'):return
         if interactive and self.gate.state=='task':return
+        if item.get('walk') and self.manifest.get('manualMovementActions') and (interactive or manual):
+            if self.dragging:return
+            self.stop_walk();self.throwing=False
+            self.gate.state='idle'
+            plan=self.walk_plan(item) if not self.settings.get('no_move') else None
+            if plan is not None:self.start_walk(plan)
+            else:
+                # At a screen boundary or while locked, preview the chosen walk in place.
+                self.gate.state='idle';self.play(item,'variant')
+            return
         self.stop_walk();self.throwing=False
         self._interactive_action=interactive;self._manual_action=manual
         old=self._priority;self._priority=5 if interactive or manual else 1
@@ -340,15 +452,39 @@ class DesktopPet(EnhancedPet):
         super().say(text,ms)
 
     def stop_walk(self):
-        self.walking=False;self.walk_target=None
+        self.walking=False;self.walk_target=None;self.stroll=None
         if self.mode=='walk':self.gate.state='idle';self.idle()
 
-    def start_walk(self):
-        if (self.bubble.report and self.bubble.report.requested) or self.bubble.panel_page!='status' or self.settings.get('no_move') or self.dragging or self.throwing or self.gate.state not in ('idle','walk'):return
+    def walk_plan(self,preferred=None):
+        """(walk clip, signed distance) towards a side with room, or None."""
         screen=QApplication.screenAt(self.frameGeometry().center()) or QApplication.primaryScreen();area=screen.availableGeometry()
-        radius=self.settings['move_range'];spanx=max(0,area.width()-self.width()-16);spany=max(0,area.height()-self.height()-16)
-        left=area.left()+8+spanx*(1-radius)/2;right=left+spanx*radius
-        top=area.top()+8+spany*(1-radius)/2;bottom=top+spany*radius
+        room={-1:self.x()-area.left()-8,1:area.right()-self.geometry().right()-8};options=[]
+        for item in self.manifest.get('moveAnimations',[]):
+            if preferred is not None and item['id']!=preferred['id']:continue
+            walk=item.get('walk')
+            if not walk:continue
+            distance=WALK_SPEED*self.width()*(walk['end']-walk['start'])/24;space=room[walk['direction']]
+            if space>=distance*.4:options.append((item,walk['direction']*min(distance,space),space))
+        if not options:return None
+        item,distance,_=self.picker.rng.choices(options,[space for *_,space in options])[0]
+        return item,round(distance)
+
+    def start_walk(self,plan=None):
+        if (self.bubble.report and self.bubble.report.requested) or self.bubble.panel_page!='status' or self.settings.get('no_move') or self.dragging or self.throwing or self.gate.state not in ('idle','walk'):return
+        if self.directional():
+            # The clip shows her stepping; the window carries her across the desktop.
+            plan=plan or self.walk_plan()
+            if plan is None:return
+            item,distance=plan;walk=item['walk']
+            self.stroll=dict(origin=(self.x(),self.y()),distance=distance,frames=(walk['start'],walk['end']))
+            self.walking=True;self.gate.state='idle'
+            if not self.play(item,'walk'):self.walking=False;self.stroll=None
+            return
+        # Imported characters without directional clips roam to a random spot.
+        screen=QApplication.screenAt(self.frameGeometry().center()) or QApplication.primaryScreen();area=screen.availableGeometry()
+        spanx=max(0,area.width()-self.width()-16);spany=max(0,area.height()-self.height()-16)
+        left=area.left()+8+spanx*.125;right=left+spanx*.75
+        top=area.top()+8+spany*.125;bottom=top+spany*.75
         tx=random.uniform(left,right);ty=random.uniform(top,bottom)
         self.walk_direction=1 if tx>=self.x() else -1;self.settings['facing']=self.walk_direction
         self._fx,self._fy=float(self.x()),float(self.y());self.walk_target=(tx,ty,(area.left(),area.top(),area.right()-self.width()+1,area.bottom()-self.height()+1))
@@ -369,14 +505,19 @@ class DesktopPet(EnhancedPet):
             bounds=(a.left(),a.top(),max(a.left(),a.right()-self.width()+1),max(a.top(),a.bottom()-self.height()+1))
             self._fx,self._fy,vx,vy,done=physics_step(self._fx,self._fy,*self.velocity,dt,bounds);self.velocity=(vx,vy)
             self.move(round(self._fx),round(self._fy));self.position_bubble()
-            if done:self.throwing=False;self.gate.state='idle';self.play(self.manifest.get('landingAnimation') or self.idles[0],'landing');self.save_settings()
+            if done:self.throwing=False;self.gate.state='idle';self.land();self.save_settings()
+            return
+        if self.walking and self.stroll and not self.dragging and self.player:
+            first,last=self.stroll['frames'];x,y=self.stroll['origin']
+            target=self.constrained_position(QPoint(x+round(self.stroll['distance']*stride((self.player.frame_index-first)/max(1,last-first))),y))
+            if target!=self.pos():self.move(target);self.position_bubble()
             return
         if self.walking and self.walk_target and not self.dragging:
             tx,ty,bounds=self.walk_target
-            self._fx,self._fy,done=motion_step(self._fx,self._fy,tx,ty,self.settings['move_speed'],dt,bounds)
+            self._fx,self._fy,done=motion_step(self._fx,self._fy,tx,ty,55,dt,bounds)
             self.move(round(self._fx),round(self._fy));self.position_bubble()
             if done or now>self.gesture_until:
-                self.stop_walk();self.buffer_until=now+self.settings['action_gap'];self.next_chain=now+self.settings['random_interval'];self.save_settings()
+                self.stop_walk();self.buffer_until=now+ACTION_GAP;self.next_chain=now+ACTIVITY_SECONDS;self.save_settings()
         # Automatic gestures are dispatched in animate(), only after the
         # current clip has ended. This timer only moves the desktop window.
 
@@ -413,7 +554,7 @@ class DesktopPet(EnhancedPet):
                 self._fx,self._fy=float(self.x()),float(self.y());self.throwing=True
                 # Carry the already-running drag pose into inertia, without replaying its entrance.
                 self.mode='throw';self.gate.state='throw'
-            else:self.play(self.manifest.get('landingAnimation') or self.idles[0],'landing')
+            else:self.land()
             self.bubble.redraw();self.position_bubble();self.save_settings();return
         self.reveal_card()
         super().mouseReleaseEvent(event)
@@ -492,8 +633,8 @@ class DesktopPet(EnhancedPet):
         if (self.settings['no_move'] or
             self.settings['scale']!=previous.get('scale') or self.settings['on_top']!=previous.get('on_top')):
             self.cancel_pointer()
-        self.reactions.configure(self.settings['status_action_interval'],time.monotonic())
-        for attr in ('wandering','random_actions','commentary','sound'):setattr(self,attr,self.settings[attr])
+        self.reactions.configure(STATUS_REPEAT,time.monotonic())
+        for attr in ('wandering','random_actions','commentary'):setattr(self,attr,self.settings[attr])
         self.bubble.enabled=self.settings['bubble'];self.bubble.show_quota=self.settings['quota_visible']
         self.card_timer.setInterval(round(self.settings['card_hide_delay']*1000))
         self.bubble.token_range=self.settings['token_chart_range']
@@ -513,7 +654,7 @@ class DesktopPet(EnhancedPet):
         self.bubble.redraw();self.position_bubble()
         if self._visibility_ready:self.apply_surface_visibility()
         if self.video_yield:self.video_yield.reconcile()
-        self.next_chain=time.monotonic()+self.picker.delay(self.settings['random_interval'])
+        self.next_chain=time.monotonic()+self.picker.delay(ACTIVITY_SECONDS)
         self.schedule_animation()
         if save:
             try:self.save_settings()
@@ -524,7 +665,8 @@ class DesktopPet(EnhancedPet):
             self.settingsChanged.emit(changed)
 
     def sync_decode_size(self):
-        self.frame_size=min(720,max(128,round(self.height()*(self.screen().devicePixelRatio() if self.screen() else 1))))
+        # The current pack is native 512px; Qt scales the final pixmap for HiDPI.
+        self.frame_size=min(512,max(128,round(self.height()*(self.screen().devicePixelRatio() if self.screen() else 1))))
         if self.player is not None:
             frame=self.player.resize(self.frame_size)
             if frame is not None:
@@ -533,6 +675,7 @@ class DesktopPet(EnhancedPet):
 
     def pause_hidden_animation(self):
         if not self.isVisible() and self.player:
+            self.drop_upcoming();self.planned=None
             self.sustained.cancel();self.player.close();self.continuous.clear();self.gate.state='idle';self._resume_idle=True
 
     def event(self,event):
@@ -682,11 +825,13 @@ class DesktopPet(EnhancedPet):
         self.refresh_quota()
 
     def action_groups(self):
-        groups={'待机':self.idles+self.manifest.get('additionalIdleAnimations',[]),'转向':self.manifest.get('turnAnimations',[]),'移动':self.manifest.get('moveAnimations',[]),
+        # Walks only happen while she wanders, so they are not manual actions.
+        groups={'待机':self.idles+self.manifest.get('additionalIdleAnimations',[]),'转向':self.manifest.get('turnAnimations',[]),
             '点击回应':self.manifest.get('clickAnimations') or [v for v in self.variants if v['id'] in ('01','08','09','10','11')],
             '互动动作':self.variants,'工作动作':[v for v in self.manifest.get('workAnimations',[]) if v], '额度回应（不刷新数据）':[self.manifest['quotaAnimation']] if self.manifest.get('quotaAnimation') else [],
             '拖拽':[self.manifest['dragAnimation']] if self.manifest.get('dragAnimation') else [],
             '落地':[self.manifest['landingAnimation']] if self.manifest.get('landingAnimation') else []}
+        if self.manifest.get('manualMovementActions'):groups['Movement']=self.manifest.get('moveAnimations',[])
         return {group:items for group,items in groups.items() if items}
     def role_actions(self):
         # Shared interactions can occur in several semantic groups; the menu
@@ -764,7 +909,7 @@ class DesktopPet(EnhancedPet):
             path=(root/(item.get('playbackFile') or item['file'])).resolve()
             if not path.is_relative_to(root.resolve()) or not path.is_file():raise ValueError('角色包缺少素材或路径无效')
         old=(self.asset_root,self.manifest,self.idles,self.variants,self.settings.get('character','builtin'))
-        preference_keys=('scale','playback_speed')
+        preference_keys=('scale',)
         self.settings['character_preferences'][old[4]]={k:copy.deepcopy(self.settings[k]) for k in preference_keys}
         self.stop_walk();self.throwing=False;self.gate.state='idle'
         self.sustained.cancel();self.continuous.clear()
@@ -840,7 +985,7 @@ class DesktopPet(EnhancedPet):
         # Withdraw every surface immediately, even while workers finish.
         # Settings no longer owns the removed connection/path jobs.
         self.begin_shutdown()
-        self.card_timer.stop();self.click_timer.stop();self.bubble_timer.stop()
+        self.card_timer.stop();self.click_timer.stop();self.bubble_timer.stop();self.drop_release();self.drop_upcoming()
         self.hide();self.bubble.hide()
         if self.settings_dialog:
             dialog=self.settings_dialog

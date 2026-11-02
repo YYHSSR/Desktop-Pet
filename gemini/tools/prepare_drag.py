@@ -7,11 +7,11 @@ from PIL import Image
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT.parent))
-from share.asset_tools.animation_pack import digest,timing,preview
+from share.asset_tools.animation_pack import bridge_lengths,digest,timing,preview
 from share.asset_tools.pose_bridge import pose_bridge,visible_difference
 from share.asset_tools.exact_webp import encode
 
-RECIPE='gemini-short-entry-independent-drag-relaxed-held-exact-v2'
+RECIPE='gemini-short-entry-independent-drag-relaxed-held-exact-v3'
 
 
 def prepare():
@@ -22,7 +22,8 @@ def prepare():
     base_path=ROOT/'build/animation-base/drag.webp'
     if digest(base_path)!=base['sha256'] or digest(assets/base['source'])!=base['sourceSha256']:
         raise ValueError('Drag source or matte cache checksum mismatch')
-    with Image.open(ROOT/'build/animation-base/idle.webp') as image:anchor=image.convert('RGBA')
+    # The idle playback's first frame is the pose every clip starts and ends on.
+    with Image.open(assets/'playback/idle.webp') as image:anchor=image.convert('RGBA')
     reference=hashlib.sha256(anchor.tobytes()).hexdigest()
     target=assets/'playback/drag.webp';held_name='playback/drag-held.webp';held_path=assets/held_name
     output=ROOT/'build/drag-preparation';output.mkdir(parents=True,exist_ok=True)
@@ -41,14 +42,15 @@ def prepare():
         physical=round((len(frames)-1)*.25)
         loop_start=round((len(frames)-1)*.75);loop_end=round((len(frames)-1)*.96)
         entrance=pose_bridge(anchor,frames[physical],4)
-        tail=pose_bridge(frames[-1],anchor,12)
+        exit_count=bridge_lengths('drag',frames[physical],frames[-1],anchor)[1]
+        tail=pose_bridge(frames[-1],anchor,exit_count)
         main=entrance[:-1]+frames[physical:]+tail[1:]
-        main_timing=timing(3)+durations[physical:]+timing(11)
+        main_timing=timing(3)+durations[physical:]+timing(exit_count-1)
         encoded=encode(target,main,main_timing)
         held=pose_bridge(frames[loop_end],frames[loop_start],9)[1:]+frames[loop_start+1:loop_end+1]
         verified=encode(held_path,held,timing(len(held)))
         record=dict(base,**encoded,transitionRecipe=RECIPE,baseSha256=base['sha256'],referencePose=reference,
-                    entryBridgeFrames=4,exitBridgeFrames=11,endpointDifference=visible_difference(main[0],main[-1]),
+                    entryBridgeFrames=4,exitBridgeFrames=exit_count-1,endpointDifference=visible_difference(main[0],main[-1]),
                     bridgeCut=[physical,len(frames)-1],sourceStartFrame=physical,sourceEndFrame=len(frames),
                     dragStartFrame=3,dragLoopEnd=3+loop_end-physical,dragLoopFile=held_name,
                     dragLoopFrames=verified['frames'],dragLoopBytes=verified['bytes'],dragLoopSha256=verified['sha256'],

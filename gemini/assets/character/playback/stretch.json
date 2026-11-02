@@ -3,34 +3,43 @@
   "name": "伸个懒腰",
   "group": "日常",
   "file": "playback/stretch.webp",
-  "durationMs": 13250,
-  "frames": 318,
+  "durationMs": 13292,
+  "frames": 319,
   "loop": false,
   "random": true,
-  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
-  "bytes": 23026532,
-  "sha256": "d792d8856e3ddc33f5c415e5ca526bd8614d22ab6bae662a52d57af0b31707c1",
+  "recipe": "backdrop-colour-matte-temporal-repair-rgb94-alpha100",
+  "bytes": 22889224,
+  "sha256": "4a16911ed6d915ff2fb902a46f64a1a2e358ecd68c561f49116819546b28ac31",
   "source": "待机/伸懒腰.webp",
   "sourceSha256": "389daba19191fc4cf4b35419b2d4752ad1293987e3cf72c653fb79fcfda1e404",
   "transform": {
-    "scale": 0.9153846153846154,
+    "scale": 0.9118773946360154,
     "centre": 277.0,
     "baseline": 514,
     "union": [
-      17,
+      16,
       34,
       495,
       515
-    ]
+    ],
+    "effectsCrop": false
   },
-  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
-  "baseSha256": "4d59bb0d49265fe06551947870f71241cd37dcafe688c5e0ebe38d3071f54fcb",
-  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
-  "entryBridgeFrames": 13,
-  "exitBridgeFrames": 18,
-  "endpointDifference": 0.002096,
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 18063
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2",
+  "baseSha256": "320993ec56321af942105ca6baa5e2fdaf1950fd7927c2d14ee2a72bab9718f5",
+  "referencePose": "4d7e9a2cc12eaf8a040e2f7522d464a86c307fb9c58c5b02c45f673f9c5fe6e6",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
+  "entryBridgeFrames": 12,
+  "exitBridgeFrames": 20,
   "bridgeCut": [
     0,
     288
-  ]
+  ],
+  "endpointDifference": 0.00213
 }

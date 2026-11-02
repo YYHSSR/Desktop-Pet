@@ -53,6 +53,6 @@ class DesktopContinuousTests(unittest.TestCase):
         for item in p.manifest['workAnimations']:item.pop('sustained',None)
         now=time.monotonic();p.reactions.earliest=now-5;p.reactions.played.clear();p.player.ended=True;p.gate.state='idle'
         p.continuous.target(p.reactions,now)
-        self.assertTrue(p.play_status_reaction(now+2));self.assertFalse(p.sustained.active);self.assertEqual(p.current['id'],'work04')
+        self.assertTrue(p.play_status_reaction(now+2));self.assertFalse(p.sustained.active);self.assertEqual(p.current['id'],'work05')
 
 if __name__=='__main__':unittest.main()

@@ -1,9 +1,7 @@
 """Interaction regressions for the shared Gpt-style companion surface."""
-import json
 import os
 from pathlib import Path
 import sys
-import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -12,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/'app'), str(ROOT.parent)]
 from PySide6.QtCore import Qt, QRect, QPoint
 from PySide6.QtGui import QContextMenuEvent
-from PySide6.QtWidgets import QApplication, QWidget, QLabel
+from PySide6.QtWidgets import QApplication, QLabel
 from PySide6.QtTest import QTest
 from share.desktop.typography import install_ui_font
 from share.desktop.quota import QuotaSnapshot, Meter
@@ -63,20 +61,16 @@ class CardSurfaceTests(unittest.TestCase):
         self.assertEqual(self.card.size().toTuple(), (268, 188))
         self.assertEqual(self.card.scroller.verticalScrollBar().maximum(), 0)
 
-    def test_editor_has_two_navigation_buttons_and_collapsed_advanced_controls(self):
+    def test_editor_has_two_navigation_buttons_and_only_built_in_action_pacing(self):
         self.show_card();self.card.enter_settings();self.card.finish_transition()
         panel=self.card.settings_panel
         self.assertEqual([b.text() for b in self.card.navigation_buttons],['状态','设置'])
         self.assertEqual(panel.tabs.count(),2)
         self.assertFalse({'on_top','lock_position','nickname'} & set(panel.fields))
         self.assertFalse(hasattr(panel,'draft_status'))
-        self.assertTrue(panel.advanced_card.isHidden())
+        self.assertFalse(hasattr(panel,'advanced_button'))
+        self.assertEqual(panel.section_keys[1],['random_actions','wander','instant_switch'])
         self.assertFalse(any('这里的偏好' in label.text() for label in panel.findChildren(QLabel)))
-        panel.tabs.setCurrentIndex(1);APP.processEvents();canvas=self.card.geometry()
-        panel.advanced_button.click();APP.processEvents()
-        self.assertFalse(panel.advanced_card.isHidden())
-        self.assertEqual(self.card.geometry(),canvas)
-        panel.advanced_button.click();self.assertTrue(panel.advanced_card.isHidden())
 
     def test_quota_expands_status_and_editor_returns_to_the_same_origin(self):
         self.show_card()
@@ -117,11 +111,11 @@ class CardSurfaceTests(unittest.TestCase):
 
     def test_restore_defaults_only_changes_the_current_draft_page(self):
         panel = self.card.settings_panel
-        panel.sync('size', 340); panel.sync('random_interval', 100)
+        panel.sync('size', 340); panel.sync('wander', False)
         panel.restore_defaults()
         self.assertEqual(panel.values['size'], 300)
         self.assertEqual(panel.baseline['size'], 340)
-        self.assertEqual(panel.values['random_interval'], 100)
+        self.assertFalse(panel.values['wander'])
 
     def test_motion_does_not_resize_or_relayout_the_native_window_per_frame(self):
         self.show_card(); self.card.menu_button.click()

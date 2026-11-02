@@ -16,16 +16,14 @@ SCHEMA = {
     'character_visible': ('bool', True),
     'bubble': ('bool', True),
     'random_actions': ('bool', True),
-    'random_interval': ('int', 75, 30, 300),
+    'wander': ('bool', True),
     'position': ('point', None),
     'instant_switch': ('bool', True),
-    'playback_speed': ('quarter', 1.0, .5, 2.0),
     'lock_position': ('bool', False),
     'fullscreen_yield': ('bool', True),
     'card_hide_delay': ('int', 14, 3, 120),
     'nickname': ('text', '', 12),
     'web_url': ('url', ''),
-    'ambient_motion': ('bool', True),
     'quota_link': ('bool', True),
 }
 DEFAULTS = {key: spec[1] for key, spec in SCHEMA.items()}
@@ -64,8 +62,6 @@ def normalized(raw, schema=SCHEMA):
         kind, value = spec[0], raw.get(key)
         if kind == 'int' and _number(value):
             result[key] = max(spec[2], min(spec[3], round(value)))
-        elif kind == 'quarter' and _number(value):
-            result[key] = max(spec[2], min(spec[3], round(value*4)/4))
         elif kind == 'bool' and isinstance(value, bool):
             result[key] = value
         elif kind == 'point' and isinstance(value, list) and len(value) == 2 and all(type(v) is int for v in value):
@@ -74,8 +70,6 @@ def normalized(raw, schema=SCHEMA):
             result[key] = ''.join(c for c in value if c.isprintable()).strip()[:spec[2]]
         elif kind == 'url' and isinstance(value, str):
             result[key] = web_address(value)
-        elif kind == 'choice' and value in spec[2]:
-            result[key] = value
     return result
 
 

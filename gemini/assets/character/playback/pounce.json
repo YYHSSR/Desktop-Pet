@@ -3,34 +3,43 @@
   "name": "扑向你",
   "group": "活泼",
   "file": "playback/pounce.webp",
-  "durationMs": 16417,
-  "frames": 394,
+  "durationMs": 16500,
+  "frames": 396,
   "loop": false,
   "random": false,
-  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
-  "bytes": 25099902,
-  "sha256": "128aae3e0d3ba55a3e975d01ca47b402466016b9990bb347604b4a67f75edbd6",
+  "recipe": "backdrop-colour-matte-temporal-repair-rgb94-alpha100",
+  "bytes": 25092008,
+  "sha256": "4e9216019b858f47f2155739b70126135c2d60e36ced011f5f01c7c455a0c870",
   "source": "动作/扑过来.webp",
   "sourceSha256": "1dd91d1eea94776273c86c631eae60c5926ed28324db1976003bc9b5266f0ff7",
   "transform": {
-    "scale": 0.8607594936708861,
-    "centre": 276.5,
-    "baseline": 537,
+    "scale": 0.8576576576576577,
+    "centre": 277.5,
+    "baseline": 540,
     "union": [
       0,
       20,
       544,
-      538
-    ]
+      540
+    ],
+    "effectsCrop": false
   },
-  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
-  "baseSha256": "891b292a0fd3bb88eeb67704a92a593e93c0ec8559ea95df412ab443c0e141b4",
-  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 240062
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2",
+  "baseSha256": "613d57507321dc5bf438d32e2786d632e6bb7d0fa75293a77fc7a3161cb8faee",
+  "referencePose": "4d7e9a2cc12eaf8a040e2f7522d464a86c307fb9c58c5b02c45f673f9c5fe6e6",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
   "entryBridgeFrames": 15,
-  "exitBridgeFrames": 20,
-  "endpointDifference": 7e-05,
+  "exitBridgeFrames": 22,
   "bridgeCut": [
     0,
     360
-  ]
+  ],
+  "endpointDifference": 2.6e-05
 }

@@ -137,6 +137,24 @@
       "bytes": 11086566,
       "sha256": "635e8e4f71da482d1d981f7d314204c14a644939174617f1b75c85891af6a5ed",
       "source": "chibi-cat-girl-star-snow.mp4"
+    },
+    {
+      "file": "移动/向右.webp",
+      "category": "移动",
+      "name": "向右扑去",
+      "note": "蹲下往右扑，转回正面后挥爪抓星星。",
+      "bytes": 21877234,
+      "sha256": "56fbf9bdaae35c44c48cd6588c4ffd31f6420246f4e38a067ef79dd8e13bd7c9",
+      "source": "gemini-move-right.mp4"
+    },
+    {
+      "file": "移动/向左.webp",
+      "category": "移动",
+      "name": "向左追尾",
+      "note": "追着尾巴转到左边，转回正面后捂嘴笑。",
+      "bytes": 20467446,
+      "sha256": "58351227e0d34758775aba104240ad2a18bbff9a71f2dd3767ac2daab21c8663",
+      "source": "gemini-move-left.mp4"
     }
   ]
 }

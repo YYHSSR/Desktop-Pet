@@ -19,15 +19,22 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
+from share.asset_tools.alpha_repair import recover_cutout, repair, steady_gaps
+from share.asset_tools.animation_pack import bridge_lengths, bridged, loop_back, placed
 from share.asset_tools.pose_bridge import pose_bridge, visible_difference
 from share.asset_tools.white_background import bounds, matte_white
+from character_alpha import stabilize
 
 ASSETS = ROOT/'assets/character'
 BUILD = ROOT/'build/character-preparation'
-RECIPE = 'gpt-common-pose-premultiplied-short-drag-lossless-v1'
+RECIPE = 'gpt-motion-aligned-cutouts-held-drag-lossless-v4'
 WEIGHTS = {'01': 3., '04': 2.2, '05': 1.8, '08': 2.5, '09': .9, '13': .3,
            '14': 1.1, '18': 0., '22': .25, '25': .15, '17': 1.3, '20': 2.7,
            '21': .1, '24': .65, '26': .2}
+# Walks: the source file, direction and the source frames in which she travels.
+MOVES = {'move-left': ('移动/向左.webp', '向左走走', -1, 24, 110),
+         'move-right': ('移动/向右.webp', '向右走走', 1, 36, 166)}
+HOLD_SWAY = 8   # frames of the settled drag pose a long hold sways through
 cv2.setNumThreads(1)
 
 
@@ -41,16 +48,19 @@ def write_json(path, value):
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
 
 
-def rgba(frame):
+def rgba(frame, recover=True):
     frame = frame.convert('RGBA')
-    return matte_white(frame) if frame.getchannel('A').getextrema()[0] == 255 else frame
+    if frame.getchannel('A').getextrema()[0] == 255:
+        return matte_white(frame)
+    # Supplied cut-outs dropped pale lace, tail scales and wing membrane.
+    return recover_cutout(frame) if recover else frame
 
 
 def geometry(source):
     boxes, bodies = [], []
     for i in sorted(set(range(0, source.n_frames, 12)) | {source.n_frames-1}):
         source.seek(i)
-        frame = rgba(source)
+        frame = rgba(source, recover=False)
         boxes.append(bounds(frame))
         bodies.append(bounds(frame, largest=True))
     boxes, bodies = [b for b in boxes if b], [b for b in bodies if b]
@@ -72,14 +82,18 @@ def align(frame, transform):
 
 
 def decode(path):
-    frames, delays = [], []
+    frames, delays, trusted = [], [], []
     with Image.open(path) as source:
         transform = geometry(source)
         for i in range(source.n_frames):
             source.seek(i); source.load()
             frames.append(align(rgba(source), transform))
+            trusted.append(np.asarray(align(rgba(source, recover=False), transform).getchannel('A')))
             delays.append(int(source.info.get('duration', 42)))
-    return frames, delays, transform
+    # The supplied cut-outs lose hair or ruffles on some frames; rebuild them.
+    frames, report = repair(frames)
+    frames, temporal = stabilize(steady_gaps(frames), trusted)
+    return frames, delays, dict(transform, repair=report, temporal=temporal)
 
 
 def chunk(tag, value):
@@ -121,7 +135,13 @@ def write_webp(path, frames, delays, size):
                 expected = expected.convert('RGBa').resize((size, size), Image.Resampling.LANCZOS).convert('RGBA')
             if check.convert('RGBA').tobytes() != expected.tobytes() or check.info['duration'] != delay:
                 raise ValueError(f'Lossless frame verification failed: {path.name}/{i}')
-    temporary.replace(path)
+    for attempt in range(20):
+        # A virus scan or indexer may hold the old file for a moment.
+        try:
+            temporary.replace(path); break
+        except PermissionError:
+            if attempt == 19: raise
+            time.sleep(.5)
     return dict(path=str(path), sha256=digest(path), bytes=path.stat().st_size, frames=len(frames))
 
 
@@ -148,17 +168,19 @@ def prepare(item, anchor, reference):
     print('PREPARE '+key, flush=True)
     frames, delays, transform = decode(source)
     source_frames, source_duration = len(frames), sum(delays)
-    entry_count = 4 if key == 'drag' else 11
-    exit_count = 14 if key not in ('22', '25') else 18
     if key == 'idle':
-        output = frames+pose_bridge(frames[-1], anchor, 12)[1:]
-        timing = delays+ticks(11)
-        entry_count = 0
+        output, timing, place = loop_back(frames, delays)
+        entry_count, exit_count = 0, place['exit']
+    elif key == 'drag':
+        # Pick her up through a quick entrance; the way down leaves from the loop end.
+        start = round(source_frames*.26); end = round(source_frames*.64)
+        exit_count = bridge_lengths(key, frames[0], frames[end], anchor)[1]
+        output = pose_bridge(anchor, frames[0], 4)[:-1]+frames[:end+1]+pose_bridge(frames[end], anchor, exit_count)[1:]
+        timing = ticks(3)+delays[:end+1]+ticks(exit_count-1)
+        entry_count, place = 4, dict(kept=list(range(end+1)))
     else:
-        entrance = pose_bridge(anchor, frames[0], entry_count)
-        tail = pose_bridge(frames[-1], anchor, exit_count)
-        output = entrance[:-1]+frames+tail[1:]
-        timing = ticks(entry_count-1)+delays+ticks(exit_count-1)
+        output, timing, place = bridged(key, frames, delays, anchor)
+        entry_count, exit_count = place['entry'], place['exit']
     relative = 'playback/'+key+'.webp'
     files = []
     files.append(write_webp(ASSETS/relative, output, timing, 512))
@@ -168,31 +190,34 @@ def prepare(item, anchor, reference):
                   durationMs=sum(timing), frames=len(output), loop=key == 'idle',
                   renderScale=1., renderOffset=[0.,0.], renderAnchor='bottom-center',
                   randomWeight=WEIGHTS.get(key, 0.), preparation=RECIPE,
-                  entryBridgeFrames=entry_count, exitBridgeFrames=len(output)-len(frames)-max(0, entry_count-1),
+                  entryBridgeFrames=entry_count, exitBridgeFrames=exit_count,
                   referencePose=reference, sha256=files[0]['sha256'], bytes=files[0]['bytes'])
+    if 'direction' in item:
+        record.update(direction=item['direction'], walk=dict(
+            direction=item['direction'], start=placed(place['kept'], entry_count, item['walkFrames'][0]),
+            end=placed(place['kept'], entry_count, item['walkFrames'][1])))
     if key in ('work02', 'work05'):
         # Loop only the central task gesture; entry/return never repeat in the body.
-        start = entry_count-1+round(source_frames*.25)
-        end = entry_count-1+round(source_frames*.78)
+        start = placed(place['kept'], entry_count, round(source_frames*.25))
+        end = placed(place['kept'], entry_count, round(source_frames*.78))
         seam_count = 8
         seam_name = 'playback/'+key+'-seam.webp'
         seam = pose_bridge(output[end], output[start], seam_count)
         files.append(write_webp(ASSETS/seam_name, seam, ticks(seam_count), 512))
         record['sustained'] = dict(start=start, end=end, sourceFrames=len(output), seamFile=seam_name, seamFrames=seam_count)
     if key == 'drag':
-        record['dragStartFrame'] = entry_count-1
-        record['dragEndFrame'] = entry_count-1+source_frames-1
-        record['releaseFrame'] = record['dragEndFrame']+1
-        start = entry_count-1+round(source_frames*.26)
-        end = entry_count-1+round(source_frames*.64)
-        # Start with the repaired end-to-body seam. Initial drag and every
-        # repeat therefore enter the same continuous loop without seeking.
-        held = pose_bridge(output[end], output[start], 8)[1:]+output[start+1:end+1]
+        start, end = entry_count-1+start, entry_count-1+end
+        record.update(dragStartFrame=entry_count-1, dragEndFrame=end, releaseFrame=end)
+        # Held long, she stays in the pose the lift settles into (dizzy, wings
+        # out): a slight sway through its last frames, never the tail swing
+        # again. It leaves from and returns to the release frame.
+        start = end-HOLD_SWAY
+        held = output[end-1:start-1:-1]+output[start+1:end+1]
         loop_name = 'playback/drag-held.webp'
         files.append(write_webp(ASSETS/loop_name, held, ticks(len(held)), 512))
         record.update(dragLoopStart=start,dragLoopEnd=end,dragLoopFile=loop_name,dragLoopFrames=len(held))
     preview = Image.new('RGB', (1024, 256), '#e8e4ee')
-    for column, index in enumerate((0, entry_count-1 if entry_count else len(output)//3, len(output)//2, len(output)-1)):
+    for column, index in enumerate((0, max(0, entry_count-1) or len(output)//3, len(output)//2, len(output)-1)):
         image = output[index].resize((256,256), Image.Resampling.LANCZOS)
         preview.paste(image, (column*256,0), image)
     preview.save(BUILD/(key+'-preview.jpg'))
@@ -206,6 +231,9 @@ def prepare(item, anchor, reference):
 
 
 def main():
+    if (ASSETS/'MP4').is_dir() and list((ASSETS/'MP4').glob('*.mp4')):
+        from prepare_mp4_character import main as prepare_mp4
+        return prepare_mp4()
     BUILD.mkdir(parents=True, exist_ok=True)
     manifest_path = ASSETS/'manifest.json'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8-sig'))
@@ -213,13 +241,15 @@ def main():
     if not backup.exists(): shutil.copy2(manifest_path, backup)
     original_catalog = BUILD/'source-material-catalog.json'
     if not original_catalog.exists(): shutil.copy2(ROOT/'app/material_catalog.json', original_catalog)
+    moves = [dict(id=key, name=name, file=file, direction=direction, walkFrames=[first, last])
+             for key, (file, name, direction, first, last) in MOVES.items()]
     items = [manifest['idle'], *manifest.get('additionalIdleAnimations',[]), *manifest.get('variants',[]),
-             *manifest.get('workAnimations',[]), manifest['quotaAnimation'], manifest['dragAnimation']]
+             *manifest.get('workAnimations',[]), manifest['quotaAnimation'], manifest['dragAnimation'], *moves]
     unique = {item['id']:item for item in items}
     idle = manifest['idle']
     source = ASSETS/(idle['file'] if (ASSETS/idle['file']).is_file() else idle['playbackFile'])
-    with Image.open(source) as animation:
-        transform = geometry(animation); animation.seek(0); anchor = align(rgba(animation), transform)
+    # Every clip starts and ends on the first frame of the (trimmed) idle loop.
+    anchor = loop_back(*decode(source)[:2])[0][0]
     reference = hashlib.sha256(anchor.tobytes()).hexdigest()
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda item: prepare(item,anchor,reference), unique.values()))
@@ -232,6 +262,7 @@ def main():
                  variants=[prepared[i['id']] for i in manifest['variants']],
                  workAnimations=[prepared[i['id']] for i in manifest.get('workAnimations',[])],
                  quotaAnimation=prepared['quota'], dragAnimation=prepared['drag'],
+                 moveAnimations=[prepared[key] for key in MOVES],
                  preparation=RECIPE, referencePose=reference,
                  sourceInventory=[dict(file=r['source'],sha256=r['sourceSha256']) for r in results])
     write_json(manifest_path, fresh)

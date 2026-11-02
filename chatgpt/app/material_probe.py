@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication,QMenu
+from PySide6.QtWidgets import QApplication
 
 
 def run(destination):

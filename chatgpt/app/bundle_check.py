@@ -9,7 +9,7 @@ def run(destination):
     report=dict(passed=False,frozen=bool(getattr(sys,'frozen',False)))
     try:
         from PySide6.QtWidgets import QApplication
-        from runtime_paths import resource_root, asset_file
+        from runtime_paths import resource_root
         from material_manifest import manifest_path, playback_path, derived_items
         from typography import register_font
         from material_store import MaterialStore
@@ -32,13 +32,13 @@ def run(destination):
                 with Image.open(assets/(item.get('playbackFile') or item['file'])) as image:
                     image.seek(0);image.load()
                     if image.size!=(512,512):raise ValueError('轻量资源尺寸不匹配')
-            report.update(playbackFiles=len(actual),expectedPlaybackFiles=len(expected),materialChecksums=True,fontLoaded=register_font(),sound=asset_file('sounds/click.wav').is_file())
+            report.update(playbackFiles=len(actual),expectedPlaybackFiles=len(expected),materialChecksums=True,fontLoaded=register_font())
             report['hdBuiltin']='hd' in store.embedded
             if report['hdBuiltin']:
                 hd=store.ensure('hd')
                 hd_manifest=json.loads(manifest_path(hd).read_text(encoding='utf-8-sig'))
                 with Image.open(playback_path(hd,hd_manifest['idle'])) as image:report['hdChecksums']=image.size==(720,720)
-        report['passed']=report['playbackFiles']==report['expectedPlaybackFiles'] and report['fontLoaded'] and report['sound'] and (not report['hdBuiltin'] or report.get('hdChecksums',False))
+        report['passed']=report['playbackFiles']==report['expectedPlaybackFiles'] and report['fontLoaded'] and (not report['hdBuiltin'] or report.get('hdChecksums',False))
     except Exception:report['error']=traceback.format_exc()
     path=Path(destination);path.parent.mkdir(parents=True,exist_ok=True)
     path.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')

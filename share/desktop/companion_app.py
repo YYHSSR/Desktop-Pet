@@ -51,8 +51,6 @@ QUOTA_REFRESH_DROP = .15     # used share falling this much means the window res
 QUOTA_HIGH = .8
 
 
-
-
 def install_crash_log(path):
     """A windowed build has no console: keep unexpected errors in diagnostics.log."""
     def record(kind, value, trace):
@@ -113,6 +111,11 @@ class CompanionApp:
     LINES = {}
     QUOTA_CELEBRATE = None       # action when the home app's allowance resets
     QUOTA_WORRY = None           # action when it is nearly used up
+    ACTIVITY_SECONDS = 75        # average pause between things she does on her own
+    CLICK_WEIGHTS = {}           # action: weight, for a single click while idle
+    DOUBLE_WEIGHTS = {}          # the same for a double click
+    WALK_WEIGHT = 0.             # a walk, weighed against the random actions
+    WALK_SPEED = .26             # sprite widths per second while she travels
 
     def __init__(self, app, state_dir, *, root, tray=True, rng=None, entry=None):
         self.app = app
@@ -134,6 +137,7 @@ class CompanionApp:
         self.yield_override = None
         self.quota = None
         self.quota_watcher = None
+        self.boundary_action = None  # an automatic action waiting for the idle loop's seam
         self.tokens = None
         self.card_timer = QTimer()
         self.card_timer.timeout.connect(self.auto_conceal)
@@ -170,7 +174,7 @@ class CompanionApp:
         self.tray.setContextMenu(self.tray_menu)
         if tray and QSystemTrayIcon.isSystemTrayAvailable():
             self.tray.show()
-        self.next_action = time.monotonic()+self.picker.delay(self.settings['random_interval'])
+        self.next_action = time.monotonic()+self.picker.delay(self.ACTIVITY_SECONDS)
         for screen in app.screens():
             self.watch_screen(screen)
         app.screenAdded.connect(self.watch_screen)
@@ -191,7 +195,6 @@ class CompanionApp:
 
     def connect_card(self, card):
         """Wire character-only card signals."""
-
 
 
     def after_drag(self):
@@ -352,7 +355,6 @@ class CompanionApp:
             self._card.say(text)
 
 
-
     def show_action(self, current, queued=None):
         if self._card is not None:
             self._card.set_action(current, queued)
@@ -429,7 +431,6 @@ class CompanionApp:
             if shown:
                 window.show()
         self.sprite.setWindowOpacity(self.settings['opacity']/100)
-        self.sprite.speed = self.settings['playback_speed']
         self.sprite.locked = self.settings['lock_position']
         self.card_timer.setInterval(self.settings['card_hide_delay']*1000)
 
@@ -449,11 +450,11 @@ class CompanionApp:
         elif key == 'size':
             self.sprite.resize_canvas(self.settings['size'])
             self.follow_sprite()
-        elif key in ('on_top', 'opacity', 'playback_speed', 'lock_position', 'card_hide_delay'):
+        elif key in ('on_top', 'opacity', 'lock_position', 'card_hide_delay'):
             self.apply_options()
-        elif key == 'random_interval':
-            self.next_action = time.monotonic()+self.picker.delay(self.settings['random_interval'])
-        elif key == 'fullscreen_yield' and not self.settings[key] and self.yielded:
+        if key in ('wander', 'lock_position') and not self.may_walk():
+            self.sprite.travel = None
+        if key == 'fullscreen_yield' and not self.settings[key] and self.yielded:
             self.end_yield()
         elif key == 'quota_link':
             self.start_quota() if self.settings[key] else self.stop_quota()
@@ -484,7 +485,9 @@ class CompanionApp:
             self._card.sync_option('autostart', integration.autostart_enabled(self.APP_NAME))
 
     # ---- actions ----
-    def play(self, key, *, automatic=False, completion=False):
+    def play(self, key, *, automatic=False, completion=False, seamless=False):
+        if not automatic:
+            self.boundary_action = None
         if key == self.pack.idle and self.director.current == key and self.sprite.action == key:
             self.say(self.message_for(key))
             return True
@@ -498,10 +501,10 @@ class CompanionApp:
                 self.say(self.lines['already'])
             self.show_action(self.director.current, self.director.pending or self.director.queued)
             return False
-        if self.sprite.play(requested, takeover=busy):
+        if self.sprite.play(requested, blend=not seamless, takeover=busy):
             self.show_action(key, self.director.pending)
             self.say(self.message_for(key))
-            self.next_action = time.monotonic()+self.picker.delay(self.settings['random_interval'])
+            self.next_action = time.monotonic()+self.picker.delay(self.ACTIVITY_SECONDS)
             return True
         self.director.current = self.pack.idle
         return False
@@ -510,10 +513,19 @@ class CompanionApp:
         if self.sprite.dragging and key == self.pack.data.get('drag'):
             self.sprite.play(key, blend=False)
             return
+        if key == self.pack.idle and self.boundary_action:
+            # The idle loop just came back to the reference pose, which is
+            # exactly where every action begins: cut straight into it.
+            chosen, self.boundary_action = self.boundary_action, None
+            if self.can_act_alone() and self.begin(chosen, seamless=True):
+                return
+        if self.pack.actions.get(key, {}).get('walk'):
+            self.sprite.travel = None
+            self.save_timer.start()
         following = self.director.finished()
         if following == self.pack.idle and key != following:
             # A breather after every action, however long it ran.
-            self.next_action = max(self.next_action, time.monotonic()+self.settings['random_interval']*.35)
+            self.next_action = max(self.next_action, time.monotonic()+self.ACTIVITY_SECONDS*.35)
         outgoing = self.pack.actions.get(key, {})
         incoming = self.pack.actions[following]
         matched = outgoing.get('referencePose') and outgoing.get('referencePose') == incoming.get('referencePose')
@@ -543,40 +555,48 @@ class CompanionApp:
             self.say(self.card.idle_message())
         self.show_action(self.director.current, self.director.pending or self.director.queued)
 
+    def reaction(self, weights):
+        pool = [self.pack.actions[key] for key in weights if key in self.pack.actions]
+        chosen = self.picker.pick(pool, weight=lambda item: weights[item['id']])
+        return chosen['id'] if chosen else None
+
     def poke(self):
         if self.card.isVisible():
             self.card.dismiss()
         else:
             self.show_panel(0)
-            action = self.settings.get('poke_action')
-            if self.director.current == self.pack.idle and action in self.pack.actions:
+            action = self.reaction(self.CLICK_WEIGHTS)
+            if self.director.current == self.pack.idle and action:
                 self.play(action)
 
     def double_poke(self):
-        action = self.settings.get('double_action')
-        if action in self.pack.actions:
+        action = self.reaction(self.DOUBLE_WEIGHTS)
+        if action:
             self.play(action)
 
     def drag_started(self):
         if self._card is not None:
             self._card.hide()
+        self.boundary_action = None
+        self.sprite.travel = None
         key = self.pack.data.get('drag')
-        if key in self.pack.actions and self.sprite.play(key, takeover=True):
+        if key in self.pack.actions and self.sprite.start_drag(key):
             self.director.current = key
             self.show_action(key, self.director.pending or self.director.queued)
 
     def drag_finished(self):
         self.save_timer.start()
         if self.director.current == self.pack.data.get('drag'):
-            item=self.pack.actions[self.director.current]
-            if item.get('dragLoopFile'):
-                following=self.director.finished()
-                self.sprite.play(following,takeover=True)
-                self.show_action(following,self.director.pending or self.director.queued)
-                return
+            key = self.director.current
             release = self.drag_release_action()
             if release in self.pack.actions and not self.director.pending and not self.director.queued:
                 self.director.queued = release
+            if self.pack.actions[key].get('dragLoopFile') and not self.sprite.release_drag(key):
+                # The way down was not decoded yet (a very short drag): blend instead.
+                following = self.director.finished()
+                self.sprite.play(following, takeover=True)
+                self.show_action(following, self.director.pending or self.director.queued)
+                return
             self.show_action(self.director.current, self.director.pending or self.director.queued)
             return
         if self.director.pending and self.director.current == self.pack.idle:
@@ -599,24 +619,75 @@ class CompanionApp:
         self.card_timer.stop()
 
 
-
     def random_activity(self, now):
         hour = time.localtime().tm_hour
-        weights = {key: self.action_weight(key, hour) for key in self.pack.actions if key != self.pack.idle}
+        weights = {}
+        if self.settings['random_actions']:
+            weights = {key: self.action_weight(key, hour) for key in self.pack.actions if key != self.pack.idle}
+        walk = self.walk_choice()
+        if walk:
+            weights[walk[0]] = self.WALK_WEIGHT
         pool = [self.pack.actions[key] for key, weight in weights.items() if weight > 0]
         chosen = self.picker.pick(pool, weight=lambda item: weights[item['id']])
-        if chosen:
-            self.play(chosen['id'], automatic=True)
+        if not chosen:
+            return
+        if self.sprite.action == self.pack.idle and self.pack.actions[self.pack.idle].get('loop'):
+            # Wait for the idle loop's seam, decoding the clip's opening meanwhile.
+            self.boundary_action = chosen['id']
+            self.sprite.prepare(chosen['id'])
+        else:
+            self.begin(chosen['id'])
+
+    def begin(self, key, seamless=False):
+        """Start something she chose herself; a walk also sets the window travelling."""
+        if self.pack.actions[key].get('walk'):
+            walk = self.walk_choice(key)
+            if not walk:
+                return False
+            key, distance = walk
+            frames = self.pack.actions[key]['walk']
+            self.sprite.travel = dict(key=key, origin=self.sprite.pos(), distance=distance,
+                                      frames=(frames['start'], frames['end']))
+        if self.play(key, automatic=True, seamless=seamless):
+            return True
+        self.sprite.travel = None
+        return False
+
+    def may_walk(self):
+        return self.settings['wander'] and not self.settings['lock_position']
+
+    def walk_choice(self, prefer=None):
+        """(walk key, signed distance in pixels) towards a side with room, or None;
+        the preferred walk wins while it still has room."""
+        if not self.may_walk():
+            return None
+        area, frame = self.screen_area(), self.sprite.geometry()
+        room = {-1: frame.left()-area.left()-8, 1: area.right()-frame.right()-8}
+        options = []
+        for key, item in self.pack.actions.items():
+            walk = item.get('walk')
+            if not walk:
+                continue
+            distance = self.WALK_SPEED*self.sprite.width()*(walk['end']-walk['start'])/24
+            space = room[walk['direction']]
+            if space >= distance*.4:
+                options.append((key, walk['direction']*min(distance, space), space))
+        if not options:
+            return None
+        preferred = [option for option in options if option[0] == prefer]
+        key, distance, _ = preferred[0] if preferred else self.rng.choices(options, [space for *_, space in options])[0]
+        return key, round(distance)
 
     def can_act_alone(self):
-        return (self.settings['random_actions'] and not self.yielded and self.sprite.isVisible()
-                and not self.sprite.dragging and self.director.current == self.pack.idle)
+        return ((self.settings['random_actions'] or self.may_walk()) and not self.yielded
+                and self.sprite.isVisible() and not self.sprite.dragging
+                and self.director.current == self.pack.idle)
 
     def poll(self):
         self.check_fullscreen()
         now = time.monotonic()
         if now >= self.next_action and self.can_act_alone():
-            self.next_action = now+self.picker.delay(self.settings['random_interval'])
+            self.next_action = now+self.picker.delay(self.ACTIVITY_SECONDS)
             self.random_activity(now)
 
     # ---- stepping aside for fullscreen programs ----
@@ -654,11 +725,14 @@ class CompanionApp:
         labels = dict(status='查看状态', settings='桌宠设置…', character='显示人物',
                       pin='始终置顶', lock='锁定人物位置（含拖动）', bubble='显示气泡',
                       recover='找回全部组件', position='回到当前屏幕右下角', quit='退出'+self.NAME,
-                      walk='暂停自主活动' if self.settings['random_actions'] else '恢复自主活动')
+                      walk='自主走动（位置已锁定）' if self.settings['lock_position']
+                      else '暂停自主走动' if self.settings['wander'] else '恢复自主走动')
         action = menu.addAction(labels[command]); action.setObjectName('command_'+command)
         key = dict(character='character_visible', pin='on_top', lock='lock_position', bubble='bubble').get(command)
         if key:
             action.setCheckable(True); action.setChecked(self.settings[key])
+        if command == 'walk':
+            action.setEnabled(not self.settings['lock_position'])
         action.triggered.connect(lambda value=False, c=command: QTimer.singleShot(0, self.sprite, lambda: self.execute_command(c, value)))
         return action
 
@@ -667,7 +741,7 @@ class CompanionApp:
         if command in keys:
             self.set_option(keys[command], checked)
         elif command == 'walk':
-            self.set_option('random_actions', not self.settings['random_actions'])
+            self.set_option('wander', not self.settings['wander'])
         elif command == 'settings':
             self.show_panel(self.card.PAGE_SETTINGS)
         elif command == 'position':
@@ -681,7 +755,9 @@ class CompanionApp:
 
     def populate_menu(self, menu, tray=False):
         populate_shared_menu(menu, self.menu_command,
-                            lambda actions: populate_action_menu(actions, self.pack.actions.values(), lambda item: self.play(item['id'])),
+                            lambda actions: populate_action_menu(
+                                actions, [item for item in self.pack.actions.values() if not item.get('walk')],
+                                lambda item: self.play(item['id'])),
                             tray=tray)
 
     def open_menu(self, point):
@@ -820,9 +896,6 @@ def capture(companion, app, folder):
                 app.processEvents()
                 app.processEvents()
                 card.grab().save(str(folder/f'{prefix}-{key}-{part}.png'))
-            sections.advanced_button.setChecked(True);app.processEvents();app.processEvents()
-            card.grab().save(str(folder/f'{prefix}-settings-advanced.png'))
-            sections.advanced_button.setChecked(False)
             sections.switch.set_index(0)
     card.show_status(True);card.finish_transition();app.processEvents();app.processEvents()
     card.grab().save(str(folder/f'{prefix}-status.png'))

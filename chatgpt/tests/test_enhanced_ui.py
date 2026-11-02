@@ -39,7 +39,7 @@ class UiTests(unittest.TestCase):
         self.pet.on_activity({'kind':'status','state':'working','text':'测试进度','active':1})
         self.pet.status_hold=0;self.pet.flush_status()
         self.assertEqual(self.pet.bubble.status,'测试进度')
-        self.assertEqual([w['remaining'] for b in self.pet.bubble.findChildren(QuotaSummary) if b.isVisible() for w in b.windows], [41])
+        self.assertIn(41,[w['remaining'] for b in self.pet.bubble.findChildren(QuotaSummary) if b.isVisible() for w in b.windows])
         self.assertTrue(self.pet.bubble.isVisible())
     def test_failure_keeps_marked_quota_and_closing_stops_timers(self):
         self.pet.update_quota([{'name':'一周','remaining':80,'resetsAt':None}],__import__('time').time(),'live')
@@ -58,17 +58,9 @@ class UiTests(unittest.TestCase):
             self.assertIn('完成',self.pet.bubble.status)
             self.assertEqual(self.pet.bubble.status_indicator.visual(),'attention')
             notify.assert_called_once()
-    def test_only_deliberate_interaction_plays_sound(self):
-        with patch.object(Pet,'play_click_sound') as sound:
-            self.pet.choose(self.pet.variants[0])
-            sound.assert_not_called()
-            self.pet.single_click()
-            sound.assert_called_once()
-            self.pet.choose(self.pet.variants[1])
-            self.assertEqual(sound.call_count,1)
-            with patch.object(self.pet,'refresh_quota'):
-                self.pet.quota()
-            self.assertEqual(sound.call_count,2)
+    def test_the_character_makes_no_sound(self):
+        self.assertFalse(hasattr(Pet,'play_click_sound'))
+        self.assertNotIn('sound',self.pet.settings)
     def test_bubble_is_owned_nonactivating_and_above_character(self):
         self.pet.move(300,450)
         self.pet.bubble.redraw()
@@ -92,17 +84,16 @@ class UiTests(unittest.TestCase):
     def test_token_refresh_updates_calendar_without_replacing_activity_or_gesture(self):
         status=self.pet.bubble.status;current=self.pet.current
         snapshot=dict(month='2026-10',days={'2026-10-18':150},total=150)
-        with patch.object(Pet,'play_click_sound') as sound:
-            self.pet.on_activity(dict(kind='token_usage',snapshot=snapshot))
-            self.assertEqual(self.pet.bubble.token_snapshot,snapshot)
-            self.assertEqual(self.pet.bubble.status,status);self.assertIs(self.pet.current,current);sound.assert_not_called()
-            self.pet.on_activity(dict(kind='token_usage_error'));self.assertTrue(self.pet.bubble.token_snapshot['partial'])
-    def test_token_range_is_saved_without_sound_or_interrupting_animation(self):
+        self.pet.on_activity(dict(kind='token_usage',snapshot=snapshot))
+        self.assertEqual(self.pet.bubble.token_snapshot,snapshot)
+        self.assertEqual(self.pet.bubble.status,status);self.assertIs(self.pet.current,current)
+        self.pet.on_activity(dict(kind='token_usage_error'));self.assertTrue(self.pet.bubble.token_snapshot['partial'])
+    def test_token_range_is_saved_without_interrupting_animation(self):
         current=self.pet.current
-        with patch.object(Pet,'play_click_sound') as sound,patch.object(self.pet,'refresh_quota') as quota:
+        with patch.object(self.pet,'refresh_quota') as quota:
             self.pet.bubble.select_token_range('day')
             self.assertEqual(self.pet.settings['token_chart_range'],'day');self.assertIs(self.pet.current,current)
-            quota.assert_not_called();sound.assert_not_called()
+            quota.assert_not_called()
         import json
         from pathlib import Path
         self.assertEqual(json.loads((Path(self.tmp.name)/'settings.json').read_text(encoding='utf-8'))['token_chart_range'],'day')

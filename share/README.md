@@ -12,7 +12,7 @@
 | `pet_engine/action_picker.py` | 带历史记忆的随机动作选择与间隔 |
 | `pet_engine/packaging.py` | Conda 原生 DLL 收集与构建环境 |
 | `pet_engine/character_pack.py` | 新角色的动作清单、路径边界与资源完整性检查 |
-| `desktop/sprite_window.py` | 通用透明人物画布、流式播放、拖拽 / 锁定、缩放、播放速度、动作接管交叠与原生透明命中 |
+| `desktop/sprite_window.py` | 通用透明人物画布、流式播放、拖拽 / 锁定、缩放、行走时随动作平移窗口、动作接管交叠与原生透明命中 |
 | `desktop/companion_state.py` | Claude 与 Gemini 共用的设置表（可按角色扩展）和动作队列（保留旧记录解析工具） |
 | `desktop/companion_app.py` | Claude 与 Gemini 共用的桌宠行为：先显示人物再建卡片、托盘与菜单、动作调度、全屏让位、开机启动、统一入口 `run()` |
 | `desktop/card_kit.py` | 卡片公共组件：当前页尺寸栈、额度条、7 天柱状图及设置兼容入口 |
@@ -24,14 +24,15 @@
 | `desktop/desktop_integration.py` | Windows 启动文件夹自启动、前台全屏检测、按程序名判断是否在运行 |
 | `desktop/token_report.py` | 本机 Token 增量缓存、后台读取与小时曲线；角色提供只读数据源 |
 | `desktop/quota.py` | 只读额度快照（`QuotaSnapshot` / `Meter`）与按需轮询的 `QuotaWatcher`；各角色提供自己的读取器 |
-| `asset_tools/animation_pack.py` | 离线透明动画编排、人物对齐、循环和共同姿势衔接 |
+| `asset_tools/animation_pack.py` | 离线透明动画编排：人物对齐、剪掉首尾静止、按姿势差决定桥接长度、拖拽悬挂循环、行走帧段定位 |
+| `asset_tools/alpha_repair.py` | 逐帧抠图的时间一致性修复：光流重建整片丢失的部位，修补一两帧的闪烁 |
 | `desktop/spring_motion.py` | 卡片展开、收缩与消失的动效曲线 |
 | `desktop/native_coordinates.py` | Windows 原生坐标到 Qt 客户区的转换 |
 | `desktop/worker_lifecycle.py` | 等后台工作线程结束后关闭窗口，不阻塞 GUI |
 
 这些组件不依赖任一角色的 `app/`、账户数据或素材路径。`requirements.txt` 保存统一的运行和构建依赖，三个角色各自的依赖文件引用它，角色专属依赖可追加到各自文件。
 
-`asset_tools/white_background.py` 是离线的浅色背景动画处理工具，保持白色服装内部和分离的彩色星光。它针对当前提供的平面浅色背景素材，不是通用人物分割模型；无法重建原片已被裁切的人物。工具依赖单列于 `requirements-assets.txt`，不会进入桌宠运行包。
+`asset_tools/white_background.py` 是离线的浅色背景动画处理工具，保持白色服装内部和分离的彩色星光。人物轮廓之外沿用宽松的浅色判定（淡光晕随背景去掉）；轮廓之内只有与纯色背景几乎一致的像素才算背景，白色裙摆带暖色调和阴影，所以不会在某些帧被洗掉造成闪烁；被发丝圈住的背景小洞另行清除。它针对当前提供的平面浅色背景素材，不是通用人物分割模型；无法重建原片已被裁切的人物。工具依赖单列于 `requirements-assets.txt`，不会进入桌宠运行包。
 
 ## 导入与边界
 
@@ -58,7 +59,7 @@ ChatGPT 原有扁平模块通过 `sys.modules` 指向相同的公共模块对象
 
 `asset_tools/pose_bridge.py` 是离线短过渡工具。它先配准人物身体位置和比例，再做小范围光流补间；游离星光独立渐隐，不跟随身体光流扭曲。运行时无需 OpenCV 或 NumPy。
 
-`desktop/sprite_window.py` 在静态待机交接期间暂停新动作的时钟，之后再播放完整入场。人为选择新动作时则“接管”：旧播放器只消耗已解码的帧并淡出，新动作同时开始，0.32 秒内先让新姿势叠上、再让旧姿势的残留淡去，交叠处始终不透明。人物窗口使用独立的 96 MB 循环缓存（单项 64 MB），常见缩放下待机循环第二遍起从内存回放，闲置 CPU 从约 28% 降到约 5%；ChatGpt 仍用引擎默认缓存。角色专属的环境特效由角色子类绘制，避免把 Gemini 星光加入 Gpt 或 Claude。
+`desktop/sprite_window.py` 按剪辑规则衔接：自然播完的动作直接切到下一段（首尾都是共同姿势），自动动作等待待机循环接缝再切入；只有打断才“接管”：旧播放器只消耗已解码的帧并淡出，新动作同时开始，0.25 秒内先让新姿势叠上、再让旧姿势的残留淡去，交叠处始终不透明。拎起时用 `PreparedSegment` 预解码收尾段，松手立即播放“放下”；自动动作选定后同样先在后台解码开头几帧，切入时不再等解码线程打开文件。人物窗口使用独立的 96 MB 循环缓存（单项 64 MB），常见缩放下待机循环第二遍起从内存回放，闲置 CPU 从约 28% 降到约 5%；ChatGpt 仍用引擎默认缓存。角色专属的环境特效由角色子类绘制，避免把 Gemini 星光加入 Gpt 或 Claude。
 
 `desktop/quota_dashboard.py` 提供额度优先的 Claude/Gemini 主面板：Claude 为 5h/周两格，Gemini 为两组四格。缺失窗口保持未知，多个模型不混成平均额度；只展示组内最低剩余比例。今日 Token 仍可切换小时曲线。
 

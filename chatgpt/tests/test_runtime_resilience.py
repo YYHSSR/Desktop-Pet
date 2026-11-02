@@ -16,12 +16,12 @@ class ResourceTests(unittest.TestCase):
         from runtime_paths import asset_file
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            old=root/'app/sounds/click.wav';old.parent.mkdir(parents=True);old.write_bytes(b'old')
-            new=root/'assets/sounds/click.wav'
+            old=root/'app/licenses/notice.txt';old.parent.mkdir(parents=True);old.write_bytes(b'old')
+            new=root/'assets/licenses/notice.txt'
             with patch('runtime_paths.resource_root',return_value=root):
-                self.assertEqual(asset_file('sounds/click.wav'),old)
+                self.assertEqual(asset_file('licenses/notice.txt'),old)
                 new.parent.mkdir(parents=True);new.write_bytes(b'current')
-                self.assertEqual(asset_file('sounds/click.wav'),new)
+                self.assertEqual(asset_file('licenses/notice.txt'),new)
 
     def test_onefile_reads_embedded_resources_independent_of_executable_directory(self):
         from runtime_paths import resource_root

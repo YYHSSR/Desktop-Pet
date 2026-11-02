@@ -12,7 +12,6 @@ from pet import Bubble
 from enhanced_core import clean_text
 from typography import FONT_CSS,ui_font
 from ui_theme import editor_stylesheet,PRIMARY,ACCENT,SELECTED,DISABLED
-from reset_watch import pending_reset,schedule_key
 
 INK=QColor('#393343');MUTED=QColor('#706879');PURPLE=QColor('#8b78a6')
 GREEN=QColor('#b3a5cb');AMBER=QColor('#915e74');TRACK=QColor('#e4dfea')

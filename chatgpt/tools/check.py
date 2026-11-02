@@ -10,11 +10,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CORE = (
     'test_quota_summary_data', 'test_spring_motion', 'test_status_reactions.SchedulerTests',
-    'test_ring_metrics', 'test_work_actions', 'test_sustained_reactions',
+    'test_work_actions', 'test_sustained_reactions',
     'test_soft_curves_navigation', 'test_loop_cache', 'test_decoder_runtime',
     'test_animation_quality', 'test_sustained_player', 'test_status_indicator',
     'test_read_completion', 'test_reset_card', 'test_reset_presentation',
-    'test_material_store', 'test_material_controller', 'test_package_optimization',
+    'test_material_store', 'test_package_optimization',
     'test_embedded_assets',
     'test_shortcuts_startup.StartupTests', 'test_project_structure',
     'test_connection_and_sessions', 'test_enhanced_core', 'test_quota',

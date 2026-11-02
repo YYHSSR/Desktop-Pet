@@ -49,7 +49,7 @@ def build(output=None,onefile=False):
     ]
     # The character files are embedded outside PyInstaller's archive, so no
     # launch re-extracts hundreds of megabytes into a temporary folder.
-    data=[*( (ROOT/'assets'/name,'assets/'+name) for name in ('sounds','licenses') ),
+    data=[(ROOT/'assets/licenses','assets/licenses'),
           (ROOT.parent/'share/assets/fonts','assets/fonts'),
           (ROOT/'app/material_catalog.json','app')]
     for source,destination in data:command.extend(['--add-data',str(source)+';'+destination])

@@ -27,9 +27,7 @@ def run(root):
             frames=pet.load(item);assert len(frames)==round(item['durationMs']*24/1000)
             assert frames[0].width()==pet.frame_size
         assert pet.variants
-        report['checks'].append(f'{len(items)}段动画可解码，音效文件齐全')
-        from runtime_paths import asset_file
-        assert asset_file('sounds/click.wav').is_file()
+        report['checks'].append(f'{len(items)}段动画可解码')
         assert '最新版' in next(v for v in pet.variants if v['id']=='14')['file']
         for item in items:
             assert 'renderScale' in item and 'renderOffset' in item

@@ -31,7 +31,7 @@ class IndependentTests(unittest.TestCase):
         self.assertEqual(p.bubble.windows[0]['remaining'],63);self.assertTrue(p.bubble.isVisible());self.assertIsNone(p.player.thread)
         with patch.object(p,'notify'),patch.object(p,'refresh_quota'):p.on_activity(dict(kind='complete',session='fake',turn='one',title='验收'))
         self.assertTrue(p.bubble.status_indicator.unread);self.assertFalse(p.isVisible());self.assertIsNone(p.player.thread)
-        with patch('pet.Pet.play_click_sound') as sound:p.choose(p.variants[0],interactive=True,manual=True);sound.assert_not_called()
+        p.choose(p.variants[0],interactive=True,manual=True)
         self.assertIsNone(p.player.thread)
     def test_restore_character_and_global_hide_recover_respect_preference(self):
         p=self.pet;p.apply_settings(dict(character_visible=False));p.toggle_pet();self.assertFalse(p.bubble.isVisible())
@@ -41,7 +41,7 @@ class IndependentTests(unittest.TestCase):
         p=self.pet;p.execute_command('visible');APP.processEvents();self.assertFalse(p.isVisible())
         p.execute_command('status');APP.processEvents()
         self.assertTrue(p.isVisible());self.assertFalse(p._desktop_hidden);self.assertTrue(p.tick.isActive());self.assertTrue(p.bubble.isVisible())
-        with patch('pet.Pet.play_click_sound'):p.single_click()
+        p.single_click()
         self.assertEqual(p.mode,'click')
         p.execute_command('visible');p.apply_settings(dict(character_visible=False));p.execute_command('status');APP.processEvents()
         self.assertFalse(p.isVisible());self.assertTrue(p.bubble.isVisible())
@@ -53,7 +53,7 @@ class IndependentTests(unittest.TestCase):
     def test_card_appears_only_after_pet_click_and_hides_after_delay(self):
         p=self.pet;b=p.bubble;self.finish();self.assertFalse(b.isVisible())
         b.redraw();p.position_bubble();self.assertFalse(b.isVisible())
-        with patch('pet.Pet.play_click_sound'):self.click_pet()
+        self.click_pet()
         self.assertTrue(b.isVisible());self.assertTrue(p.card_timer.isActive());self.assertEqual(p.card_timer.interval(),10000)
         p.card_timer.timeout.emit();self.finish();self.assertFalse(b.isVisible());self.assertFalse(p._card_revealed)
         b.redraw();self.assertFalse(b.isVisible())

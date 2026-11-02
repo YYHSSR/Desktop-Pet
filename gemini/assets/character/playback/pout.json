@@ -7,9 +7,9 @@
   "frames": 312,
   "loop": false,
   "random": false,
-  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
-  "bytes": 20655182,
-  "sha256": "19ae64aad7731c357d1e1ebd2a829ec0c518d7600bdf109094609e6854073c16",
+  "recipe": "backdrop-colour-matte-temporal-repair-rgb94-alpha100",
+  "bytes": 20636898,
+  "sha256": "bd081faaf81fb75f63af8c25c882860d299d851f316da6619b1110a523e6f4a8",
   "source": "情绪/生气又软下来.webp",
   "sourceSha256": "dfa32fca1e79d3a0338076c35996ccf6926c5cafb7083ad5aa5fc8b6906a6fe0",
   "transform": {
@@ -18,19 +18,28 @@
     "baseline": 519,
     "union": [
       53,
-      14,
+      12,
       535,
       520
-    ]
+    ],
+    "effectsCrop": false
   },
-  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
-  "baseSha256": "f4330ba772ab2a7fbee0442e6d765020a4abf3c84288c6f43aae372812395803",
-  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 60310
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2",
+  "baseSha256": "4c55ea856a4688312278d8fda215bf544bd89df7554fe3c8f3d132135c25d319",
+  "referencePose": "4d7e9a2cc12eaf8a040e2f7522d464a86c307fb9c58c5b02c45f673f9c5fe6e6",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
   "entryBridgeFrames": 15,
-  "exitBridgeFrames": 20,
-  "endpointDifference": 7.5e-05,
+  "exitBridgeFrames": 22,
   "bridgeCut": [
-    10,
+    12,
     288
-  ]
+  ],
+  "endpointDifference": 0.000165
 }

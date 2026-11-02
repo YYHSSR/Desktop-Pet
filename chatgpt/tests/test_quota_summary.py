@@ -7,7 +7,7 @@ from unittest.mock import patch
 from PySide6.QtCore import Qt,QPoint,QPointF,QEvent,QAbstractAnimation
 from PySide6.QtGui import QMouseEvent,QHelpEvent,QPainter
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication,QToolTip,QLabel
+from PySide6.QtWidgets import QApplication, QToolTip
 from compact_bubble import CompactBubble
 from quota_summary import QuotaSummary,TodayTokens
 from token_charts import TokenChartCard

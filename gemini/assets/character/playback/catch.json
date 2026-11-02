@@ -3,13 +3,13 @@
   "name": "接住星光",
   "group": "星光",
   "file": "playback/catch.webp",
-  "durationMs": 16417,
-  "frames": 394,
+  "durationMs": 16334,
+  "frames": 392,
   "loop": false,
   "random": false,
-  "recipe": "neutral-background-interior-holes-rgb94-alpha100-body-fit",
-  "bytes": 34042630,
-  "sha256": "55a26689105d2bb047d24deaed4fc7d77cbce8efa276b658307d2663873c5567",
+  "recipe": "backdrop-colour-matte-temporal-repair-rgb94-alpha100-body-fit",
+  "bytes": 33823782,
+  "sha256": "6089ca98889e36a5e6b5a66c48b380eba101d4f124d3269c887b9aa7ca92f3e8",
   "source": "特殊/接住星星.webp",
   "sourceSha256": "635e8e4f71da482d1d981f7d314204c14a644939174617f1b75c85891af6a5ed",
   "transform": {
@@ -24,14 +24,22 @@
     ],
     "effectsCrop": true
   },
-  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
-  "baseSha256": "5852e6f7478f0b32890c2f8e198290c13ccef1455bbaca34f9e2b8f336c86189",
-  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 44060
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2",
+  "baseSha256": "8e8e5fec00d70cbbe27148821b1d9e6d8fdf9a7775e013ff8c6af35f441c7135",
+  "referencePose": "4d7e9a2cc12eaf8a040e2f7522d464a86c307fb9c58c5b02c45f673f9c5fe6e6",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
   "entryBridgeFrames": 13,
-  "exitBridgeFrames": 22,
-  "endpointDifference": 0.0,
+  "exitBridgeFrames": 20,
   "bridgeCut": [
     0,
     360
-  ]
+  ],
+  "endpointDifference": 0.0
 }

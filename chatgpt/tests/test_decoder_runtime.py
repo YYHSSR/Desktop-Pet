@@ -95,7 +95,7 @@ class DecoderRuntimeTests(unittest.TestCase):
     def test_press_feedback_temporarily_keeps_fast_clock_and_stopped_tick_stays_stopped(self):
         from desktop import DesktopPet
         tick=QTimer();tick.start(42)
-        obj=SimpleNamespace(tick=tick,player=SimpleNamespace(next_delay_ms=lambda speed:42),settings={'playback_speed':1},sustained=SimpleNamespace(speed_factor=lambda p:1),press_feedback=time.monotonic(),schedule_movement=lambda:None)
+        obj=SimpleNamespace(tick=tick,player=SimpleNamespace(next_delay_ms=lambda speed:42),sustained=SimpleNamespace(speed_factor=lambda p:1),press_feedback=time.monotonic(),schedule_movement=lambda:None)
         try:
             DesktopPet.schedule_animation(obj);self.assertEqual(tick.interval(),16)
             obj.press_feedback=0;DesktopPet.schedule_animation(obj);self.assertEqual(tick.interval(),42)

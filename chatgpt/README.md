@@ -1,5 +1,7 @@
 # ChatGpt 桌宠
 
+The active character has been rebuilt from the three original MP4 clips: idle, walk left, and walk right. Select these actions from the character menu; the two walks also support autonomous movement. Previous WebP gestures are retained as source references but are excluded from the active pack. Dragging uses idle until a dedicated drag animation is supplied. See `docs/DEVELOPMENT.md` for the MP4 preparation and verification commands.
+
 ChatGpt Windows 桌面助手，使用 Python 和 PySide6 实现。
 
 此目录由原 `Codex/` 迁入，是三个 AI 娘中已完成的 ChatGPT 角色，保留现有 Codex 联动。公共组件位于同级 `../share/`，所有命令从本目录 `chatgpt/` 执行。
@@ -11,7 +13,7 @@ ChatGpt Windows 桌面助手，使用 Python 和 PySide6 实现。
 - 支持人物动画、拖动、独立卡片，使用原尺寸 512px 内置动画。
 - 状态卡片在点击人物、任务完成或从托盘打开时出现，空闲一段时间后自动收起；卡片顶部的浏览器按钮打开 ChatGPT 或自定义网页。
 - 提供登录启动、随 Codex 启动、托盘找回、连接诊断。
-- 支持视频全屏临时取消置顶；未读完成提醒优先，自动动作保持静音。
+- 支持视频全屏临时取消置顶；未读完成提醒优先；角色没有任何声音。
 
 ## 目录
 
@@ -72,16 +74,16 @@ python tools/build.py
 
 ## 布局与兼容
 
-三个角色统一使用 `app/`、`assets/`、`docs/`、`tests/`、`tools/`、`build/`、`dist/`。ChatGpt 的标准入口为 `app/main.py`，原 `enhanced.py` 仍可启动。音效与角色专属第三方许可在 `assets/sounds/` 和 `assets/licenses/`；共用字体与 OFL 原文在 `../share/assets/fonts/`。
+三个角色统一使用 `app/`、`assets/`、`docs/`、`tests/`、`tools/`、`build/`、`dist/`。ChatGpt 的标准入口为 `app/main.py`，原 `enhanced.py` 仍可启动。角色专属第三方许可在 `assets/licenses/`；共用字体与 OFL 原文在 `../share/assets/fonts/`。
 
 名称已改为 ChatGpt。已有 `%LOCALAPPDATA%\BailongEnhanced`、单实例名称和启动同步标识保持兼容，避免丢失设置和统计。历史高清包的完整性描述保持原样，内置角色的界面名称由程序统一显示为 ChatGpt。
 
 卡片顶部操作为刷新、网页、展开/设置；原第二个“Token 日报”图标及日报窗口已移除。今日 Token 底栏和主卡片的用量图表保留。三个角色的右键菜单结构统一由 `share/desktop/context_menu.py` 提供。
 
-当前新角色已接入 22 段原片，共同姿势衔接、拖动期间播放和各动作权重见 [动画安排](docs/ANIMATIONS.md)。重新处理素材运行 `python tools/prepare_character.py`；该步骤更新本地播放资源，不打包程序。设置页仅保留常规 / 动作，置顶和移动开关仅在右键菜单保留。
+当前新角色已接入 24 段原片（含向左、向右行走），共同姿势衔接、拖动期间播放、桌面走动和各动作权重见 [动画安排](docs/ANIMATIONS.md)。重新处理素材运行 `python tools/prepare_character.py`；该步骤更新本地播放资源，不打包程序。设置页仅保留常规 / 动作，置顶和移动开关仅在右键菜单保留。
 
 主卡片默认仅并排展示 5h 剩余与周剩余，不再展示右侧重置大倒计时。今日 Token 底栏保留，点击切换完整宽度的小时图，使用“额度”返回。
 
 展开状态页只保留任务、额度卡片和今日 Token，不再重复展示下方“额度 / Token”详情区域。角色右键与托盘退出共用完整关闭流程，先隐藏托盘和窗口，再异步等待后台线程结束。
 
-设置中的角色管理页及导入、转换、预览、素材检查入口已移除；手动播放动作仍从右键“角色动作”进入。常规与动作页仅保留标题和必要控件。
+设置中的角色管理页及导入、转换、预览、素材检查入口已移除；手动播放动作仍从右键“角色动作”进入。常规与动作页仅保留标题和必要控件：动作页只有自动随机动作、在桌面上走动、按 Codex 状态播放动作和拖拽惯性四个开关，动作间隔、播放速度、走动速度与范围等都已内置。

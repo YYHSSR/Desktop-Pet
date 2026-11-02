@@ -4,12 +4,11 @@
   "group": "日常",
   "file": "playback/wind.webp",
   "loop": false,
-  "random": false,
-  "durationMs": 12958,
-  "frames": 311,
-  "bytes": 82427218,
-  "sha256": "0ed5a13cd852949af0cd5f468f6ac20bc2543e7028dd5fb739d0d220dde1101f",
-  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94",
+  "durationMs": 13000,
+  "frames": 312,
+  "bytes": 83620858,
+  "sha256": "f541d1e1c6c587501d69578801bf5b2d431d701492117917201b706b17466ebd",
+  "recipe": "claude-lace-matte-temporal-repair-exact",
   "source": "情绪/被风吹乱.webp",
   "sourceSha256": "b0a016be42a22427fc373df6ea4b07f249228faca36de258689d9556c34cbfbd",
   "transform": {
@@ -24,17 +23,25 @@
     ],
     "effectsCrop": true
   },
-  "sourceEndFrame": null,
-  "holdTailMs": 0,
-  "loopPreparation": null,
-  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
-  "baseSha256": "243bd228200d160617ab5ff9811b11dccd37e646e4f9edba2e353309dd1ca3d0",
-  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
+  "sourceWindow": null,
+  "repair": {
+    "refilledFrames": [
+      198
+    ],
+    "patchedPixels": 154192
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
+  "baseSha256": "ddad5e77c18477b30c1228c5b4bc33d1bbcfa581261153ec2341182e6ba8bb37",
+  "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
   "entryBridgeFrames": 12,
-  "exitBridgeFrames": 11,
-  "endpointDifference": 0.0,
+  "exitBridgeFrames": 13,
   "bridgeCut": [
     0,
     288
-  ]
+  ],
+  "endpointDifference": 0.0
 }

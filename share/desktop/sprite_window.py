@@ -1,11 +1,13 @@
 """Transparent sprite surface with shared streaming playback and native hit testing.
 
-Two ways into a new action:
-- a handoff (an action ended): the old pose fades while the incoming
-  reference pose holds still, then the new action plays its full entrance;
-- a takeover (someone chose another action mid-way): both animations keep
-  moving while they crossfade, so the switch is immediate but not a cut.
-  The outgoing player only drains frames it had already decoded.
+Every clip starts and ends on the character's reference pose, so a clip that
+ends naturally hands over with a plain cut, like the next shot of a film.
+Only an interruption (a new choice, picking her up, letting go) blends, and
+then both animations keep moving through a short crossfade; the outgoing
+player only drains frames it had already decoded. Letting go plays the drag
+clip's own way back to the reference pose, decoded while she was held.
+A walk clip carries the window along with it, frame by frame, so on the
+desktop she really crosses the screen while the clip shows her stepping.
 """
 import ctypes
 from ctypes import wintypes
@@ -14,7 +16,7 @@ from PySide6.QtCore import Qt, QTimer, QPoint, Signal
 from PySide6.QtGui import QPainter
 from PySide6.QtWidgets import QApplication, QWidget
 from share.pet_engine.loop_cache import DecodedLoopCache
-from share.pet_engine.stream_player import StreamPlayer
+from share.pet_engine.stream_player import PreparedSegment, StreamPlayer
 from .native_coordinates import client_position, message_position
 
 # The idle loop packs to ~30 MiB at 300 px and ~45-50 MiB at 125% scaling.
@@ -29,6 +31,18 @@ def smooth(t):
     return t*t*(3-2*t)
 
 
+def stride(t, ramp=.12):
+    """Share of a walk's distance covered at progress t: even pace, easing
+    in over the first steps and out over the last."""
+    t = max(0., min(1., t))
+    pace = 1/(1-ramp)
+    if t < ramp:
+        return pace*t*t/(2*ramp)
+    if t > 1-ramp:
+        return 1-pace*(1-t)**2/(2*ramp)
+    return pace*(t-ramp/2)
+
+
 class SpriteWindow(QWidget):
     activated = Signal()
     doubleActivated = Signal()
@@ -39,7 +53,8 @@ class SpriteWindow(QWidget):
     playbackFinished = Signal(str)
     playbackFailed = Signal(str)
     scaleRequested = Signal(int)
-    TAKEOVER_SECONDS = .32
+    TAKEOVER_SECONDS = .25
+    PICKUP_SECONDS = .12
 
     def __init__(self, pack, size=300):
         super().__init__(None, Qt.WindowType.FramelessWindowHint |
@@ -57,13 +72,15 @@ class SpriteWindow(QWidget):
         self.takeover_started = 0.
         self.takeover_seconds = self.TAKEOVER_SECONDS
         self.frame = None
-        self.previous_frame = None
+        self.release_tail = None
+        self.lift = None              # 'lift' or 'held' while the drag clip plays
+        self.landing_due = False      # let go during a lift that plays to its end
+        self.upcoming = None          # (key, segment) decoding ahead for the next cut
+        self.travel = None            # key, origin, distance and walk frames of a walk
         self._hit_image = None
         self._hit_source = None
         self.action = None
         self.serial = 0
-        self.fade_started = 0
-        self.fade_seconds = .18
         self.speed = 1.
         self.locked = False
         self.dragging = False
@@ -106,37 +123,98 @@ class SpriteWindow(QWidget):
             self._spare.first = self.player.first
         return self._spare
 
-    def play(self, key, blend=True, takeover=False):
+    def play(self, key, blend=True, takeover=False, end_frame=None, prepared=None, seconds=None):
+        """Start an action; blend/takeover crossfade from the moving current frame."""
         item = self.pack.actions[key]
-        held = self.dragging and key == self.pack.data.get('drag') and item.get('dragLoopFile')
-        takeover = takeover and self.frame is not None and self.action != key and self.isVisible()
-        if takeover:
+        if self.landing_due and self.release_tail is not None:
+            # Something else took over before she was set down.
+            self.release_tail.close()
+            self.release_tail = None
+        self.lift = None
+        self.landing_due = False
+        upcoming, self.upcoming = self.upcoming, None
+        if upcoming is not None:
+            ready = upcoming[1].ready.is_set() and not upcoming[1].error and upcoming[1].size == self.decode_size
+            if prepared is None and end_frame is None and upcoming[0] == key and ready:
+                prepared = upcoming[1]
+            else:
+                upcoming[1].close()
+        fade = ((blend or takeover) and self.frame is not None and self.isVisible()
+                and (key != self.action or prepared is not None))
+        if fade:
             self.end_takeover()
             outgoing, self.player, self._spare = self.player, self.spare_player(), None
         try:
-            options = dict(start_frame=item['dragStartFrame'],end_frame=item['dragLoopEnd']) if held else {}
-            frame = self.player.start(self.pack.path(item), self.decode_size,
-                                      item['durationMs'] / 1000, cache_loop=item.get('loop', False),**options)
+            if prepared is not None:
+                frame = self.player.adopt(prepared)
+            else:
+                frame = self.player.start(self.pack.path(item), self.decode_size, item['durationMs']/1000,
+                                          cache_loop=item.get('loop', False), end_frame=end_frame)
         except (OSError, ValueError) as error:
-            if takeover:
+            if fade:
                 self._spare, self.player = self.player, outgoing
             self.playbackFailed.emit(str(error))
             return False
         self.serial += 1
-        if takeover:
+        if fade:
             self.outgoing, self.outgoing_frame = outgoing, self.frame
             self.takeover_started = time.perf_counter()
-            self.takeover_seconds = .12 if held else self.TAKEOVER_SECONDS
-            self.previous_frame = None
+            self.takeover_seconds = seconds or self.TAKEOVER_SECONDS
         else:
             self.end_takeover()
-            self.previous_frame = self.frame if blend and self.action != key else None
-        self.fade_started = time.perf_counter()
         self.action = key
         self.frame = frame
         self.update()
         self.schedule()
         return True
+
+    def prepare(self, key):
+        """Decode the opening frames of the clip that comes next, so the cut into it
+        never waits for the decoder to open the file."""
+        if self.upcoming is not None:
+            self.upcoming[1].close()
+        item = self.pack.actions[key]
+        self.upcoming = (key, PreparedSegment(self.pack.path(item), self.decode_size, 0, item['frames']-1))
+
+    def start_drag(self, key):
+        """Lift through the clip's short entrance; prefetch the way back down."""
+        item = self.pack.actions[key]
+        if self.landing_due and self.action == key:
+            # Caught again before she was set down: the lift simply carries on.
+            self.landing_due = False
+            self.schedule()
+            return True
+        self.drop_release()
+        release = item.get('releaseFrame', item.get('dragLoopEnd'))
+        if item.get('dragLoopFile') and release is not None and release < item['frames']-1:
+            self.release_tail = PreparedSegment(self.pack.path(item), self.decode_size, release, item['frames']-1)
+        started = self.play(key, takeover=True, end_frame=item.get('dragLoopEnd'), seconds=self.PICKUP_SECONDS)
+        if started:
+            self.lift = 'lift'
+        return started
+
+    def release_drag(self, key, blend=True):
+        """Let go: play the prefetched return to the reference pose, if it is ready."""
+        if (self.pack.actions[key].get('liftCompletes') and self.lift == 'lift'
+                and self.action == key and not self.player.ended):
+            # A quick release still plays the whole lift; she comes down from its end.
+            self.landing_due = True
+            return True
+        tail, self.release_tail = self.release_tail, None
+        if tail is None:
+            return False
+        if not tail.ready.is_set() or tail.error or tail.size != self.decode_size:
+            tail.close()
+            return False
+        return self.play(key, blend=blend, prepared=tail)
+
+    def drop_release(self):
+        if self.release_tail is not None:
+            self.release_tail.close()
+            self.release_tail = None
+        if self.upcoming is not None:
+            self.upcoming[1].close()
+            self.upcoming = None
 
     def end_takeover(self):
         if self.outgoing is not None:
@@ -148,22 +226,13 @@ class SpriteWindow(QWidget):
         if self._closing or (self.dragging and self.action != self.pack.data.get('drag')) or not self.isVisible():
             return
         delay = self.player.next_delay_ms(self.speed)
-        if self.previous_frame is not None or self.outgoing is not None:
+        if self.outgoing is not None:
             delay = min(16, delay)
         self.tick.start(delay)
 
     def animate(self):
         if self._closing or (self.dragging and self.action != self.pack.data.get('drag')):
             return
-        if self.previous_frame is not None:
-            # Keep the incoming reference pose still during the handoff. Its
-            # actual entrance starts only once the old idle pose has settled.
-            self.player.last_clock = time.perf_counter()
-            if time.perf_counter() - self.fade_started < self.fade_seconds:
-                self.update()
-                self.tick.start(16)
-                return
-            self.previous_frame = None
         if self.outgoing is not None:
             if time.perf_counter()-self.takeover_started >= self.takeover_seconds:
                 self.end_takeover()
@@ -175,14 +244,23 @@ class SpriteWindow(QWidget):
         frame, ended = self.player.advance(self.decode_size, self.speed)
         if frame is not None:
             self.frame = frame
+            self.step_travel()
         if ended:
-            item = self.pack.actions.get(self.action,{})
+            item = self.pack.actions.get(self.action, {})
+            if self.landing_due and self.action == self.pack.data.get('drag'):
+                # The lift ends on the release frame: cut straight into the way down.
+                self.landing_due = False
+                if self.release_drag(self.action, blend=False):
+                    return
             if self.dragging and self.action == self.pack.data.get('drag') and item.get('dragLoopFile') and not self.player.error:
                 try:
-                    self.frame=self.player.start(self.pack.path({'file':item['dragLoopFile']}),self.decode_size,
-                                                 cache_loop=True,end_frame=item['dragLoopFrames']-1)
-                    self.update();self.schedule();return
-                except (OSError,ValueError) as error:
+                    self.frame = self.player.start(self.pack.path({'file': item['dragLoopFile']}), self.decode_size,
+                                                   cache_loop=True, end_frame=item['dragLoopFrames']-1)
+                    self.lift = 'held'
+                    self.update()
+                    self.schedule()
+                    return
+                except (OSError, ValueError) as error:
                     self.playbackFailed.emit(str(error))
             self.end_takeover()
             if self.player.error:
@@ -192,19 +270,29 @@ class SpriteWindow(QWidget):
         if not ended and self.serial == serial:
             self.schedule()
 
+    def step_travel(self):
+        travel = self.travel
+        if travel is None:
+            return
+        if self.action != travel['key'] or self.dragging:
+            self.travel = None
+            return
+        first, last = travel['frames']
+        progress = (self.player.frame_index-first)/max(1, last-first)
+        origin = travel['origin']
+        target = self.constrained(QPoint(origin.x()+round(travel['distance']*stride(progress)), origin.y()))
+        if target != self.pos():
+            self.move(target)
+            self.positionChanged.emit()
+
     def paintEvent(self, event):
         if self.frame is None:
             return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        under, progress = None, 1.
-        if self.previous_frame is not None:
-            under = self.previous_frame
-            progress = smooth((time.perf_counter() - self.fade_started) / self.fade_seconds)
-        elif self.outgoing_frame is not None:
-            under = self.outgoing_frame
-            progress = smooth((time.perf_counter() - self.takeover_started) / self.takeover_seconds)
+        under = self.outgoing_frame
         if under is not None:
+            progress = smooth((time.perf_counter() - self.takeover_started) / self.takeover_seconds)
             # Overlap dissolve: the new pose arrives over the first half while
             # the old one stays solid, then the old remnants fade. Where both
             # poses cover a pixel it never turns see-through (a plain or
@@ -264,7 +352,6 @@ class SpriteWindow(QWidget):
         self._double_handled = False
         if was_dragging:
             self.player.last_clock = time.perf_counter()
-            self.previous_frame = None
             self.end_takeover()
             self.dragFinished.emit()
             self.schedule()
@@ -301,7 +388,6 @@ class SpriteWindow(QWidget):
                 frame = self.player.resize(self.decode_size)
                 if frame is not None:
                     self.frame = frame
-                    self.previous_frame = None
             except (OSError, ValueError) as error:
                 self.playbackFailed.emit(str(error))
         self.update()
@@ -316,6 +402,8 @@ class SpriteWindow(QWidget):
 
     def hideEvent(self, event):
         self.tick.stop()
+        self.travel = None   # a walk replayed after a fullscreen pause stays in place
+        self.drop_release()
         self.end_takeover()
         self.player.close()
         super().hideEvent(event)
@@ -324,6 +412,7 @@ class SpriteWindow(QWidget):
         self._closing = True
         self.tick.stop()
         self.click_timer.stop()
+        self.drop_release()
         self.end_takeover()
         self.player.close()
         event.accept()

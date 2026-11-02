@@ -49,12 +49,13 @@ class CurrentDragTests(unittest.TestCase):
 
     def test_new_drag_and_renamed_lift_match_different_originals(self):
         pack=self.pet.pack
-        self.assertEqual(len(pack.actions),13)
+        self.assertEqual(len(pack.actions),15)
         self.assertEqual(pack.actions['drag']['source'],'互动/拖拽.webp')
         self.assertEqual(pack.actions['lift']['source'],'互动/被拎起来.webp')
         self.assertNotEqual(pack.actions['drag']['sourceSha256'],pack.actions['lift']['sourceSha256'])
         self.assertEqual(pack.actions['lift']['randomWeight'],0)
-        self.assertEqual(len({item['file'] for item in pack.actions.values()}),13)
+        self.assertEqual(len({item['file'] for item in pack.actions.values()}),15)
+        self.assertEqual({pack.actions[key]['walk']['direction'] for key in ('walk-left','walk-right')},{-1,1})
         inventory=json.loads((pack.root/'manifest.json').read_text(encoding='utf-8-sig'))
         for item in inventory['files']:
             path=pack.root/item['file']
@@ -65,7 +66,7 @@ class CurrentDragTests(unittest.TestCase):
         self.pet.set_option('hop_after_drag',False)
         press=self.drag();sprite=self.pet.sprite;item=self.pet.pack.actions['drag']
         self.assertTrue(sprite.dragging)
-        self.assertEqual(sprite.player.frame_index,item['dragStartFrame'])
+        self.assertEqual(sprite.player.frame_index,0)
         first=sprite.player.frame_index;pump(300)
         self.assertTrue(sprite.dragging);self.assertGreater(sprite.player.frame_index,first)
         # Exercise the real end boundary without waiting through the entire intro.
@@ -77,15 +78,21 @@ class CurrentDragTests(unittest.TestCase):
         self.assertTrue(sprite.dragging);self.assertEqual(sprite.player.path.name,'drag-held.webp')
         self.assertGreater(sprite.player.frame_index,0)
         sprite.mouseReleaseEvent(press)
-        self.assertFalse(sprite.dragging);self.assertEqual(sprite.action,'idle')
+        self.assertFalse(sprite.dragging)
+        deadline=time.monotonic()+3
+        while sprite.action=='drag' and time.monotonic()<deadline:pump(20)
+        self.assertEqual(sprite.action,'idle')
 
     def test_release_respects_hop_preference_and_completion_priority(self):
         self.pet.set_option('hop_after_drag',True)
-        press=self.drag();self.pet.sprite.mouseReleaseEvent(press)
+        def settle():
+            deadline=time.monotonic()+3
+            while self.pet.sprite.action=='drag' and time.monotonic()<deadline:pump(20)
+        press=self.drag();self.pet.sprite.mouseReleaseEvent(press);settle()
         self.assertEqual(self.pet.sprite.action,'hop')
         press=self.drag()
         self.pet.director.request('catch',completion=True,dragging=True)
-        self.pet.sprite.mouseReleaseEvent(press)
+        self.pet.sprite.mouseReleaseEvent(press);settle()
         self.assertEqual(self.pet.sprite.action,'catch')
 
 

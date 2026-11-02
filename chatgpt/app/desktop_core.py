@@ -5,16 +5,20 @@ import math
 import os
 from pathlib import Path
 
-DEFAULTS=dict(schema=3,scale=1.0,playback_speed=1.0,action_gap=2.0,
-    random_interval=12.0,move_speed=55.0,move_range=0.75,drag_physics=True,
+DEFAULTS=dict(schema=3,scale=1.0,drag_physics=True,
     on_top=True,video_fullscreen_yield=True,no_move=False,wandering=True,random_actions=True,
-    commentary=True,sound=True,bubble=True,quota_visible=True,character_visible=True,card_anchor=None,
-    status_actions=True,status_action_interval=12.,status_response_revision=2,token_chart_range='all',
+    commentary=True,bubble=True,quota_visible=True,character_visible=True,card_anchor=None,
+    status_actions=True,token_chart_range='all',
     card_hide_delay=10.,web_button='chatgpt',web_url='',
     facing=1,character='builtin',character_preferences={})
 
 REMOVED=('update_checks','chat_follow','self_talk','talk_min','talk_max','talk_quiet','talk_lines','mouse_through',
-         'bubble_mode','capsule_action','capsule_website')
+         'bubble_mode','capsule_action','capsule_website',
+         # Action pacing is built in now.
+         'playback_speed','action_gap','random_interval','move_speed','move_range',
+         'status_action_interval','status_response_revision',
+         # The character makes no sound.
+         'sound')
 
 def atomic_json(path,value):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
@@ -24,15 +28,7 @@ def atomic_json(path,value):
 
 def normalized(raw):
     out=copy.deepcopy(DEFAULTS);out.update(raw if isinstance(raw,dict) else {})
-    # Migrate only the previous default; retain deliberate nondefault tuning.
-    if isinstance(raw,dict) and raw.get('status_response_revision',0)!=2 and raw.get('status_action_interval')==18:
-        out['status_action_interval']=12.
-    out['status_response_revision']=2
-    if isinstance(raw,dict) and raw.get('schema',2)<3 and raw.get('random_interval')==25:
-        out['random_interval']=12.
-    for k,lo,hi in [('scale',.4,2.5),('playback_speed',.25,3),('action_gap',0,60),
-        ('random_interval',3,600),('move_speed',10,300),('move_range',.1,1),
-        ('status_action_interval',8,120),('card_hide_delay',3,120)]:
+    for k,lo,hi in [('scale',.4,2.5),('card_hide_delay',3,120)]:
         try:v=float(out[k]);out[k]=min(hi,max(lo,v)) if math.isfinite(v) else DEFAULTS[k]
         except (TypeError,ValueError):out[k]=DEFAULTS[k]
     for k,v in DEFAULTS.items():

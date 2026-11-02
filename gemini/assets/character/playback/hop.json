@@ -3,13 +3,13 @@
   "name": "轻轻一跳",
   "group": "日常",
   "file": "playback/hop.webp",
-  "durationMs": 9334,
-  "frames": 224,
+  "durationMs": 9417,
+  "frames": 226,
   "loop": false,
   "random": true,
-  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
-  "bytes": 14745522,
-  "sha256": "7bef19c69314b79eabe10432974ab54c65dc7530957dea66df3014fe84d4900b",
+  "recipe": "backdrop-colour-matte-temporal-repair-rgb94-alpha100",
+  "bytes": 14767880,
+  "sha256": "dec20d3c49e9b62ae25331a7fa148063641129ff6c06e24aeeecea362fe75f51",
   "source": "动作/跳一跳.webp",
   "sourceSha256": "a394c5e53b6c25f874e331816ff3bd1fb15cffd2425d595e61ed18c9ae9c11da",
   "transform": {
@@ -17,21 +17,38 @@
     "centre": 273.0,
     "baseline": 521,
     "union": [
-      14,
+      13,
       0,
       544,
       522
     ],
     "effectsCrop": false
   },
-  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
-  "baseSha256": "d9ff9adc40a44f5e732b0e8352fb1dd8ce4f34df38395e2a38357f8b6265538a",
-  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "repair": {
+    "refilledFrames": [
+      21,
+      22,
+      23,
+      24,
+      26,
+      27,
+      49,
+      151
+    ],
+    "patchedPixels": 176305
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2",
+  "baseSha256": "f52e1a369fc0b735f9b9ff38c29c275128848f91df759c9af75d62e80947cfab",
+  "referencePose": "4d7e9a2cc12eaf8a040e2f7522d464a86c307fb9c58c5b02c45f673f9c5fe6e6",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
   "entryBridgeFrames": 14,
-  "exitBridgeFrames": 19,
-  "endpointDifference": 7e-05,
+  "exitBridgeFrames": 21,
   "bridgeCut": [
     0,
     192
-  ]
+  ],
+  "endpointDifference": 0.000165
 }

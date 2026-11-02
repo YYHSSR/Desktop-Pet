@@ -21,7 +21,7 @@ def run(output):
     class ProbePet(DesktopPet):
         def context_menu(self,point):self.probe_menus+=1
     pet=ProbePet(monitor=False);pet.probe_menus=0;pet.tick.stop();pet.motion_timer.stop()
-    pet.apply_settings(dict(wandering=False,random_actions=False,on_top=False,sound=False,drag_physics=False,no_move=False),save=False)
+    pet.apply_settings(dict(wandering=False,random_actions=False,on_top=False,drag_physics=False,no_move=False),save=False)
     pet.show();pet.bubble.hide();app.processEvents()
     u=ctypes.WinDLL('user32',use_last_error=True)
     u.ClientToScreen.argtypes=[w.HWND,ctypes.POINTER(w.POINT)];u.ClientToScreen.restype=w.BOOL

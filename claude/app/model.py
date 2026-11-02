@@ -2,19 +2,19 @@
 from share.desktop.companion_state import (
     normalized, atomic_json, load_settings, extended, FocusClock, FocusLedger, ActionDirector)
 
-FINALES = ('flower', 'idea')
 ACTIONS = ('wave', 'peek', 'idea', 'sparkles', 'wind', 'bow', 'flower', 'drag')
-MENU_ORDER = ('idle', *ACTIONS)
-SCHEMA = extended(
-    poke_action=('choice', 'peek', ACTIONS),
-    double_action=('choice', 'wave', ACTIONS),
-)
+WALKS = ('walk-left', 'walk-right')
+MENU_ORDER = ('idle', *ACTIONS, *WALKS)
+SCHEMA = extended()
 
 # How often each action turns up on its own. Gentle, reading-flavoured
 # moments are common; the big twirl and the wind are treats; the flower is
-# a rare flower stays available as a manual gift too.
+# rare and stays a manual gift too. Walks only happen when she may wander.
 ACTION_WEIGHTS = dict(wave=3.2, peek=2.8, idea=2., sparkles=.65, wind=.25, bow=.35,
-                      flower=.12, drag=0.)
+                      flower=.12, drag=0., **dict.fromkeys(WALKS, 0.))
+WALK_WEIGHT = 2.4                      # a stroll, against the actions above
+CLICK_WEIGHTS = dict(peek=3., wave=2., idea=1.)
+DOUBLE_WEIGHTS = dict(wave=2., bow=1., sparkles=1.)
 
 
 def action_weight(key, hour):
@@ -26,13 +26,6 @@ def action_weight(key, hour):
     elif key in ('wind', 'bow') and (hour >= 23 or hour < 6):
         weight *= .3
     return weight
-
-
-def finale_for(pages, actions, mode='alternate'):
-    """The completion gift: alternate (odd pages a flower, even pages an idea) or a fixed one."""
-    preferred = FINALES[(pages+1) % 2] if mode == 'alternate' else mode
-    available = [key for key in (preferred, *FINALES) if key in actions]
-    return available[0] if available else None
 
 
 def greeting(hour, nickname=''):

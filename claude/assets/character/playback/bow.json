@@ -4,37 +4,72 @@
   "group": "互动",
   "file": "playback/bow.webp",
   "loop": false,
-  "random": false,
-  "durationMs": 12958,
-  "frames": 311,
-  "bytes": 73909978,
-  "sha256": "de8410900c70bc1ccd82f8ef7b26eb14b1cd9d085c98409f407326923b1f3ac3",
-  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94",
+  "durationMs": 12542,
+  "frames": 301,
+  "bytes": 70308132,
+  "sha256": "79da4aad97d56a8224dc65ef5c3c72bc94a55112f0e5aff88f1c23331bb21b98",
+  "recipe": "claude-lace-matte-temporal-repair-exact",
   "source": "动作/转圈行礼.webp",
   "sourceSha256": "16113abac6b83f453f056dc405e3f403cb54b8f7f80260fcd0316ad5a1f8e0cc",
   "transform": {
-    "scale": 0.6537313432835821,
+    "scale": 0.6527570789865872,
     "centre": 359.75,
-    "baseline": 707,
+    "baseline": 708,
     "union": [
       0,
       25,
       720,
-      708
+      709
     ],
     "effectsCrop": true
   },
-  "sourceEndFrame": null,
-  "holdTailMs": 0,
-  "loopPreparation": null,
-  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
-  "baseSha256": "0c10f7362abf13906ac7d76e0ab528276624ce855d2547f7cb8c88ca43dfdb35",
-  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
-  "entryBridgeFrames": 12,
-  "exitBridgeFrames": 11,
-  "endpointDifference": 0.0,
+  "sourceWindow": null,
+  "repair": {
+    "refilledFrames": [
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      65,
+      66,
+      67,
+      68,
+      69,
+      77,
+      78,
+      79,
+      80,
+      81,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105
+    ],
+    "patchedPixels": 99997
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
+  "baseSha256": "563f0bc6a3b4e32dcf9889c197a8fc145b6f43773d3ac94dc5ec84afde554a15",
+  "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
+  "entryBridgeFrames": 11,
+  "exitBridgeFrames": 14,
   "bridgeCut": [
-    0,
-    288
-  ]
+    7,
+    284
+  ],
+  "endpointDifference": 0.0
 }

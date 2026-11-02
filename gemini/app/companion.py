@@ -2,7 +2,7 @@
 ear petting and a little hop after being carried."""
 import time
 from share.desktop.companion_app import CompanionApp
-from model import SCHEMA, action_weight
+from model import SCHEMA, CLICK_WEIGHTS, DOUBLE_WEIGHTS, WALK_WEIGHT, action_weight
 from sprite import GeminiSprite
 
 LINES = {
@@ -19,6 +19,8 @@ LINES = {
     'catch': '接住了！这一颗星送给你。',
     'lift': '被你拎起来啦，耳朵也跟着晃一晃喵。',
     'drag': '晃来晃去的，尾巴都甩乱了喵。',
+    'walk-left': '尾巴，等等我喵！',
+    'walk-right': '扑——到这边来啦喵。',
     'back_to_idle': '当前动作收尾后，回到星光待机。',
     'already': '正在做这个动作喵。',
     'ear': '收到你的呼唤啦，喵～',
@@ -40,6 +42,9 @@ class Companion(CompanionApp):
     LINES = LINES
     QUOTA_CELEBRATE = 'hop'
     QUOTA_WORRY = 'pout'
+    CLICK_WEIGHTS = CLICK_WEIGHTS
+    DOUBLE_WEIGHTS = DOUBLE_WEIGHTS
+    WALK_WEIGHT = WALK_WEIGHT
 
     def make_token_source(self):
         from antigravity_tokens import AntigravityTokens
@@ -48,7 +53,6 @@ class Companion(CompanionApp):
     def __init__(self, *args, **kwargs):
         self._last_ear = 0.
         super().__init__(*args, **kwargs)
-
 
     def make_sprite(self):
         sprite = GeminiSprite(self.pack, self.settings['size'])

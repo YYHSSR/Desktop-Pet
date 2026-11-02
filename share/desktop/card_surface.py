@@ -4,15 +4,14 @@ Native geometry changes at the ends of a transition. Every animated frame only
 paints two prepared pixmaps on one fixed transparent canvas.
 """
 import math
-import time
 from dataclasses import dataclass
 from PySide6.QtCore import Qt, QRect, QRectF, QSize, QPoint, Signal, QVariantAnimation, QTimer, QEvent
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QRegion
-from PySide6.QtWidgets import (QApplication, QFrame, QWidget, QVBoxLayout, QHBoxLayout,
-    QGridLayout, QPushButton, QLabel, QProgressBar, QStackedWidget, QScrollArea)
+from PySide6.QtWidgets import (QApplication, QFrame, QWidget, QHBoxLayout, QPushButton, QLabel,
+    QProgressBar, QScrollArea)
 from .typography import FONT_CSS
 from .spring_motion import container_progress, dismiss_progress, EXPAND_MS, SHRINK_MS, DISMISS_MS
-from .card_kit import label, button, CurrentPageStack
+from .card_kit import label, button
 
 @dataclass(frozen=True)
 class Theme:
@@ -136,12 +135,6 @@ class StatusDot(QPushButton):
         p = QPainter(self); p.setRenderHint(QPainter.RenderHint.Antialiasing); p.setPen(Qt.PenStyle.NoPen)
         if self.mark is not None: self.mark(p, QRectF(self.rect())); return
         p.setBrush(QColor(self.theme.mark)); p.drawEllipse(QRectF(6, 10, 3, 3))
-
-
-class Progress(QProgressBar):
-    def __init__(self):
-        super().__init__(); self.setRange(0, 1000); self.setTextVisible(False); self.setFixedHeight(4)
-    def lit(self): return self.value()*5//1000
 
 
 from .quota_dashboard import QuotaDashboard as Dashboard
@@ -428,7 +421,6 @@ class CompanionCardSurface(QFrame):
     def hideEvent(self, event):
         self.animation.stop(); self.transition_active = False; self.pending_page = None; self.cover.hide()
         self.landing_timer.stop(); self.landing.release(); self.reset_ticker.stop()
-        if hasattr(self, 'ambient'): self.ambient.stop()
         super().hideEvent(event)
 
     def keyPressEvent(self, event):

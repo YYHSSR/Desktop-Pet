@@ -10,8 +10,8 @@ from unittest.mock import patch
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT/'app'), str(ROOT.parent)]
-from model import (SCHEMA, FocusClock, FocusLedger, ActionDirector, normalized,
-                   atomic_json, load_settings, finale_for)
+from model import (SCHEMA, FocusLedger, ActionDirector, normalized,
+                   atomic_json, load_settings)
 from share.desktop import desktop_integration
 from share.desktop.local_store import LocalStore
 
@@ -79,18 +79,17 @@ class SettingsTests(unittest.TestCase):
         settings = normalized(dict(size=float('nan'), opacity=-10, on_top='false', random_interval=1e8,
                                    position=[0, 'a'], api_key='discard', playback_speed=1.4,
                                    web_url='javascript:alert(1)', nickname='  小\n读者  ',
-                                   finale='explode', poke_action='../idle'), SCHEMA)
+                                   finale='explode', poke_action='../idle', wander='no'), SCHEMA)
         self.assertEqual(settings['size'], 300)
         self.assertEqual(settings['opacity'], 65)
         self.assertTrue(settings['on_top'])
-        self.assertEqual(settings['random_interval'], 300)
         self.assertIsNone(settings['position'])
-        self.assertNotIn('api_key', settings)
-        self.assertEqual(settings['playback_speed'], 1.5)
+        self.assertTrue(settings['wander'])
         self.assertEqual(settings['web_url'], '')
         self.assertEqual(settings['nickname'], '小读者')
-        self.assertNotIn('finale', settings)
-        self.assertEqual(settings['poke_action'], 'peek')
+        # Action pacing and click reactions are built in, not settings.
+        for removed in ('api_key', 'finale', 'random_interval', 'playback_speed', 'poke_action'):
+            self.assertNotIn(removed, settings)
 
     def test_web_address_accepts_only_plain_http_pages(self):
         ok = normalized(dict(web_url='https://claude.ai/new'), SCHEMA)['web_url']
@@ -145,13 +144,6 @@ class LedgerTests(unittest.TestCase):
         ledger.add(today, 25)
         self.assertEqual(list(ledger.record(today)['history']), ['2026-10-31'])
 
-    def test_completion_gifts(self):
-        both = {'flower': 1, 'idea': 1}
-        self.assertEqual([finale_for(n, both) for n in (1, 2, 3)], ['flower', 'idea', 'flower'])
-        self.assertEqual(finale_for(2, both, 'flower'), 'flower')
-        self.assertEqual(finale_for(1, both, 'idea'), 'idea')
-        self.assertEqual(finale_for(2, {'flower': 1}), 'flower')
-        self.assertIsNone(finale_for(1, {}))
 
 
 from PIL import Image, ImageDraw
@@ -185,10 +177,12 @@ def fixture(root, frames=3):
     images[0].save(path, save_all=True, append_images=images[1:], duration=42, lossless=True)
     import hashlib
     checksum = hashlib.sha256(path.read_bytes()).hexdigest()
-    keys = ('idle', 'drag', 'wave', 'peek', 'wind', 'bow', 'sparkles', 'flower', 'idea')
+    keys = ('idle', 'drag', 'wave', 'peek', 'wind', 'bow', 'sparkles', 'flower', 'idea', 'walk-left', 'walk-right')
     actions = [dict(id=key, name=key, group='test', file='test.webp', durationMs=42*frames,
                     frames=frames, loop=key == 'idle', random=False, bytes=path.stat().st_size,
                     sha256=checksum) for key in keys]
+    for item in actions[-2:]:
+        item['walk'] = dict(direction=-1 if item['id'] == 'walk-left' else 1, start=0, end=frames-1)
     (assets/'character.json').write_text(json.dumps(dict(idle='idle', actions=actions)), encoding='utf-8')
     return assets
 
@@ -197,7 +191,7 @@ class ResourceTests(unittest.TestCase):
     def test_every_frame_and_checksum_are_checked(self):
         with tempfile.TemporaryDirectory() as directory:
             pack = CharacterPack(fixture(Path(directory)))
-            self.assertEqual(len(pack.verify()), 9)
+            self.assertEqual(len(pack.verify()), 11)
             (pack.root/'test.webp').write_bytes(b'corrupt')
             with self.assertRaisesRegex(ValueError, '校验失败'):
                 pack.verify()
@@ -285,15 +279,14 @@ class SpriteTests(unittest.TestCase):
         self.assertEqual(double, [True])
         self.assertEqual(single, [])
 
-    def test_incoming_animation_does_not_run_under_the_idle_handoff(self):
-        self.sprite.play('wave')
-        start = self.sprite.fade_started
-        with patch('share.desktop.sprite_window.time.perf_counter', return_value=start+.08):
-            self.sprite.animate()
-        self.assertEqual(self.sprite.player.frame_index, 0)
-        with patch('share.desktop.sprite_window.time.perf_counter', return_value=start+.25):
-            self.sprite.animate()
-        self.assertEqual(self.sprite.player.frame_index, 0)
+    def test_a_cut_has_no_fade_and_a_blend_never_freezes_the_incoming_clip(self):
+        self.sprite.play('wave', blend=False)
+        self.assertIsNone(self.sprite.outgoing)
+        old = self.sprite.player
+        self.sprite.play('peek')
+        self.assertIs(self.sprite.outgoing, old)
+        pump(150)
+        self.assertGreater(self.sprite.player.frame_index, 0)
 
     def test_takeover_crossfades_two_live_animations_then_releases_the_old_one(self):
         self.sprite.play('wave', blend=False)
@@ -302,19 +295,46 @@ class SpriteTests(unittest.TestCase):
         self.assertTrue(self.sprite.play('peek', takeover=True))
         self.assertIs(self.sprite.outgoing, old)
         self.assertIsNotNone(self.sprite.outgoing_frame)
-        self.assertIsNone(self.sprite.previous_frame)
         self.assertIs(self.sprite.player.loop_cache, old.loop_cache)
         pump(450)
         self.assertIsNone(self.sprite.outgoing)
         self.assertTrue(old.stop.is_set())
         self.assertGreater(self.sprite.player.frame_index, 0)
 
-    def test_playback_speed_scales_the_frame_clock(self):
-        self.sprite.play('wave', blend=False)
-        self.sprite.speed = 2.
-        slow = self.sprite.player.next_delay_ms(1)
-        fast = self.sprite.player.next_delay_ms(self.sprite.speed)
-        self.assertLessEqual(fast, slow)
+    def test_the_next_automatic_clip_is_decoded_ahead_and_dropped_if_plans_change(self):
+        self.sprite.prepare('wave')
+        segment = self.sprite.upcoming[1]
+        self.assertTrue(segment.ready.wait(2))
+        self.assertTrue(self.sprite.play('wave', blend=False))
+        self.assertIsNone(self.sprite.upcoming)
+        self.assertIs(self.sprite.player.frames, segment.frames)
+        self.sprite.prepare('peek')
+        stale = self.sprite.upcoming[1]
+        self.assertTrue(self.sprite.play('bow', takeover=True))
+        self.assertTrue(stale.stop.is_set())
+        self.assertIsNone(self.sprite.upcoming)
+
+    def test_a_walk_carries_the_window_with_an_eased_start_and_stop(self):
+        from share.desktop.sprite_window import stride
+        self.assertEqual(stride(0), 0); self.assertEqual(stride(1), 1)
+        self.assertLess(stride(.05), .05); self.assertGreater(stride(.95), .95)
+        area = APP.primaryScreen().availableGeometry()
+        self.sprite.move(area.left()+40, area.top()+100)
+        origin = self.sprite.pos()
+        self.sprite.travel = dict(key='walk-right', origin=origin, distance=120, frames=(0, 39))
+        self.sprite.play('walk-right', blend=False)
+        steps = []
+        for _ in range(60):
+            pump(60)
+            steps.append(self.sprite.x())
+            if self.sprite.player.ended:
+                break
+        self.assertEqual(self.sprite.pos(), origin+QPoint(120, 0))
+        self.assertEqual(steps, sorted(steps))
+        self.sprite.travel = dict(key='walk-right', origin=self.sprite.pos(), distance=120, frames=(0, 39))
+        self.sprite.play('peek', takeover=True)
+        pump(120)
+        self.assertIsNone(self.sprite.travel)
 
 
 class CompanionCase(unittest.TestCase):
@@ -332,7 +352,6 @@ class CompanionCase(unittest.TestCase):
         from share.pet_engine.decode_runtime import STATS
         STATS.drain()
         self.temporary.cleanup()
-
 
 
 class ClaudeTests(CompanionCase):
@@ -386,9 +405,6 @@ class ClaudeTests(CompanionCase):
             c.shutdown()
 
 
-
-
-
     def test_a_new_choice_takes_over_at_once(self):
         c = self.companion
         c.card.action_buttons['wave'].click()
@@ -427,7 +443,6 @@ class ClaudeTests(CompanionCase):
         self.assertEqual(c.sprite.serial, serial)
 
 
-
     def test_settings_persist_and_resize_preserves_foot_position(self):
         c = self.companion
         foot = c.sprite.y()+c.sprite.height()
@@ -440,25 +455,65 @@ class ClaudeTests(CompanionCase):
         panel = c.card.settings_panel
         self.assertNotIn('lock_position',panel.fields)
         c.set_option('lock_position',True)
-        panel.fields['playback_speed'].setValue(1.5)
+        for removed in ('playback_speed', 'random_interval', 'poke_action', 'double_action'):
+            self.assertNotIn(removed, panel.fields)
         panel.fields['card_hide_delay'].setValue(30)
-        panel.fields['double_action'].setCurrentIndex(panel.fields['double_action'].findData('bow'))
+        panel.fields['wander'].setChecked(False)
         self.assertTrue(c.sprite.locked)
-        self.assertEqual(c.sprite.speed, 1.)
         self.assertTrue(panel.dirty)
+        self.assertTrue(c.settings['wander'])
         panel.apply()
         self.assertTrue(c.sprite.locked)
-        self.assertEqual(c.sprite.speed, 1.5)
         self.assertEqual(c.card_timer.interval(), 30000)
+        self.assertFalse(c.settings['wander'])
         c.double_poke()
-        self.assertEqual(c.sprite.action, 'bow')
+        self.assertIn(c.sprite.action, ('wave', 'bow', 'sparkles'))
         c.reset_options(panel.section_keys[0]+panel.section_keys[1])
         self.assertTrue(c.sprite.locked)
         c.set_option('lock_position',False)
         self.assertFalse(c.sprite.locked)
-        self.assertEqual(c.sprite.speed, 1.)
-        self.assertEqual(c.settings['double_action'], 'wave')
+        self.assertTrue(c.settings['wander'])
         self.assertNotIn('lock_position',panel.fields)
+
+    def test_walks_only_happen_while_she_may_wander_and_never_from_menus(self):
+        c = self.companion
+        area = c.screen_area()
+        c.sprite.move(area.left()+(area.width()-c.sprite.width())//2, area.top()+80)
+        self.assertIsNotNone(c.walk_choice())
+        c.set_option('wander', False)
+        self.assertIsNone(c.walk_choice())
+        c.set_option('wander', True)
+        c.set_option('lock_position', True)
+        self.assertIsNone(c.walk_choice())
+        c.set_option('lock_position', False)
+        from PySide6.QtWidgets import QMenu
+        menu, listed = QMenu(), []
+        with patch('share.desktop.companion_app.populate_action_menu',
+                   lambda target, items, callback: listed.extend(item['id'] for item in items)):
+            c.populate_menu(menu)
+        self.assertIn('wave', listed)
+        self.assertFalse({'walk-left', 'walk-right'} & set(listed))
+        self.assertFalse({'walk-left', 'walk-right'} & set(c.card.action_buttons))
+        walk = next(action for action in menu.actions() if action.objectName() == 'command_walk')
+        self.assertEqual(walk.text(), '暂停自主走动')
+        walk.trigger(); pump(30)
+        self.assertFalse(c.settings['wander'])
+        c.set_option('wander', True)
+        # Only the walk is left to choose once random actions are off.
+        c.set_option('random_actions', False)
+        start = c.sprite.x()
+        c.random_activity(time.monotonic())
+        self.assertIn(c.boundary_action, ('walk-left', 'walk-right'))
+        c.finished('idle')
+        self.assertIn(c.director.current, ('walk-left', 'walk-right'))
+        self.assertIsNotNone(c.sprite.travel)
+        for _ in range(40):
+            pump(30)
+            if c.director.current == 'idle':
+                break
+        self.assertEqual(c.director.current, 'idle')
+        self.assertNotEqual(c.sprite.x(), start)
+        self.assertIsNone(c.sprite.travel)
 
 
     def test_nickname_and_custom_web_page(self):
@@ -580,7 +635,7 @@ class ClaudeTests(CompanionCase):
         c = self.companion
         menu = QMenu(); c.populate_menu(menu)
         roots = menu.actions()
-        self.assertEqual([a.text() for a in roots[:4]], ['查看状态', '暂停自主活动', '桌面操作', '角色动作'])
+        self.assertEqual([a.text() for a in roots[:4]], ['查看状态', '暂停自主走动', '桌面操作', '角色动作'])
         self.assertTrue(roots[4].isSeparator())
         self.assertEqual([a.text() for a in roots[5:]], ['桌宠设置…', '退出'+c.NAME])
         commands = {a.objectName(): a for a in roots[2].menu().actions() if not a.isSeparator()}
@@ -599,10 +654,6 @@ class ClaudeTests(CompanionCase):
         c.populate_menu(menu, tray=True)
         self.assertEqual([a.objectName() for a in menu.actions() if not a.isSeparator()],
                          ['command_recover','command_status','command_settings','command_character','command_quit'])
-
-
-
-
 
 
 class QuotaTests(CompanionCase):
@@ -681,9 +732,30 @@ class QuotaTests(CompanionCase):
         for _ in range(30):
             c.director.current = 'idle'
             c.random_activity(0)
+            if c.boundary_action:
+                c.finished('idle')
             picked.add(c.sprite.action)
         self.assertNotIn('drag', picked)
         self.assertGreater(len(picked), 3)
+
+
+    def test_automatic_actions_wait_for_the_idle_seam_and_cut_in(self):
+        c = self.companion
+        c.play('idle')
+        self.assertEqual(c.sprite.action, 'idle')
+        c.random_activity(0)
+        chosen = c.boundary_action
+        self.assertIsNotNone(chosen)
+        self.assertEqual(c.sprite.action, 'idle')
+        c.finished('idle')
+        self.assertEqual(c.sprite.action, chosen)
+        self.assertIsNone(c.sprite.outgoing)
+        self.assertIsNone(c.boundary_action)
+        c.director.current = 'idle'
+        c.sprite.play('idle', blend=False)
+        c.random_activity(0)
+        c.play('wave')
+        self.assertIsNone(c.boundary_action)
 
 
 class StoreTests(unittest.TestCase):

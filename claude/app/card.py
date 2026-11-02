@@ -2,7 +2,7 @@
 from share.desktop.card_surface import CompanionCardSurface, Dashboard, Theme
 
 from datetime import datetime
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QPen
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QGridLayout, QWidget, QScrollArea
 from share.desktop.card_kit import CurrentPageStack, Palette, QuotaPanel, SettingsPanel, button, label
@@ -72,7 +72,6 @@ class CompanionCard(CompanionCardSurface):
         self.footer_widget = TodayTokens(self.THEME)
         self.footer_widget.activated.connect(self.dashboard.toggle_tokens)
         outer.addWidget(self.footer_widget)
-        self.ambient = QTimer(self)
         self.say(self.idle_message())
         self.set_page(0)
 
@@ -143,7 +142,7 @@ class CompanionCard(CompanionCardSurface):
     def settings_page(self, settings):
         from share.desktop.settings_panel import companion_sections
         values = dict(settings, autostart=False)
-        sections = companion_sections(self.ROLE, self.actions)
+        sections = companion_sections(self.ROLE)
         self.settings_panel = SettingsPanel(sections, values, PALETTE, defaults=normalized({}, SCHEMA))
         self.settings_panel.optionChanged.connect(self.optionChanged)
         self.settings_panel.resetRequested.connect(self.resetRequested)
@@ -155,7 +154,7 @@ class CompanionCard(CompanionCardSurface):
         layout.addWidget(label('点一下立即换上，前一个动作会柔和地淡出', 'muted'))
         grid = QGridLayout()
         grid.setSpacing(5)
-        for index, item in enumerate(v for v in self.actions.values() if v['id'] != 'idle'):
+        for index, item in enumerate(v for v in self.actions.values() if v['id'] != 'idle' and not v.get('walk')):
             widget = button(item['name'], lambda checked=False, key=item['id']: self.actionRequested.emit(key),
                             'action', item.get('group'))
             self.action_buttons[item['id']] = widget
@@ -173,9 +172,6 @@ class CompanionCard(CompanionCardSurface):
         row.addWidget(button('打开 Claude 网页 ›', self.webRequested.emit, 'link'))
         layout.addLayout(row)
         return page
-
-
-
 
 
     # ---- the paper sheet ----
@@ -201,9 +197,3 @@ class CompanionCard(CompanionCardSurface):
         p.drawRoundedRect(sheet.adjusted(3, 3, -3, -3), 15, 15)
         self.place_ribbon(rect)
         self.ribbon.paint(p)
-
-    # ---- behaviour ----
-
-    # ---- ambient motion: runs only while the card is on screen ----
-
-

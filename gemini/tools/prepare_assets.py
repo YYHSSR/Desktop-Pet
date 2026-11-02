@@ -1,18 +1,15 @@
 """Prepare transparent, aligned Gemini animations without changing original WebPs."""
 import argparse
-import hashlib
 import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT.parent))
-local_tools = ROOT / 'build/asset-tools'
-if local_tools.is_dir():
-    sys.path.insert(0, str(local_tools))
-import numpy as np
-from PIL import Image, ImageDraw
-from share.asset_tools.white_background import matte_white, bounds
+from PIL import Image
+from share.asset_tools.alpha_repair import repair
+from share.asset_tools.animation_pack import align, digest, loop_cut, transform_for
+from share.asset_tools.white_background import matte_white
 
 CHOICES = [
     ('idle', '平常', '星光待机', '待机', True, False),
@@ -28,80 +25,12 @@ CHOICES = [
     ('catch', '接住星星', '接住星光', '星光', False, False),
     ('lift', '被拎起来', '被拎起来', '互动', False, False),
     ('drag', '拖拽', '被拖着走', '互动', False, False),
+    ('walk-left', '向左', '向左追尾', '移动', False, False),
+    ('walk-right', '向右', '向右扑去', '移动', False, False),
 ]
-RECIPE = 'neutral-background-interior-holes-rgb94-alpha100'
-
-
-def digest(path):
-    with Path(path).open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
-
-
-def transform_for(source, effects_crop=False):
-    boxes, bodies = [], []
-    indexes = sorted(set(range(0, source.n_frames, 10)) | {source.n_frames - 1})
-    for index in indexes:
-        source.seek(index)
-        frame = matte_white(source)
-        box, body = bounds(frame), bounds(frame, largest=True)
-        if box and body:
-            boxes.append(box)
-            bodies.append(body)
-    if not bodies:
-        raise ValueError('No visible character after background removal')
-    union = (min(b[0] for b in boxes), min(b[1] for b in boxes),
-             max(b[2] for b in boxes), max(b[3] for b in boxes))
-    centre = float(np.median([(b[0] + b[2]) / 2 for b in bodies]))
-    baseline = max(b[3] for b in bodies)
-    height = float(np.median([b[3] - b[1] for b in bodies]))
-    fitting = ((min(b[0] for b in bodies), min(b[1] for b in bodies),
-                max(b[2] for b in bodies), max(b[3] for b in bodies)) if effects_crop else union)
-    scale = min(438 / height, 238 / max(1, centre - fitting[0], fitting[2] - centre),
-                470 / max(1, baseline - fitting[1]))
-    if not effects_crop:
-        scale = min(scale, 18 / max(1, union[3]-baseline))
-    return dict(scale=scale, centre=centre, baseline=baseline, union=union, effectsCrop=effects_crop)
-
-
-def align(frame, transform):
-    box = transform['union']
-    scale = transform['scale']
-    # Premultiplied filtering avoids a dark fringe around alpha when resizing.
-    cropped = frame.crop(box).convert('RGBa')
-    resized = cropped.resize((max(1, round(cropped.width * scale)),
-                              max(1, round(cropped.height * scale))), Image.Resampling.LANCZOS).convert('RGBA')
-    canvas = Image.new('RGBA', (512, 512))
-    position = (round(256 + (box[0] - transform['centre']) * scale),
-                round(488 + (box[1] - transform['baseline']) * scale))
-    canvas.paste(resized, position)
-    if transform.get('effectsCrop'):
-        # Snow/star particles may reach the edge; fade them through a gutter
-        # instead of reducing the entire character to fit a particle field.
-        rgba = np.asarray(canvas).copy()
-        yy, xx = np.mgrid[:512, :512]
-        edge = np.minimum.reduce((xx, yy, 511-xx, 511-yy))
-        feather = np.clip(edge/10, 0, 1)
-        feather = feather*feather*(3-2*feather)
-        rgba[..., 3] = np.rint(rgba[..., 3]*feather).astype(np.uint8)
-        canvas = Image.fromarray(rgba)
-    return canvas
-
-
-def loop_cut(frames, durations):
-    features = [np.asarray(frame.resize((40, 40)), dtype=np.float32) / 255 for frame in frames]
-    count = len(frames)
-    pairs = ((float(np.mean((features[a] - features[b]) ** 2)), a, b)
-             for a in range(0, min(24, count // 6), 2)
-             for b in range(max(count * 3 // 4, count - 48), count, 2))
-    score, start, end = min(pairs)
-    selected = frames[start:end]
-    timing = durations[start:end]
-    overlap = 5
-    # A short overlap after selecting matching poses, with uninterrupted timing.
-    seam = [Image.blend(selected[-overlap + i], selected[i], (i + 1) / overlap)
-            for i in range(overlap)]
-    return selected[overlap:-overlap] + seam, timing[overlap:], dict(
-        startFrame=start, endFrame=end, overlapFrames=overlap, poseDifference=round(score, 6))
+# Source frames in which she travels; the window moves with her then.
+WALKS = {'walk-right': (1, 28, 136), 'walk-left': (-1, 22, 128)}
+RECIPE = 'backdrop-colour-matte-temporal-repair-rgb94-alpha100'
 
 
 def prepare(only=None):
@@ -122,7 +51,7 @@ def prepare(only=None):
             raise ValueError(f'Source checksum mismatch: {path}')
         target = base / (key + '.webp')
         receipt = base / (key + '.json')
-        recipe = RECIPE+('-body-fit' if key in ('catch','drag','lift') else '')
+        recipe = RECIPE+('-body-fit' if key in ('catch', 'drag', 'lift', *WALKS) else '')
         if receipt.exists() and target.exists():
             record = json.loads(receipt.read_text(encoding='utf-8'))
             if record.get('recipe') == recipe and record['sourceSha256'] == item['sha256'] and record['sha256'] == digest(target):
@@ -134,12 +63,13 @@ def prepare(only=None):
         print('PREPARE ' + key, flush=True)
         frames, durations = [], []
         with Image.open(path) as source:
-            transform = transform_for(source, effects_crop=key in ('catch','drag','lift'))
+            transform = transform_for(source, effects_crop=key in ('catch', 'drag', 'lift', *WALKS), travel=key in WALKS)
             for index in range(source.n_frames):
                 source.seek(index)
                 source.load()
                 durations.append(max(15, int(source.info.get('duration', 42))))
                 frames.append(align(matte_white(source), transform))
+        frames, report = repair(frames)
         loop = None
         if looping:
             frames, durations, loop = loop_cut(frames, durations)
@@ -148,7 +78,7 @@ def prepare(only=None):
         record = dict(id=key, name=label, group=group, file='playback/' + target.name,
                       durationMs=sum(durations), frames=len(frames), loop=looping,
                       random=random_action, recipe=recipe, bytes=target.stat().st_size, sha256=digest(target),
-                      source=item['file'], sourceSha256=item['sha256'], transform=transform)
+                      source=item['file'], sourceSha256=item['sha256'], transform=transform, repair=report)
         if loop:
             record['loopPreparation'] = loop
         receipt.write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

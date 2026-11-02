@@ -7,9 +7,9 @@
   "frames": 267,
   "loop": false,
   "random": true,
-  "recipe": "neutral-background-interior-holes-rgb94-alpha100",
-  "bytes": 19331386,
-  "sha256": "4a72541886a51a188d27c84ac9c583c6b899808018b10c5628705199eea572ae",
+  "recipe": "backdrop-colour-matte-temporal-repair-rgb94-alpha100",
+  "bytes": 19326290,
+  "sha256": "8eeb6d8ade020633d0fc4400c9a23f1e0941adda7765e23a670f74b8dcd0387e",
   "source": "情绪/惊鸿一瞥.webp",
   "sourceSha256": "fe95af5ad00c361b7722c682e4872be09cfb24d7961e3b5ac4c04dc531b8dd10",
   "transform": {
@@ -21,16 +21,25 @@
       30,
       941,
       699
-    ]
+    ],
+    "effectsCrop": false
   },
-  "transitionRecipe": "registered-body-flow-windowed-dissolve-best-cut-adaptive",
-  "baseSha256": "80e108cdb63d457821272ec9a6f6754d5651d3cd88426028f6199d5afd8cbccc",
-  "referencePose": "80a28721c79433218e41a395dd2f0778fc1b4b7fa6890e4a977f61d8af768e79",
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 13948
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2",
+  "baseSha256": "e845d056e85eef9b3122d49d1a2b7054bc0c4df0080fca2d9961995ad2bc1ac0",
+  "referencePose": "4d7e9a2cc12eaf8a040e2f7522d464a86c307fb9c58c5b02c45f673f9c5fe6e6",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
   "entryBridgeFrames": 13,
   "exitBridgeFrames": 16,
-  "endpointDifference": 7e-05,
   "bridgeCut": [
     0,
     239
-  ]
+  ],
+  "endpointDifference": 2.9e-05
 }

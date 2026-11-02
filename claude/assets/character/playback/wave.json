@@ -4,12 +4,11 @@
   "group": "互动",
   "file": "playback/wave.webp",
   "loop": false,
-  "random": true,
-  "durationMs": 10958,
-  "frames": 263,
-  "bytes": 69013962,
-  "sha256": "f570df36de16566aee585a7a7e564df3516718b8afa67b43ae54967e1548a4b4",
-  "recipe": "claude-paper-white-bodyfit-flower-trim-rgb94",
+  "durationMs": 11250,
+  "frames": 270,
+  "bytes": 70690732,
+  "sha256": "9234d9068e72ee7d5beedd055fac88654898ee528b567b69561c36ce758479a0",
+  "recipe": "claude-lace-matte-temporal-repair-exact",
   "source": "招呼/挥手.webp",
   "sourceSha256": "583fe05a39e91a966d0903f5561696fd6949728bfb3e087702018a29922916b6",
   "transform": {
@@ -18,23 +17,29 @@
     "baseline": 720,
     "union": [
       20,
-      17,
+      16,
       711,
       720
     ],
     "effectsCrop": true
   },
-  "sourceEndFrame": null,
-  "holdTailMs": 0,
-  "loopPreparation": null,
-  "transitionRecipe": "claude-fixed-reference-exact-short-drag-body-loop-v1",
-  "baseSha256": "8ab80621f109cef2d090e51337d77de93d6877355a171d6c542541c919728318",
-  "referencePose": "0f1dfb2c436eff4304ff8401d84ce72984d2950d7a9ad406710cfa55fee9b099",
-  "entryBridgeFrames": 12,
-  "exitBridgeFrames": 11,
-  "endpointDifference": 0.0,
+  "sourceWindow": null,
+  "repair": {
+    "refilledFrames": [],
+    "patchedPixels": 17900
+  },
+  "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
+  "baseSha256": "8de8f741479179727b1d42db27a1796a76a95b7d374a9da40aadf2a8f18f0fc8",
+  "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
+  "bridgeSettings": {
+    "walk": null,
+    "drag": null
+  },
+  "entryBridgeFrames": 15,
+  "exitBridgeFrames": 19,
   "bridgeCut": [
-    0,
-    240
-  ]
+    2,
+    239
+  ],
+  "endpointDifference": 0.0
 }

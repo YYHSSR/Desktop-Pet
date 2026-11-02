@@ -84,6 +84,3 @@ class AnchorTests(unittest.TestCase):
         self.assertEqual(positions[-1],self.pet.y()+self.pet.height()+8 if below else self.pet.y()-8)
         if not below:self.assertEqual(len(set(cards)),1)
         self.assertEqual(b.height(),short_height)
-    def test_head_anchor_and_token_card_stay_fixed_above_pet(self):self.exercise(500,False)
-    def test_near_top_edge_does_not_flip_sides_when_two_lines_become_one(self):
-        self.exercise(APP.primaryScreen().availableGeometry().top()+170,True)

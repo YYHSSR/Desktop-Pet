@@ -158,15 +158,15 @@ class DesktopUiTests(unittest.TestCase):
         with patch('desktop_settings.autostart_enabled',return_value=False):self.pet.open_settings()
         settings=self.pet.settings_dialog;settle()
         self.pet.bubble.set_quota_busy(True);self.pet.bubble.set_reset_busy(True);self.pet.bubble.set_token_busy(True)
-        settings.fields['move_speed'].setValue(123)
+        settings.fields['card_hide_delay'].setValue(33)
         position=self.pet.bubble.pos();stack=self.pet.bubble.editor_stack
         for i in range(10):self.pet.bubble.message('new status '+str(i));self.pet.position_bubble()
-        self.assertEqual(settings.fields['move_speed'].value(),123);self.assertIs(settings.parentWidget(),stack)
+        self.assertEqual(settings.fields['card_hide_delay'].value(),33);self.assertIs(settings.parentWidget(),stack)
         self.assertEqual(self.pet.bubble.pos(),position)
         self.pet.start_walk();self.assertFalse(self.pet.walking)
         self.pet.bubble.show_status()
         with patch('desktop_settings.autostart_enabled',return_value=False):self.pet.open_settings()
-        self.assertEqual(settings.fields['move_speed'].value(),123)
+        self.assertEqual(settings.fields['card_hide_delay'].value(),33)
     def test_settings_menu_waits_until_menu_event_has_finished(self):
         menu=QMenu();self.pet.build_menu(menu)
         action=next(a for a in menu.actions() if a.text()=='桌宠设置…')
@@ -180,17 +180,17 @@ class DesktopUiTests(unittest.TestCase):
     def test_alpha_hit_keeps_transparent_corners_clear(self):
         self.assertFalse(self.pet.alpha_hit(0,0));self.assertFalse(self.pet.alpha_hit(-1,-1))
         self.assertTrue(any(self.pet.alpha_hit(x,y) for x in range(20,240,20) for y in range(20,240,20)))
-    def test_bubble_refresh_coalesces_requests_without_sound_or_gestures(self):
+    def test_bubble_refresh_coalesces_requests_without_gestures(self):
         self.pet.choose(self.pet.variants[0]);current=self.pet.current;mode=self.pet.mode;status=self.pet.bubble.status
-        with patch('enhanced.QuotaWorker') as worker,patch('pet.Pet.play_click_sound') as sound:
+        with patch('enhanced.QuotaWorker') as worker:
             self.pet.bubble.quota_refresh_button.click();self.pet.refresh_quota()
             self.assertEqual(worker.call_count,1);self.assertTrue(self.pet.quota_inflight)
             self.assertFalse(self.pet.bubble.quota_refresh_button.isEnabled())
-            self.assertIs(self.pet.current,current);self.assertEqual(self.pet.mode,mode);self.assertEqual(self.pet.bubble.status,status);sound.assert_not_called()
+            self.assertIs(self.pet.current,current);self.assertEqual(self.pet.mode,mode);self.assertEqual(self.pet.bubble.status,status)
             self.pet.quota_failed('simulated failure');self.assertTrue(self.pet.bubble.quota_refresh_button.isEnabled())
             self.pet.bubble.quota_refresh_button.click();self.assertEqual(worker.call_count,2)
             self.pet.quota_ready([dict(name='一周',remaining=80,resetsAt=None)])
-            self.assertFalse(self.pet.bubble.quota_busy);self.assertIs(self.pet.current,current);sound.assert_not_called()
+            self.assertFalse(self.pet.bubble.quota_busy);self.assertIs(self.pet.current,current)
     def test_one_header_refresh_also_requests_reset_without_per_card_button(self):
         worker=Mock();worker.request_refresh.return_value=1;self.pet.reset_worker=worker
         self.pet.bubble.windows=[dict(name='一周',remaining=80)];self.pet.bubble.select_dashboard('reset')
@@ -201,15 +201,14 @@ class DesktopUiTests(unittest.TestCase):
             self.pet.quota_failed('simulated');self.pet._reset_refresh_finished(1,True)
             self.assertFalse(self.pet.bubble.refresh_busy)
         self.pet.reset_worker=None
-    def test_unified_token_refresh_keeps_sound_and_status_unchanged(self):
+    def test_unified_token_refresh_keeps_status_unchanged(self):
         worker=Mock();worker.request_tokens.return_value=1;self.pet.activity=worker;status=self.pet.bubble.status
-        with patch('pet.Pet.play_click_sound') as sound:
-            with patch('enhanced.QuotaWorker'):
-                self.pet.bubble.refresh_button.click();self.pet.refresh_all()
-                worker.request_tokens.assert_called_once();self.assertTrue(self.pet.bubble.token_busy)
-                self.assertEqual(self.pet.bubble.token_refresh_buttons,[])
-                self.pet.quota_failed('simulated');self.pet.refresh_flow.result('token',1,True)
-            self.assertEqual(self.pet.bubble.status,status);sound.assert_not_called()
+        with patch('enhanced.QuotaWorker'):
+            self.pet.bubble.refresh_button.click();self.pet.refresh_all()
+            worker.request_tokens.assert_called_once();self.assertTrue(self.pet.bubble.token_busy)
+            self.assertEqual(self.pet.bubble.token_refresh_buttons,[])
+            self.pet.quota_failed('simulated');self.pet.refresh_flow.result('token',1,True)
+        self.assertEqual(self.pet.bubble.status,status)
         self.pet.activity=None
     def test_bubble_expanded_controls_reuse_windows_and_persist_options(self):
         self.pet.bubble.toggle_details();settle()

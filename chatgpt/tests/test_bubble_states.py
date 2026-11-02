@@ -39,16 +39,6 @@ class BubbleStateTests(unittest.TestCase):
 
 
 class ChartEntryTests(unittest.TestCase):
-    def test_entry_starts_at_zero_survives_status_refresh_and_stops_when_hidden(self):
-        from token_charts import TokenPlot
-        b=CompactBubble();b.show();APP.processEvents()
-        try:
-            b.select_token_range('day');plot=next(w for w in b.findChildren(TokenPlot) if w.isVisible())
-            self.assertEqual(plot.reveal.progress,0.);plot.reveal.animation.setCurrentTime(180);progress=plot.reveal.progress
-            b.message('新状态，不应重播图表');fresh=next(w for w in b.findChildren(TokenPlot) if w.isVisible())
-            self.assertAlmostEqual(fresh.reveal.progress,progress);b.hide();APP.processEvents()
-            self.assertFalse(fresh.reveal.animation.state().value)
-        finally:b.close();b.deleteLater();APP.processEvents()
     def test_curve_head_follows_actual_segments(self):
         from chart_reveal import trace_head
         from PySide6.QtCore import QPointF

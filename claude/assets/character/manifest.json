@@ -20,10 +20,10 @@
       "file": "互动/拖拽.webp",
       "category": "互动",
       "name": "被拖着走",
-      "note": "双手始终抱着书，被往侧面拖动，头发和裙摆跟着飘。",
-      "bytes": 38694120,
-      "sha256": "f5fdff2175cc2ce22fb5d1115e811247a76f9a01531269ec9f2d4dd45da581b2",
-      "source": "claude-drag-3.mp4"
+      "note": "先站着抱书，再被抬起来前后晃，头发和裙摆跟着甩，然后落回站立。",
+      "bytes": 28644252,
+      "sha256": "120c523512638254844e46d12b112e9717d8c9815dfefe122d6fb41ad2fbaeed",
+      "source": "claude-drag-7.mp4"
     },
     {
       "file": "招呼/挥手.webp",
@@ -96,6 +96,24 @@
       "bytes": 29641036,
       "sha256": "182c7dca2d13dd519744813e9e8db496a8b28fc34051081ee7654f047ec767e5",
       "source": "claude-fireflies.mp4"
+    },
+    {
+      "file": "移动/向右.webp",
+      "category": "移动",
+      "name": "向右跳步",
+      "note": "抱书连跳到右边，转回正面后举书挡嘴眨眼。",
+      "bytes": 34674016,
+      "sha256": "adc2c584478a5ff5b0045cb0867b434ecf026a7151d3fc4eb4c0484c97cb965a",
+      "source": "claude-move-right.mp4"
+    },
+    {
+      "file": "移动/向左.webp",
+      "category": "移动",
+      "name": "向左走",
+      "note": "朝左边走过去，转回正面后把书贴在脸上笑。",
+      "bytes": 40290344,
+      "sha256": "3e99b48cd5fb6effd2663f4923fa251d522e27b86a2c82351e365051adf5f7bf",
+      "source": "claude-move-left-4.mp4"
     }
   ]
 }
