@@ -5,6 +5,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 ROOT = Path(__file__).resolve().parents[1]
@@ -357,6 +358,8 @@ class AppTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         fixture(self.root)
         from companion import Companion
+        native_patch=patch('companion.native_windows',return_value=None)
+        native_patch.start();self.addCleanup(native_patch.stop)
         self.companion = Companion(APP, self.root/'state', root=self.root, tray=False,
                                    entry=ROOT/'app/main.py')
         self.companion.next_action = float('inf')
@@ -406,6 +409,7 @@ class AppTests(unittest.TestCase):
 
     def test_hop_after_drag_and_sparkles_follow_their_settings(self):
         companion = self.companion
+        companion.set_option('hop_after_drag', True)
         companion.drag_finished()
         self.assertEqual(companion.sprite.action, 'hop')
         companion.finished('hop')

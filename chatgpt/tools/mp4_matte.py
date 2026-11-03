@@ -14,7 +14,14 @@ def outside_background(passable):
     return padded[1:-1, 1:-1] == 128
 
 
-def matte_frame(image):
+def outlined_foreground(rgb):
+    """Protect pale interiors enclosed by the character's darker drawn lines."""
+    outline = cv2.morphologyEx((rgb.min(axis=2) < 225).astype(np.uint8), cv2.MORPH_CLOSE,
+                              cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    return ~outside_background(outline == 0)
+
+
+def matte_frame(image, *, soft_effects=False):
     rgb = np.asarray(image.convert('RGB'))
     low, chroma = rgb.min(axis=2), np.ptp(rgb, axis=2)
     neutral = (low >= 245) & (chroma <= 9)
@@ -52,6 +59,11 @@ def matte_frame(image):
             solid[window][region] = False
     alpha = cv2.GaussianBlur(solid.astype(np.float32), (3, 3), .45)
     alpha[(~solid) & neutral] = 0
+    if soft_effects:
+        # Dark drawn outlines enclose the pale cloth. Only exterior low-contrast
+        # pixels need a gradual white key for the breath's diffuse purple glow.
+        exterior = ~outlined_foreground(rgb)
+        alpha[exterior] = np.minimum(alpha[exterior], (255-low[exterior].astype(np.float32))/60)
     alpha[alpha < .03] = 0
     # Remove the white backing only at soft boundary pixels. Opaque RGB is exact.
     colour = np.clip((rgb.astype(np.float32)-255*(1-alpha[..., None]))

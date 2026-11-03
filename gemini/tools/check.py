@@ -1,5 +1,6 @@
 """Run isolated Gemini tests and verify all prepared animation frames."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -32,6 +33,25 @@ def main():
         sys.path.insert(0, str(ROOT.parent))
         from share.pet_engine.character_pack import CharacterPack
         result['assets'] = CharacterPack(ROOT/'assets/character').verify()
+        originals = ROOT/'assets/character'
+        inventory = json.loads((originals/'manifest.json').read_text(encoding='utf-8-sig'))
+        result['originals'] = []
+        for item in inventory['files']:
+            path = originals/item['file']
+            with path.open('rb') as stream:
+                checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
+            if path.stat().st_size != item['bytes'] or checksum != item['sha256']:
+                raise ValueError('Original changed: '+item['file'])
+            result['originals'].append(item['file'])
+        descriptor = json.loads((originals/'character.json').read_text(encoding='utf-8'))
+        actions = {item['id']: item for item in descriptor['actions']}
+        if (len(actions) != 14 or descriptor.get('drag') != 'drag'
+                or descriptor.get('sourceFormat') != 'mp4'
+                or {actions[key]['walk']['direction'] for key in ('walk-left', 'walk-right')} != {-1, 1}):
+            raise ValueError('Gemini action selection is incorrect')
+        source_checksums = {item['file']: item['sha256'] for item in inventory['files']}
+        if any(item['sourceSha256'] != source_checksums[item['source']] for item in actions.values()):
+            raise ValueError('Playback source metadata does not match the original inventory')
         print(f'PASS transparent assets: {len(result["assets"])} actions')
     (output/'results.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
     return 0 if result['passed'] else 1

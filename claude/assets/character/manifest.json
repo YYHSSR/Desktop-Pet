@@ -1,119 +1,103 @@
 {
   "character": "claude",
-  "kind": "webp-animations",
+  "kind": "mp4-originals",
   "background": "white",
-  "removed": [
-    "翻页陪伴",
-    "抱书小憩"
-  ],
   "files": [
     {
-      "file": "陪伴/抱书静候.webp",
-      "category": "陪伴",
-      "name": "抱书静候",
-      "note": "站着抱书，眨眼，头发轻轻晃。白底。",
-      "bytes": 11081984,
-      "sha256": "4005bcdb2a31859c5604129260c1cf1acc9b248944b98a618d7dfd9b76f962b0",
-      "source": "claude-idle.mp4"
+      "file": "MP4/\u5f85\u673a.mp4",
+      "name": "\u5f85\u673a",
+      "bytes": 2789002,
+      "sha256": "a78ff9bc6736fcdfbdd6e3b3098f476d4147917c111adf36bdf923614091f2c1",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "互动/拖拽.webp",
-      "category": "互动",
-      "name": "被拖着走",
-      "note": "先站着抱书，再被抬起来前后晃，头发和裙摆跟着甩，然后落回站立。",
-      "bytes": 28644252,
-      "sha256": "120c523512638254844e46d12b112e9717d8c9815dfefe122d6fb41ad2fbaeed",
-      "source": "claude-drag-7.mp4"
+      "file": "MP4/\u62b1\u4e66\u9759\u5019.mp4",
+      "name": "\u62b1\u4e66\u9759\u5019",
+      "bytes": 3379994,
+      "sha256": "81d7e90e70c38920eeb04d32c2c828b03d5d78cd379317621fffd3be0c3c743f",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "招呼/挥手.webp",
-      "category": "招呼",
-      "name": "挥手",
-      "note": "单手抱书，另一只手挥手歪头。",
-      "bytes": 26667210,
-      "sha256": "583fe05a39e91a966d0903f5561696fd6949728bfb3e087702018a29922916b6",
-      "source": "claude-wave.mp4"
+      "file": "MP4/\u5411\u4f60\u6325\u624b.mp4",
+      "name": "\u5411\u4f60\u6325\u624b",
+      "bytes": 4236832,
+      "sha256": "f0c87f8eac419c2e8c1473d2c2761779406f5529f6768cb9e6d591f7ada1fc3c",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "情绪/书挡脸.webp",
-      "category": "情绪",
-      "name": "书挡脸",
-      "note": "把书举起来挡住下半张脸，从书沿偷偷看。",
-      "bytes": 26645618,
-      "sha256": "90531404a1d51bb27795adc43dc6c69ed416c74338684bd318f3d495d3d6a97a",
-      "source": "claude-peek.mp4"
+      "file": "MP4/\u4e66\u540e\u5077\u770b.mp4",
+      "name": "\u4e66\u540e\u5077\u770b",
+      "bytes": 3596996,
+      "sha256": "284214f0aaa9d85e67ed6157e36c4ccbb15d48bd9370894213f3a1b21920d653",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "情绪/被风吹乱.webp",
-      "category": "情绪",
-      "name": "被风吹乱",
-      "note": "风吹起头发和裙子，她按住头发。",
-      "bytes": 30595932,
-      "sha256": "b0a016be42a22427fc373df6ea4b07f249228faca36de258689d9556c34cbfbd",
-      "source": "claude-wind.mp4"
+      "file": "MP4/\u7075\u611f\u6765\u4e86.mp4",
+      "name": "\u7075\u611f\u6765\u4e86",
+      "bytes": 3434342,
+      "sha256": "1337e7cab60209a33bdf8e572ca63ed6edc6cd9493c84955289b183eb1f15dc3",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "动作/转圈行礼.webp",
-      "category": "动作",
-      "name": "转圈行礼",
-      "note": "抱着书转一圈，裙摆张开，最后行个小礼。",
-      "bytes": 25990644,
-      "sha256": "16113abac6b83f453f056dc405e3f403cb54b8f7f80260fcd0316ad5a1f8e0cc",
-      "source": "claude-bow.mp4"
+      "file": "MP4/\u4e66\u9875\u82b1\u5149.mp4",
+      "name": "\u4e66\u9875\u82b1\u5149",
+      "bytes": 3668919,
+      "sha256": "cac13b0e1bfdfba4641edb905bc8a5aa173709f6b4588d9c543fec3fcecad28d",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "特殊/书页光点.webp",
-      "category": "特殊",
-      "name": "书页光点",
-      "note": "打开书，金光和花瓣从书页里飘出来。",
-      "bytes": 38781894,
-      "sha256": "8f734703f1ce580454e241d3cc34017fb1e01038ae8c655bd7fd87c48c76d948",
-      "source": "claude-sparkles.mp4"
+      "file": "MP4/\u98ce\u4e2d\u6574\u7406.mp4",
+      "name": "\u98ce\u4e2d\u6574\u7406",
+      "bytes": 4544891,
+      "sha256": "fe41620b8f2cf7f13dd291db46fb1f5a9289bbd2045b97620be830b86db10c3d",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "特殊/送出花朵.webp",
-      "category": "特殊",
-      "name": "书中赠花",
-      "note": "打开书，拈起书页上的一朵花递到镜头前。白底，不推近。",
-      "bytes": 29953542,
-      "sha256": "93a5b79b34b4c781ce6902e7774b586fc0a7e9fa7884465b2e41463edb691a11",
-      "source": "claude-flower.mp4"
+      "file": "MP4/\u8f6c\u5708\u884c\u793c.mp4",
+      "name": "\u8f6c\u5708\u884c\u793c",
+      "bytes": 5757498,
+      "sha256": "59b6050069d4dd30a0e01653faf008fac1ce0c0f3197c6a29b5d05ed10f2f7a8",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "特殊/灵光一闪.webp",
-      "category": "特殊",
-      "name": "灵光一闪",
-      "note": "托腮想事情，眼睛一亮，打开书写下来。",
-      "bytes": 39336938,
-      "sha256": "f34323367b75fdafa175e7cb1f4bb74cf67e4297c368f33a1955e1233f1fcef4",
-      "source": "claude-idea.mp4"
+      "file": "MP4/\u4e66\u4e2d\u8d60\u82b1.mp4",
+      "name": "\u4e66\u4e2d\u8d60\u82b1",
+      "bytes": 3206322,
+      "sha256": "cc2e02354fcc3aae7f19d7ccbc87e8b4b491b9d351f5b8d85d14850c1801d23f",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "特殊/萤火虫.webp",
-      "category": "特殊",
-      "name": "萤火虫",
-      "note": "夜里抱着书，萤火虫聚到书页上。深色背景，不进入透明播放。",
-      "bytes": 29641036,
-      "sha256": "182c7dca2d13dd519744813e9e8db496a8b28fc34051081ee7654f047ec767e5",
-      "source": "claude-fireflies.mp4"
+      "file": "MP4/\u62d6\u62fd.mp4",
+      "name": "\u62d6\u62fd",
+      "bytes": 5452069,
+      "sha256": "5cdb9ce38c4c552035fd09551126faeb0eda33d33763f563fd28fea83b0a379f",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "移动/向右.webp",
-      "category": "移动",
-      "name": "向右跳步",
-      "note": "抱书连跳到右边，转回正面后举书挡嘴眨眼。",
-      "bytes": 34674016,
-      "sha256": "adc2c584478a5ff5b0045cb0867b434ecf026a7151d3fc4eb4c0484c97cb965a",
-      "source": "claude-move-right.mp4"
+      "file": "MP4/\u5411\u5de6\u8d70\u8d70.mp4",
+      "name": "\u5411\u5de6\u8d70\u8d70",
+      "bytes": 5095779,
+      "sha256": "b62f5a97783866ac640084d38540aa7393b9e81872dad76a3e8929d23c7df59c",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "移动/向左.webp",
-      "category": "移动",
-      "name": "向左走",
-      "note": "朝左边走过去，转回正面后把书贴在脸上笑。",
-      "bytes": 40290344,
-      "sha256": "3e99b48cd5fb6effd2663f4923fa251d522e27b86a2c82351e365051adf5f7bf",
-      "source": "claude-move-left-4.mp4"
+      "file": "MP4/\u5411\u53f3\u8d70\u8d70.mp4",
+      "name": "\u5411\u53f3\u8d70\u8d70",
+      "bytes": 5726029,
+      "sha256": "29d126453cfaef9cab73362cde51f1856d2baeb35292b52bdb9bf6ecc0888180",
+      "frames": 289,
+      "fps": 24
     }
   ]
 }

@@ -1,6 +1,6 @@
 # ChatGpt 桌宠
 
-The active character has been rebuilt from the three original MP4 clips: idle, walk left, and walk right. Select these actions from the character menu; the two walks also support autonomous movement. Previous WebP gestures are retained as source references but are excluded from the active pack. Dragging uses idle until a dedicated drag animation is supplied. See `docs/DEVELOPMENT.md` for the MP4 preparation and verification commands.
+The active character uses 23 original MP4 clips: idle, two directional walks, nineteen interactive gestures, and a dedicated drag action. New gestures include task processing, treasure collection, task receipt, magnifier inspection, quota checking, trust, and dragon pact. All actions are available in the character menu. A sustained left press (220 ms), even without moving, starts the drag action; a quick click does not. Moving while pressed also starts it immediately. Early release completes the full action. A longer hold pauses the replacement clip at the last inverted pose before it turns upright and returns to idle; release resumes that return. See `docs/DEVELOPMENT.md` for preparation and checks.
 
 ChatGpt Windows 桌面助手，使用 Python 和 PySide6 实现。
 
@@ -80,7 +80,7 @@ python tools/build.py
 
 卡片顶部操作为刷新、网页、展开/设置；原第二个“Token 日报”图标及日报窗口已移除。今日 Token 底栏和主卡片的用量图表保留。三个角色的右键菜单结构统一由 `share/desktop/context_menu.py` 提供。
 
-当前新角色已接入 24 段原片（含向左、向右行走），共同姿势衔接、拖动期间播放、桌面走动和各动作权重见 [动画安排](docs/ANIMATIONS.md)。重新处理素材运行 `python tools/prepare_character.py`；该步骤更新本地播放资源，不打包程序。设置页仅保留常规 / 动作，置顶和移动开关仅在右键菜单保留。
+The active pack contains 23 MP4 actions, including both directional walks. See [animation contracts](docs/ANIMATIONS.md) for shared poses, dragging and action selection. Rebuild resources with `python tools/prepare_character.py`. The settings pages remain General / Actions, with desktop pinning and movement controls in the context menu.
 
 主卡片默认仅并排展示 5h 剩余与周剩余，不再展示右侧重置大倒计时。今日 Token 底栏保留，点击切换完整宽度的小时图，使用“额度”返回。
 

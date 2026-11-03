@@ -1,44 +1,34 @@
-# Gemini 动画安排
+# Gemini MP4 character
 
-权重是日常随机动作的相对基础权重，不是百分比。实际选择还会结合时段、近期播放历史和未出现时长；拖拽及已有动作期间不会插入普通随机动作。权重、点击回应和动作节奏都是内置的，设置里不再提供动作间隔、播放速度、单击 / 双击动作等调节项。
+The active character uses only the fourteen original MP4s in `assets/character/MP4`. The idle MP4 first frame is the canonical reference pose. Original files remain unchanged and their sizes/checksums are recorded in `manifest.json`.
 
-| 角色动作（菜单顺序） | 基础权重 | 播放安排 |
-| --- | ---: | --- |
-| 星光待机 | 0 | 常驻中性待机，不进入随机池 |
-| 向你招手 | 1.4 | 日常随机与手动播放 |
-| 好奇探头 | 2.8 | 日常随机与手动播放 |
-| 回眸一笑 | 3 | 日常随机与手动播放 |
-| 喵喵回应 | 2.5 | 日常随机与手动播放 |
-| 伸个懒腰 | 1.6 | 日常随机与手动播放 |
-| 轻轻一跳 | 1.1 | 日常随机与手动播放 |
-| 哄哄猫猫 | 0.35 | 日常随机与手动播放 |
-| 追逐尾巴 | 0.25 | 日常随机与手动播放 |
-| 扑向你 | 0.12 | 日常随机与手动播放 |
-| 接住星光 | 0 | 手动触发 |
-| 被拎起来 | 0 | 手动播放。原来的拖拽片段 |
-| 被拖着走 | 0 | 拖动时立即播放悬挂姿势；长按循环放松段，松手柔和回到待机或轻跳，也可手动播放 |
-| 向左追尾 / 向右扑去 | 3.2（合计） | 仅在“在桌面上走动”开启时自主触发，不进菜单 |
+| Action ID | Source meaning |
+| --- | --- |
+| idle | Idle |
+| greeting | Wave |
+| curious | Curious peek |
+| glance | Smile over shoulder |
+| meow | Meow response |
+| stretch | Stretch |
+| hop | Gentle jump |
+| pout | Comfort the cat |
+| chase | Chase tail |
+| pounce | Pounce toward you |
+| catch | Catch starlight |
+| drag | Dragging |
+| walk-left | Chase left |
+| walk-right | Pounce right |
 
-所有菜单项均为单列、无分类、按实际播放资源去重；0 权重不影响手动播放。单击人物（待机时）按 好奇 3 : 喵喵 2 : 回眸 1 抽一个回应，双击按 喵喵 2 : 轻跳 2 : 追尾巴 1。
+`tools/prepare_assets.py` dispatches to `prepare_mp4_character.py`. Native 720 x 720, 24 fps frames receive contour-aware white-background removal with enclosed pale artwork protection. Opaque native pixels retain original decoded RGB. One fixed whole-frame Lanczos resize produces 480 x 480 artwork, centered in a 512 x 512 transparent canvas with sixteen pixels of padding. There is no frame-dependent fitting, pose warping, texture synthesis or cross-frame colour replacement. Catching starlight uses a soft exterior alpha for diffuse light.
 
-- 白底抠图与 Claude 共用：轮廓之内只有与纯色背景几乎一致的像素才算背景，白色衬裙和耳朵绒毛不会在某些帧被洗掉；被呆毛、发丝圈住的背景小洞另行清除。抠图后逐帧修补闪烁与整片丢失的部位。
-- 原片开头的静止等待与结尾定格先剪掉，再按姿势差决定桥接长度（入场 4–16 帧、收尾 8–22 帧，接住星光至少 18 帧）。
-- 行走：开启“在桌面上走动”后，自主活动有一定比例改为走一段，按两侧剩余空间选方向。向左用 `移动/向左.webp`（原片第 22–128 帧追着尾巴转过去），向右用 `移动/向右.webp`（第 28–136 帧蹲下扑过去）；这段帧里窗口跟着平移，转回正面后的捂嘴笑、抓星星原地完成。
+Every source frame remains in order. A short premultiplied whole-frame dissolve joins the canonical idle pose to each source beginning and joins its ending back to idle. All playback actions start/end at the exact same RGBA pose. The lossless independent-frame WebP writer verifies frame count, each decoded RGBA frame and every frame delay. Runtime resources are in `playback-mp4`; original MP4s and prepared playback resources have separate manifests.
 
-- 衔接规则（像剪辑一样）：每段动作都从共同姿势开始、回到共同姿势结束，所以自然播完的动作直接切到下一段，不叠化；自动随机动作等待待机循环回到共同姿势的那一帧再切入。只有打断（手动选新动作、拎起、松手）才叠化，且新旧两段都在动，不会定格。
+## Drag contract
 
-## 素材选择
+A click or a stationary press does not start dragging. Crossing the movement threshold starts Gemini's own source frames 30 through 204, offset by any entry bridge. Releasing early completes that entire segment before source frame 205 and the remaining original return play. Continuing to hold freezes frame 204 without decoding or repeating the standing pose. Releasing then plays the same original return to the canonical idle reference. Re-grabbing during the entrance keeps progress. A lost mouse grab safely releases instead of leaving a permanent held pose.
 
-- 已采用新版闭眼跳跃及其原始加速时序。拖拽换成悬挂挣扎再软下来的新片段；原来的被拎起来改为单独手动动作。
-- 日常与主待机相似且色调偏淡；星星魔法存在人物裁切。两者保留原片，不放入当前播放包。
-- 清晨、午后提高伸懒腰；夜晚降低追尾巴、扑过来和跳跃。
-- 接住星光和被拎起来由手动触发；拖拽只由拖动或手动选择触发。
-- 启用“放下后蹦一下”时，拖拽收尾后轻跳。
+The optional post-drag hop is disabled by default for the same return-to-idle behavior as the other rebuilt roles. If explicitly enabled, it runs only after the full return, and queued completion actions take priority. The action menu plays the entire original drag clip, including its entrance and return. There is no independent legacy lift action in the active MP4 pack because it has no new MP4 source.
 
-原始 WebP 不改写。`manifest.json` 记录原片，`character.json` 记录当前播放资源、基础权重和校验值。
+## Source boundaries
 
-## 新拖拽的播放段
-
-新原片为 960px、241 帧。透明对齐到 512px 后，播放包使用原片第 60–240 帧，补 3 帧短入场及 11 帧回到共同姿势的收尾，共 195 帧。拎起时经 3 帧短入场进入悬挂动作；长时间按住后循环原片第 180–230 帧，循环接缝 8 帧，共 58 帧。新拖拽与循环逐帧校验 RGBA 和时序；拖拽首尾共同姿势完全一致。拎起时后台解码收尾段，松手播放“放下”回到共同姿势，再轻跳或回到待机。
-
-原“被拎起来”保持独立手动动作、随机权重 0。其他角色动作不重新编码。生成与运行验证见 `build/drag-preparation/`；打包会包含持续拖动辅助片段。
+Transparent padding prevents additional canvas clipping; it cannot reconstruct artwork already outside an original MP4 boundary. Preparation retains the source composition instead of fabricating missing curls or effects.

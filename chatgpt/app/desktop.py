@@ -41,6 +41,7 @@ ACTION_GAP=2.          # breather after every action
 STATUS_REPEAT=12.      # a Codex state animates again at most this often
 WALK_SPEED=.26         # sprite widths per second while she walks
 PLAN_AHEAD=20          # idle frames before its seam at which the next move is picked and decoded
+PRESS_HOLD_MS=220      # distinguish a deliberate hold from an ordinary quick click
 
 def variant_weight(item,hour=None):
     hour=time.localtime().tm_hour if hour is None else hour
@@ -127,7 +128,8 @@ class DesktopPet(EnhancedPet):
         if self._visibility_ready and (self._desktop_hidden or not self.settings.get('character_visible',True)):return False
         if self._interactive_action and mode=='variant':mode='click'
         if not self.gate.request(mode,item,force=self._interactive_action or self._manual_action):return False
-        if mode=='drag' and self._landing_due and item is self.current:
+        if mode=='drag' and item is self.current and (self._landing_due or
+                item.get('dragHoldFrame') is not None and self._drag_loop_phase in ('enter','held')):
             # Caught again before she was set down: the lift simply carries on.
             self._landing_due=False;self.mode=mode;return True
         previous_frame=self.frames[self.index] if getattr(self,'frames',None) else None
@@ -148,14 +150,24 @@ class DesktopPet(EnhancedPet):
             self.player.loop_cache.entry_limit=128*1024*1024
         try:
             options={}
-            if mode in ('drag','throw') and item.get('dragLoopFile'):
+            if mode in ('drag','throw') and item.get('dragHoldFrame') is not None:
+                # Skip the video's idle lead-in so the press visibly responds.
+                options=dict(start_frame=item.get('dragStartFrame',0),end_frame=item['dragHoldFrame'])
+                self._drag_loop_phase='enter'
+                self.prepare_release(item)
+            elif mode=='landing' and item.get('dragHoldFrame') is not None:
+                options=dict(start_frame=item['releaseFrame'])
+            elif mode in ('drag','throw') and item.get('dragLoopFile'):
                 # Lift through the clip's short entrance; decode the way down meanwhile.
                 options=dict(end_frame=item['dragLoopEnd'])
                 self._drag_loop_phase='enter'
                 self.prepare_release(item)
             path=self.asset_path(item)
             # A clip picked ahead of the idle seam is already decoding: cut straight in.
-            ready=(upcoming is not None and not options and upcoming[0]==path and upcoming[1].ready.is_set()
+            ready=(upcoming is not None and upcoming[0]==path
+                   and upcoming[1].start==options.get('start_frame',0)
+                   and upcoming[1].end==options.get('end_frame',item['frames']-1)
+                   and upcoming[1].ready.is_set()
                    and not upcoming[1].error and upcoming[1].size==self.frame_size)
             if upcoming is not None and not ready:upcoming[1].close()
             if ready:frame=self.player.adopt(upcoming[1])
@@ -184,9 +196,9 @@ class DesktopPet(EnhancedPet):
     def drop_release(self):
         if self.release_tail is not None:self.release_tail.close();self.release_tail=None
 
-    def prepare_next(self,item):
+    def prepare_next(self,item,start=0,end=None):
         self.drop_upcoming()
-        try:path=self.asset_path(item);self.upcoming=(path,PreparedSegment(path,self.frame_size,0,item['frames']-1))
+        try:path=self.asset_path(item);self.upcoming=(path,PreparedSegment(path,self.frame_size,start,item['frames']-1 if end is None else end))
         except (OSError,ValueError,KeyError):pass
 
     def drop_upcoming(self):
@@ -194,6 +206,8 @@ class DesktopPet(EnhancedPet):
 
     def land(self):
         """Set her down: the drag clip's own return to the shared pose, then idle."""
+        if self.mode=='landing' and self.current.get('dragHoldFrame') is not None:
+            return True
         if self._drag_loop_phase=='enter' and self.mode in ('drag','throw') and self.player and not self.player.ended:
             # A quick release still plays the whole lift; she comes down from its end.
             self._landing_due=True;self.mode='drag';self.gate.state='landing';return True
@@ -205,6 +219,8 @@ class DesktopPet(EnhancedPet):
             if tail is not None:tail.close()
             self.idle()
             return True
+        if item and item.get('dragHoldFrame') is not None:
+            self.gate.state='landing'
         ready=tail is not None and tail.ready.is_set() and not tail.error and tail.size==self.frame_size
         if ready and item and self.gate.request('landing',item):
             previous=self.frames[self.index] if self.frames else None
@@ -216,6 +232,9 @@ class DesktopPet(EnhancedPet):
             self.update_frame();self.schedule_animation()
             return True
         if tail is not None:tail.close()
+        if item and item.get('dragHoldFrame') is not None:
+            self.gate.state='idle'
+            return self.play(item,'landing')
         return self.play(self.manifest.get('landingAnimation') or self.idles[0],'landing')
 
     def repeat_drag_loop(self):
@@ -246,6 +265,8 @@ class DesktopPet(EnhancedPet):
         self.schedule_movement()
         if not hasattr(self,'tick') or not self.tick.isActive() or not self.player:return
         interval=self.player.next_delay_ms(self.sustained.speed_factor(self.player))
+        if getattr(self,'_drag_loop_phase',None)=='held' and self.current.get('dragHoldFrame') is not None:
+            interval=250
         if getattr(self,'handoff',None) and self.handoff.active():interval=min(16,interval)
         if self.press_feedback and time.monotonic()-self.press_feedback<.5:interval=min(16,interval)
         self.tick.setInterval(interval)
@@ -273,6 +294,10 @@ class DesktopPet(EnhancedPet):
             if self.player.error:
                 self.decode_error=self.player.error
                 if self.enhanced_ready:self.say('这段素材读取失败，已回到待机。',5000)
+            if self.mode in ('drag','throw') and self.current.get('dragHoldFrame') is not None:
+                if self._landing_due or not self.dragging:self.land()
+                else:self._drag_loop_phase='held'
+                return
             if self.mode in ('drag','throw') and self.current.get('dragLoopFile'):
                 if self._landing_due:self.land()
                 else:self.repeat_drag_loop()
@@ -505,7 +530,11 @@ class DesktopPet(EnhancedPet):
             bounds=(a.left(),a.top(),max(a.left(),a.right()-self.width()+1),max(a.top(),a.bottom()-self.height()+1))
             self._fx,self._fy,vx,vy,done=physics_step(self._fx,self._fy,*self.velocity,dt,bounds);self.velocity=(vx,vy)
             self.move(round(self._fx),round(self._fy));self.position_bubble()
-            if done:self.throwing=False;self.gate.state='idle';self.land();self.save_settings()
+            if done:
+                self.throwing=False
+                if self.mode in ('drag','throw'):
+                    self.gate.state='idle';self.land()
+                self.save_settings()
             return
         if self.walking and self.stroll and not self.dragging and self.player:
             first,last=self.stroll['frames'];x,y=self.stroll['origin']
@@ -528,7 +557,26 @@ class DesktopPet(EnhancedPet):
         if self.mode=='throw':self.gate.state='idle';self.idle()
         self.press_feedback=time.monotonic();self.drag_samples.clear();self.drag_samples.append((time.monotonic(),self.x(),self.y()))
         super().mousePressEvent(event)
+        if event.button()==Qt.MouseButton.LeftButton:
+            item=self.manifest.get('dragAnimation')
+            if item and item.get('dragStartFrame') is not None and not (
+                    self.mode in ('drag','throw') and self._drag_loop_phase in ('enter','held')):
+                self.prepare_next(item,item['dragStartFrame'],item['dragHoldFrame'])
+            epoch=self._pointer_epoch
+            QTimer.singleShot(PRESS_HOLD_MS,self,lambda:self.begin_press_hold(epoch))
         self.schedule_animation()
+
+    def begin_press_hold(self,epoch):
+        """A sustained press can lift her without requiring pointer movement."""
+        if (epoch!=self._pointer_epoch or not self._pointer_pressed or self.dragging or self.closing
+                or not self.isVisible() or self._desktop_hidden):return
+        item=self.manifest.get('dragAnimation')
+        if not item or item.get('dragHoldFrame') is None:return
+        self.stop_walk();self.throwing=False;self.gate.state='idle'
+        self.dragging=True;self.click_timer.stop();self.last_click=None;self.generation+=1
+        self.bubble_timer.stop();self.bubble.hide()
+        self.play(item,'drag');self.gate.state='drag'
+
     def mouseMoveEvent(self,event):
         if self.settings.get('no_move'):return
         if not self._pointer_pressed and not self.dragging:return
@@ -554,8 +602,11 @@ class DesktopPet(EnhancedPet):
                 self._fx,self._fy=float(self.x()),float(self.y());self.throwing=True
                 # Carry the already-running drag pose into inertia, without replaying its entrance.
                 self.mode='throw';self.gate.state='throw'
+                if self.current.get('dragHoldFrame') is not None:self.land()
             else:self.land()
             self.bubble.redraw();self.position_bubble();self.save_settings();return
+        item=self.manifest.get('dragAnimation')
+        if item and self.upcoming is not None and self.upcoming[0]==self.asset_path(item):self.drop_upcoming()
         self.reveal_card()
         super().mouseReleaseEvent(event)
 
@@ -563,8 +614,10 @@ class DesktopPet(EnhancedPet):
         """A lost grab has no release event; finish safely without a click or throw."""
         if not (self._pointer_pressed or self.dragging):return
         self._pointer_pressed=False;self._pointer_epoch+=1;self.dragging=False
+        self.drop_upcoming()
         self.drag_samples.clear();self.last_click=None;self.click_timer.stop()
-        if self.mode=='drag':self.gate.state='idle';self.idle()
+        if self.mode=='drag':
+            self.gate.state='idle';self.idle()
         if self.enhanced_ready:self.bubble.redraw();self.position_bubble()
 
     def cancel_lost_grab(self,epoch):

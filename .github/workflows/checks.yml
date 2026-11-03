@@ -23,5 +23,6 @@ jobs:
       - run: python -m pip install -r requirements.txt -r ../share/requirements-assets.txt
       - run: python -m compileall -q app tools tests ../share ../claude ../gemini
       - run: python tools/check.py
+      - run: python tools/check.py test_mp4_matte test_mp4_character test_mp4_drag test_exit_and_single_pack
       - run: python ../claude/tools/check.py
       - run: python ../gemini/tools/check.py

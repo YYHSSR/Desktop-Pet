@@ -3,18 +3,73 @@
   "default": "light",
   "tiers": {
     "light": {
-      "id": "18e9b9a287f3b06d90a298d0",
+      "id": "2c780d9785c7177e0615c6ea",
       "resolution": 512,
       "files": [
         {
           "path": "manifest.json",
-          "bytes": 3661,
-          "sha256": "e1ea6c3cd3c4032599ae8bde104ef62a228cbcf3a8ccc1353dc5ddd064328b09"
+          "bytes": 24303,
+          "sha256": "3046c37d3b5ccf1c6ba9c55069d2b9c6dc43d086f0379963e5ec26df9b6e03af"
+        },
+        {
+          "path": "playback-mp4/affection.webp",
+          "bytes": 52367390,
+          "sha256": "f7b2ac6006dabe5636b46ab0fbd20ecb965128e2c6336366eca55c33a742c38b"
+        },
+        {
+          "path": "playback-mp4/annoyed.webp",
+          "bytes": 52171042,
+          "sha256": "c7bc42f988b616ce1fbb45a856732a19a503efd32ce27900a77696c71dee1396"
+        },
+        {
+          "path": "playback-mp4/bond-mark.webp",
+          "bytes": 52594856,
+          "sha256": "3f9e3e66545e3008da170c8621d0aa935036b76e71e5c5b86c819ee284bbc09f"
+        },
+        {
+          "path": "playback-mp4/celebrate.webp",
+          "bytes": 50514660,
+          "sha256": "94c905655cfa275b1c8c364c32df9d64a2f71428f98f766ecc110f54ee21dd87"
+        },
+        {
+          "path": "playback-mp4/drag.webp",
+          "bytes": 50799798,
+          "sha256": "4dd77448b1658f0c555202290439efa408cb63c3f4044f079946c5ec888246ce"
+        },
+        {
+          "path": "playback-mp4/dragon-breath.webp",
+          "bytes": 53433830,
+          "sha256": "126b770a09c35d07216cb9c2b3b621b9f058a690f67a134ba1e6da2ea20ed354"
+        },
+        {
+          "path": "playback-mp4/dragon-pact.webp",
+          "bytes": 53843522,
+          "sha256": "1cf72cf5f215a40a76307fbae5a37c9feaea7ec917ba02e411d86b0c18e894bc"
+        },
+        {
+          "path": "playback-mp4/greeting.webp",
+          "bytes": 52397318,
+          "sha256": "f0d11369b41c7d50af8edd44bb4e6a4ffd729af1fba767b99eca3a376aa62e4a"
+        },
+        {
+          "path": "playback-mp4/heart.webp",
+          "bytes": 52063006,
+          "sha256": "39a6e74b984ab873079a43659b06ac1a8cda8a00add98db0ca2d7a850e377827"
         },
         {
           "path": "playback-mp4/idle.webp",
           "bytes": 51143042,
           "sha256": "a2079e710efc2eb404474694e1380a275aca3478633f4de7ae720dbdbb1be888"
+        },
+        {
+          "path": "playback-mp4/inspect.webp",
+          "bytes": 51995872,
+          "sha256": "bb2ecca5d07e0ba0151dc4c0de55db2d09415542ed2f56cbc72a1f20f404fabd"
+        },
+        {
+          "path": "playback-mp4/inspiration.webp",
+          "bytes": 53186042,
+          "sha256": "403c5c1a929b6a40ba00084e52a0752c37611b9697eab14f0eb45d9aca676550"
         },
         {
           "path": "playback-mp4/move-left.webp",
@@ -25,9 +80,54 @@
           "path": "playback-mp4/move-right.webp",
           "bytes": 49863270,
           "sha256": "3270bb4e64d89bb634fe03b7738f9100a2d084b16aeff7eae977356f7e4cf795"
+        },
+        {
+          "path": "playback-mp4/proud.webp",
+          "bytes": 51924900,
+          "sha256": "98dd254638aac6b432d373846167a953a03ad5b26fae5ecdcf07383742c5f105"
+        },
+        {
+          "path": "playback-mp4/quota-check.webp",
+          "bytes": 52088310,
+          "sha256": "629413dc0be4c3f2666ce636e6d9b4c99f2c7cd705f8bd428945645a4024bba1"
+        },
+        {
+          "path": "playback-mp4/sleepy.webp",
+          "bytes": 52351990,
+          "sha256": "549a41db0c0f4b3ded9b34cbd9ab09406bef402777cb1bab7e7cf5bdc6a4af7a"
+        },
+        {
+          "path": "playback-mp4/snack.webp",
+          "bytes": 51378748,
+          "sha256": "293f3f83ec7cd1877cb3e6024f36d9da291cee13824d0dada44acf257c3c096f"
+        },
+        {
+          "path": "playback-mp4/task-process.webp",
+          "bytes": 52366310,
+          "sha256": "bb28d714530250166d3112e2cc4c25250f04b981a25825f54475a62e0d8b3d2e"
+        },
+        {
+          "path": "playback-mp4/task-receive.webp",
+          "bytes": 51362552,
+          "sha256": "e98623b3bbfb90754aa3bb9b090c5e42c8a16991471100cbb61e02f6892c14ff"
+        },
+        {
+          "path": "playback-mp4/treasure.webp",
+          "bytes": 65111716,
+          "sha256": "26ffbbfe95b35500b9319956d1335754f583a83a2cdfdd0eb4761a550a31313a"
+        },
+        {
+          "path": "playback-mp4/trust.webp",
+          "bytes": 57863566,
+          "sha256": "125cbcd967794c14e1977c9225cde641ba414d6344da407756e4812a0fbbaad0"
+        },
+        {
+          "path": "playback-mp4/tsundere.webp",
+          "bytes": 50124168,
+          "sha256": "751c28eaa8ddab4d7af14d24f143283fe62f57ba0fc10f4bff26dcde2dd1bb0d"
         }
       ],
-      "bytes": 150401015
+      "bytes": 1210361253
     }
   }
 }

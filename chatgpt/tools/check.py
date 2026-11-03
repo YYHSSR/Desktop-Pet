@@ -25,6 +25,7 @@ CORE = (
 
 
 def run_module(name):
+    timeout = 180 if name.split('.')[0] == 'test_mp4_character' else 60
     with tempfile.TemporaryDirectory(prefix='desktop-pet-test-') as folder:
         env = os.environ.copy()
         env.update(LOCALAPPDATA=folder, APPDATA=str(Path(folder) / 'roaming'),
@@ -32,11 +33,11 @@ def run_module(name):
                    PYTHONIOENCODING='utf-8', PYTHONPATH=os.pathsep.join(
                        str(ROOT / item) for item in ('tests', 'app', 'tools')))
         command = [sys.executable, '-c',
-                   'import faulthandler,unittest;faulthandler.dump_traceback_later(55);'
+                   f'import faulthandler,unittest;faulthandler.dump_traceback_later({timeout-5});'
                    f'unittest.main(module=None,argv=["unittest",{name!r}],verbosity=2)']
         process = subprocess.Popen(command, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         try:
-            output, _ = process.communicate(timeout=60)
+            output, _ = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
             import psutil
             try:

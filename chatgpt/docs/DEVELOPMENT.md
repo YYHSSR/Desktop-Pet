@@ -14,7 +14,7 @@
 
 ## 素材与启动
 
-`assets/character/` 保存角色素材。The active character uses three original MP4 clips: idle, move-left, and move-right. The old WebP pack is retained for reference and excluded from the active manifest.实际播放使用 `playbackFile`，缺失时才使用 `file`。干净源码若只有清单，需要先导入实际播放文件。
+`assets/character/` 保存角色素材。The active character uses 23 original MP4 clips: idle, two directional walks, nineteen gestures, and drag. Only their processed playback files are bundled.实际播放使用 `playbackFile`，缺失时才使用 `file`。干净源码若只有清单，需要先导入实际播放文件。
 
 ```powershell
 python tools/import_assets.py --source "D:\materials"
@@ -53,7 +53,7 @@ python tools/build.py
 
 构建直接验证 `assets/character/` 的 512px 播放包与 `app/material_catalog.json`，只内嵌这一份资源。默认输出 `dist/ChatGpt/ChatGpt.exe`，分发时保留完整程序文件夹。可用 `--output <目录>` 改变输出目录，或用 `--onefile` 生成单文件版。无需高清源或画质切换，旧高清偏好会回到当前原尺寸素材。
 
-首次启动时按完整性清单校验并缓存内置素材，之后凭大小与修改时间回执复用。`tools/prepare_character.py` 更新当前播放文件及校验清单，不再生成 720px 放大副本。所有原始 WebP 均保留。
+The first launch verifies and caches the bundled playback resources; later launches reuse valid size/mtime receipts. `tools/prepare_character.py` rebuilds the current MP4 playback and integrity descriptors without generating an upscaled tier. Original MP4s are preserved.
 
 退出时先隐藏角色、独立卡片和托盘，发出后台任务取消信号；线程结束后关闭事件循环。关闭设置后也必须能从两个菜单退出，回归覆盖在 `tests/test_exit_and_single_pack.py`。`--material-probe <结果.json>` 可验证打包后的简化设置、单份素材及托盘退出。
 
@@ -74,18 +74,30 @@ python tools/build.py
 
 ## 当前角色素材处理
 
-For the current character, update the three MP4 files and run `python tools/prepare_mp4_character.py`, followed by `python tools/check.py test_mp4_matte test_mp4_character`. Originals remain unchanged. Legacy WebP reconstruction is not used while these MP4 sources are present.
+For the current character, update the 23 mapped MP4 files and run `python tools/prepare_mp4_character.py`, followed by `python tools/check.py test_mp4_matte test_mp4_character`. Originals remain unchanged. The canonical preparation entry invokes only the MP4 pipeline. Additional unmapped MP4 files do not become active automatically.
 
 ## MP4 character preparation
 
-The current built-in character has only three active actions: `idle`, `move-left`, and `move-right`. Source MP4 files stay under `assets/character/MP4/` with their supplied names. Processed files are isolated in `assets/character/playback-mp4/`; older classified WebP files remain untouched and are not bundled.
+The current built-in character has 23 active actions: `idle`, `move-left`, `move-right`, `proud`, `greeting`, `inspiration`, `affection`, `snack`, `tsundere`, `sleepy`, `annoyed`, `dragon-breath`, `celebrate`, `heart`, `bond-mark`, `task-process`, `treasure`, `task-receive`, `inspect`, `quota-check`, `trust`, `dragon-pact`, and `drag`. Source MP4 files stay under `assets/character/MP4/` with their supplied names. Processed files are isolated in `assets/character/playback-mp4/`; only the 23 manifest entries are bundled.
 
-Run `python tools/prepare_mp4_character.py` to regenerate this pack. The canonical `prepare_character.py` entry also dispatches to the MP4 pipeline when MP4 sources are present. The supplied videos are 480 x 480 at 24 fps. Their native pixels are centered on a 512px transparent canvas without enlargement or per-frame registration.
+Run `python tools/prepare_mp4_character.py` to regenerate this pack. The canonical `prepare_character.py` entry invokes the MP4 pipeline directly. The supplied videos are 480 x 480 at 24 fps; treasure retains 361 source frames and the latest drag retains 289. Their native pixels are centered on a 512px transparent canvas without enlargement or per-frame registration.
 
 `tools/mp4_matte.py` removes only border-connected neutral white backdrop and selected enclosed outer negative spaces, preserving pale fabric and central highlights inside drawn outlines. Opaque source RGB remains exact. No inpainting, hidden-colour reconstruction, or optical-flow texture borrowing is used. Every source frame is retained. Short additional whole-frame dissolves connect the supplied poses to the common idle anchor; all clips have identical first and last RGBA frames.
 
-The right-click action menu exposes the three actions. A selected directional walk moves the window when there is room, or previews in place while locked. Dragging uses idle until a dedicated drag clip is supplied. Missing work, quota, and celebration gestures do not enable old assets; Codex data and completion reminders remain available.
+The dragon-breath and dragon-pact clips additionally uses a gradual white key only outside the darker drawn outlines, preserving the diffuse purple effect without an opaque white cloud. Pale enclosed fabric stays opaque. Each per-item preparation recipe records this treatment; the tinted-pixel retention metric covers the outlined character, since exterior glow is intentionally translucent.
+
+Preparation always rebuilds the idle anchor. Other unchanged clips can reuse an existing output only when source SHA-256, reference pose, preparation recipe, playback SHA-256, frame count, duration, and the prior exact-frame verification agree. Changed or corrupted inputs are rebuilt.
+
+The right-click action menu exposes all 23 actions. The nineteen gestures are one-shot variants used by random actions and click responses; they do not move the window and return to idle when finished. A selected directional walk moves the window when there is room, or previews in place while locked. Dragging uses the supplied drag clip with a complete entrance, static lifted hold, and original landing. Dedicated Codex work and completion reaction mappings remain unchanged; no legacy assets are enabled by these new interactive gestures.
 
 Run `python tools/check.py test_mp4_matte test_mp4_character test_exit_and_single_pack` plus the default core suite. `build/mp4-rebuild/verification.json` records source hashes, frame counts, exact opaque-pixel preservation, endpoint preparation, and lossless output verification. Legacy full-pack artwork checks in `test_new_character` are skipped for this explicitly limited pack.
 
 The 12-second idle loop uses a bounded 160 MB cache with a 128 MB entry limit. Runtime decoding is capped at the native 512px canvas; Qt scales the displayed result for larger windows.
+
+## Mouse drag playback
+
+The drag item keeps all original frames. `dragHoldFrame` points to supplied frame 170 (plus the entrance bridge), the last inverted pose before the latest clip turns upright and returns to idle; `releaseFrame` is the next source frame. Holding the left mouse button for 220 ms starts the action even without pointer movement. A quick click invalidates the pending hold callback. Moving while pressed starts dragging immediately. The action decodes through this pose once. Early release queues the landing without cutting the lift. A continued hold keeps that frame without restarting or repeatedly decoding a loop. Release resumes the untouched landing tail. The tail is prepared asynchronously during the lift; a fallback starts at the same release frame. Re-grabbing during a pending early release preserves progress. Inertia cannot restart an already playing landing. A menu preview plays the complete drag clip once. Lost pointer capture and hidden windows still cancel safely.
+
+Run `python tools/check.py test_mp4_drag test_native_interactions` for drag and pointer regressions.
+
+Interactive drag uses `dragStartFrame` at source frame 27 plus the entrance offset, skipping the near-static idle lead-in. Press asynchronously prepares the visible entry range through the hold frame; a ready range is adopted without a GUI-thread seek. Quick clicks cancel that preparation. Menu previews retain every source frame from the beginning.

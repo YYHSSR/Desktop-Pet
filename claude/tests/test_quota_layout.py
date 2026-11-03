@@ -69,22 +69,21 @@ class CurrentClaudeTests(unittest.TestCase):
     def test_a_long_drag_holds_the_settled_swing_and_sets_her_down_on_release(self):
         p=self.pet; press=self.drag(); sprite=p.sprite; item=p.pack.actions['drag']
         self.assertTrue(sprite.dragging);self.assertEqual(sprite.action,'drag')
-        self.assertEqual(sprite.player.frame_index,0)
-        # The hold sways through the frames just before release, ending on it.
+        self.assertEqual(sprite.player.frame_index,item['dragStartFrame'])
+        # The supplied lifted pose is held once, without restarting a sway loop.
         self.assertTrue(item['liftCompletes'])
-        self.assertEqual(item['dragLoopEnd'],item['releaseFrame'])
-        self.assertLessEqual(item['dragLoopFrames'],20)
+        self.assertEqual(item['dragHoldFrame']+1,item['releaseFrame'])
         pump(300)
         self.assertTrue(sprite.dragging);self.assertGreater(sprite.player.frame_index,0)
         deadline=time.monotonic()+9
-        while sprite.player.path.name!='drag-held.webp' and time.monotonic()<deadline:pump(30)
-        self.assertEqual(sprite.player.path.name,'drag-held.webp');self.assertEqual(sprite.lift,'held')
+        while sprite.lift!='held' and time.monotonic()<deadline:pump(30)
+        self.assertEqual(sprite.player.frame_index,item['dragHoldFrame']);self.assertEqual(sprite.lift,'held')
         self.assertTrue(sprite.release_tail.ready.is_set())
         sprite.mouseReleaseEvent(press)
         self.assertFalse(sprite.dragging);self.assertEqual(sprite.action,'drag')
         self.assertEqual(sprite.player.frame_index,item['releaseFrame'])
         self.assertIsNotNone(sprite.outgoing)
-        deadline=time.monotonic()+5
+        deadline=time.monotonic()+7
         while sprite.action=='drag' and time.monotonic()<deadline:pump(20)
         self.assertEqual(sprite.action,'idle');self.assertEqual(p.director.current,'idle')
 
@@ -103,7 +102,7 @@ class CurrentClaudeTests(unittest.TestCase):
         self.assertFalse(sprite.landing_due);self.assertEqual(sprite.action,'drag')
         self.assertGreaterEqual(sprite.player.frame_index,item['releaseFrame'])
         self.assertIsNone(sprite.outgoing)
-        deadline=time.monotonic()+5
+        deadline=time.monotonic()+7
         while sprite.action=='drag' and time.monotonic()<deadline:pump(20)
         self.assertEqual(sprite.action,'idle');self.assertEqual(p.director.current,'idle')
 
@@ -119,13 +118,15 @@ class CurrentClaudeTests(unittest.TestCase):
 
     def test_current_pack_matches_all_selected_originals_and_has_common_endpoints(self):
         p=self.pet
-        self.assertEqual(len(p.pack.actions),11)
+        self.assertEqual(len(p.pack.actions),12)
         self.assertEqual(len({a['referencePose'] for a in p.pack.actions.values()}),1)
         for action in p.pack.actions.values():
             with (p.pack.root/action['source']).open('rb') as stream:
                 self.assertEqual(hashlib.file_digest(stream,'sha256').hexdigest(),action['sourceSha256'])
-            self.assertEqual(action['endpointDifference'],0)
-        self.assertEqual(p.pack.actions['drag']['sourceWindow'],[24,191])
+            self.assertEqual(action['sourceFrames'],289)
+            self.assertTrue(action['source'].startswith('MP4/'))
+        self.assertEqual(p.pack.data['sourceFormat'],'mp4')
+        self.assertEqual(p.pack.actions['drag']['dragStartFrame'],p.pack.actions['drag']['sourceFrameOffset']+36)
         for key,direction in (('walk-left',-1),('walk-right',1)):
             walk=p.pack.actions[key]['walk']
             self.assertEqual(walk['direction'],direction);self.assertLess(walk['start'],walk['end'])

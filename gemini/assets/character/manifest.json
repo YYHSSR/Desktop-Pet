@@ -1,160 +1,119 @@
 {
   "character": "gemini",
-  "kind": "webp-animations",
+  "kind": "mp4-originals",
   "background": "white",
   "files": [
     {
-      "file": "待机/平常.webp",
-      "category": "待机",
-      "name": "平常",
-      "note": "站着轻晃，耳朵、尾巴和星星挂饰轻轻动。",
-      "bytes": 5039318,
-      "sha256": "ae7903dcd89f59829ec08556ef31b9fe99cc1967a59787b24525d32d0f8f1df8",
-      "source": "平常.mp4"
+      "file": "MP4/\u5f85\u673a.mp4",
+      "name": "\u5f85\u673a",
+      "bytes": 3798628,
+      "sha256": "b4b1aeed91760691c588d3cd442b7ac133bacca2e73df12cd1c58c78770204f8",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "待机/日常.webp",
-      "category": "待机",
-      "name": "日常",
-      "note": "安静站着，周围有细小闪光。",
-      "bytes": 5269972,
-      "sha256": "ec7bb871280dfb699520c0915730776914be4dfb84829d5143166529f865f216",
-      "source": "日常.mp4"
+      "file": "MP4/\u5411\u4f60\u62db\u624b.mp4",
+      "name": "\u5411\u4f60\u62db\u624b",
+      "bytes": 4854817,
+      "sha256": "19ac0a44efbe1252ed53077b84c1a43095bec69c6b2573e600592994835d0062",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "待机/伸懒腰.webp",
-      "category": "待机",
-      "name": "伸懒腰",
-      "note": "举手伸懒腰，打哈欠，再揉眼睛。",
-      "bytes": 7873884,
-      "sha256": "389daba19191fc4cf4b35419b2d4752ad1293987e3cf72c653fb79fcfda1e404",
-      "source": "chibi-cat-girl-stretch.mp4"
+      "file": "MP4/\u597d\u5947\u63a2\u5934.mp4",
+      "name": "\u597d\u5947\u63a2\u5934",
+      "bytes": 3824227,
+      "sha256": "5db0c62898bb293cedf8eef97f654fc9d3b409b79c92836e6feb2f817b39cafe",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "招呼/打招呼.webp",
-      "category": "招呼",
-      "name": "打招呼",
-      "note": "面向镜头打招呼。",
-      "bytes": 7710516,
-      "sha256": "856c1fd18033772124f9c28c30acf4eb4eaff85ec777cd3e53bae491c82aab2d",
-      "source": "打招呼.mp4"
+      "file": "MP4/\u56de\u7738\u4e00\u7b11.mp4",
+      "name": "\u56de\u7738\u4e00\u7b11",
+      "bytes": 4242009,
+      "sha256": "ceedfb0fb12bcfe4cc931b15e97e987ed1cfffb45aaaef0d08b78258a3eafb96",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "情绪/好奇.webp",
-      "category": "情绪",
-      "name": "好奇",
-      "note": "歪头，耳朵竖起，尾巴向上卷。",
-      "bytes": 7093498,
-      "sha256": "560b8526403219cb281075c3a8bc0ec65e86ec9649812ab49f5363499d65cb38",
-      "source": "好奇.mp4"
+      "file": "MP4/\u55b5\u55b5\u56de\u5e94.mp4",
+      "name": "\u55b5\u55b5\u56de\u5e94",
+      "bytes": 3846065,
+      "sha256": "8669d0e0ed1974dd1db1b1e8584b3cc3441675c3280dd02c838914d3e79426b5",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "情绪/惊鸿一瞥.webp",
-      "category": "情绪",
-      "name": "惊鸿一瞥",
-      "note": "看向镜头，像忽然注意到什么。",
-      "bytes": 8113322,
-      "sha256": "fe95af5ad00c361b7722c682e4872be09cfb24d7961e3b5ac4c04dc531b8dd10",
-      "source": "惊鸿一瞥.mp4"
+      "file": "MP4/\u4f38\u4e2a\u61d2\u8170.mp4",
+      "name": "\u4f38\u4e2a\u61d2\u8170",
+      "bytes": 4640560,
+      "sha256": "5da996fcf46d28bc6648ab5f89d00f1299ac4f76958c4bd1ff051d65c803f27c",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "情绪/生气又软下来.webp",
-      "category": "情绪",
-      "name": "生气又软下来",
-      "note": "鼓腮跺脚，然后偷偷看一眼，耳朵慢慢竖起来。",
-      "bytes": 6995246,
-      "sha256": "dfa32fca1e79d3a0338076c35996ccf6926c5cafb7083ad5aa5fc8b6906a6fe0",
-      "source": "chibi-cat-girl-pout.mp4"
+      "file": "MP4/\u8f7b\u8f7b\u4e00\u8df3.mp4",
+      "name": "\u8f7b\u8f7b\u4e00\u8df3",
+      "bytes": 5476425,
+      "sha256": "f106b346d9cc5b56eb64992fd821ab1817491dac1af50bf85c2c161d2994f3bc",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "动作/喵喵喵.webp",
-      "category": "动作",
-      "name": "喵喵喵",
-      "note": "举起爪子，做出喵喵的样子。",
-      "bytes": 6224190,
-      "sha256": "1e97c785bddb40a731a4e4fbdb0e8e3b5e11babc3e71f761d0746ba1e16995c9",
-      "source": "喵喵喵.mp4"
+      "file": "MP4/\u54c4\u54c4\u732b\u732b.mp4",
+      "name": "\u54c4\u54c4\u732b\u732b",
+      "bytes": 4605336,
+      "sha256": "df01c89341af3e19062d63d099abc614d89bc74d5df3d506a2accf8b7c9e00a4",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "动作/跳一跳.webp",
-      "category": "动作",
-      "name": "轻轻一跳",
-      "note": "连跳两下，两次都是一样的闭眼笑。白底。",
-      "bytes": 4839862,
-      "sha256": "a394c5e53b6c25f874e331816ff3bd1fb15cffd2425d595e61ed18c9ae9c11da",
-      "source": "gemini-hop-v2.mp4"
+      "file": "MP4/\u8ffd\u9010\u5c3e\u5df4.mp4",
+      "name": "\u8ffd\u9010\u5c3e\u5df4",
+      "bytes": 4968401,
+      "sha256": "c6bd946c28c006b664966bd8258614957236e5b3d8321e9d85644c00124cc8b5",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "动作/追尾巴.webp",
-      "category": "动作",
-      "name": "追尾巴",
-      "note": "转着小圈追自己的尾巴，最后有点晕。",
-      "bytes": 8518898,
-      "sha256": "b09cae7cb5f602e61b050b55d0e5ab4b32f138de9a4dda97659235d5a7f3f91f",
-      "source": "chibi-cat-girl-chase-tail.mp4"
+      "file": "MP4/\u6251\u5411\u4f60.mp4",
+      "name": "\u6251\u5411\u4f60",
+      "bytes": 4783238,
+      "sha256": "ea6d3565681d214a8fbf515bd7b00ec3a89226d6ed36cfa60fda4bf2439a05c2",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "动作/扑过来.webp",
-      "category": "动作",
-      "name": "扑过来",
-      "note": "蹲低后朝镜头扑过来，落地摆个姿势。",
-      "bytes": 9197148,
-      "sha256": "1dd91d1eea94776273c86c631eae60c5926ed28324db1976003bc9b5266f0ff7",
-      "source": "chibi-cat-girl-pounce.mp4"
+      "file": "MP4/\u63a5\u4f4f\u661f\u5149.mp4",
+      "name": "\u63a5\u4f4f\u661f\u5149",
+      "bytes": 4395145,
+      "sha256": "a1d62a2a3c497d8468614530586fb949c29b6134eda51fb03c01b2a4738b15fb",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "互动/被拎起来.webp",
-      "category": "互动",
-      "name": "被拎起来",
-      "note": "被拎起来时耳朵先贴下去再竖起，举爪扭一下，然后放松。",
-      "bytes": 3231472,
-      "sha256": "10c83cd510c4af85cfe30686cec271ad5d98c9f18e564beff9e497fd9a882c8c",
-      "source": "gemini-drag-cat.mp4"
+      "file": "MP4/\u62d6\u62fd.mp4",
+      "name": "\u62d6\u62fd",
+      "bytes": 5495036,
+      "sha256": "e8135a1793a8f203ac1ceb913cd50183c17a6b30bce0f6abc1a779312fc7e0b5",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "互动/拖拽.webp",
-      "category": "互动",
-      "name": "拖拽",
-      "note": "先站着，再被拎在画面中间晃，蹬腿甩尾巴，然后软下来。",
-      "bytes": 17995894,
-      "sha256": "f1389c019ad8a0e5561d29f142df59a395b638f16bc6118b4f10d7d28e57e5bc",
-      "source": "gemini-drag-2.mp4"
+      "file": "MP4/\u5411\u5de6\u8ffd\u5c3e.mp4",
+      "name": "\u5411\u5de6\u8ffd\u5c3e",
+      "bytes": 5489258,
+      "sha256": "5332441df602562523d18284519548d8c7328b72165f8892e0e0a61ac8f13915",
+      "frames": 289,
+      "fps": 24
     },
     {
-      "file": "特殊/星星魔法.webp",
-      "category": "特殊",
-      "name": "星星魔法",
-      "note": "抬手，星星闪光绕在身边。",
-      "bytes": 11937216,
-      "sha256": "4ee3a99400cd0d74db5f3948ef273ec44192767389147aef510f43bf6e5dd431",
-      "source": "星星魔法.mp4"
-    },
-    {
-      "file": "特殊/接住星星.webp",
-      "category": "特殊",
-      "name": "接住星星",
-      "note": "星星水晶落下，她接住一颗再吹出去。",
-      "bytes": 11086566,
-      "sha256": "635e8e4f71da482d1d981f7d314204c14a644939174617f1b75c85891af6a5ed",
-      "source": "chibi-cat-girl-star-snow.mp4"
-    },
-    {
-      "file": "移动/向右.webp",
-      "category": "移动",
-      "name": "向右扑去",
-      "note": "蹲下往右扑，转回正面后挥爪抓星星。",
-      "bytes": 21877234,
-      "sha256": "56fbf9bdaae35c44c48cd6588c4ffd31f6420246f4e38a067ef79dd8e13bd7c9",
-      "source": "gemini-move-right.mp4"
-    },
-    {
-      "file": "移动/向左.webp",
-      "category": "移动",
-      "name": "向左追尾",
-      "note": "追着尾巴转到左边，转回正面后捂嘴笑。",
-      "bytes": 20467446,
-      "sha256": "58351227e0d34758775aba104240ad2a18bbff9a71f2dd3767ac2daab21c8663",
-      "source": "gemini-move-left.mp4"
+      "file": "MP4/\u5411\u53f3\u6251\u53bb.mp4",
+      "name": "\u5411\u53f3\u6251\u53bb",
+      "bytes": 5517433,
+      "sha256": "0ac122ca7ed772d0fe1114d2c65041c67e35d7de2fa9456530d7c1dfb39c03e9",
+      "frames": 289,
+      "fps": 24
     }
   ]
 }

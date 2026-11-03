@@ -2,7 +2,7 @@
 from share.desktop.companion_state import (
     normalized, atomic_json, load_settings, extended, FocusClock, FocusLedger, ActionDirector)
 
-ACTIONS = ('wave', 'peek', 'idea', 'sparkles', 'wind', 'bow', 'flower', 'drag')
+ACTIONS = ('rest', 'wave', 'peek', 'idea', 'sparkles', 'wind', 'bow', 'flower', 'drag')
 WALKS = ('walk-left', 'walk-right')
 MENU_ORDER = ('idle', *ACTIONS, *WALKS)
 SCHEMA = extended()
@@ -10,7 +10,7 @@ SCHEMA = extended()
 # How often each action turns up on its own. Gentle, reading-flavoured
 # moments are common; the big twirl and the wind are treats; the flower is
 # rare and stays a manual gift too. Walks only happen when she may wander.
-ACTION_WEIGHTS = dict(wave=3.2, peek=2.8, idea=2., sparkles=.65, wind=.25, bow=.35,
+ACTION_WEIGHTS = dict(rest=.9, wave=3.2, peek=2.8, idea=2., sparkles=.65, wind=.25, bow=.35,
                       flower=.12, drag=0., **dict.fromkeys(WALKS, 0.))
 WALK_WEIGHT = 2.4                      # a stroll, against the actions above
 CLICK_WEIGHTS = dict(peek=3., wave=2., idea=1.)

@@ -37,7 +37,8 @@ def build(onefile=False, output=None):
     for module in COMPANION_EXCLUDES:
         command.extend(['--exclude-module', module])
     for item in pack.actions.values():
-        command.extend(['--add-data', str(pack.path(item))+';assets/character/playback'])
+        destination='assets/character/'+Path(item['file']).parent.as_posix()
+        command.extend(['--add-data', str(pack.path(item))+';'+destination])
         if item.get('dragLoopFile'):
             command.extend(['--add-data', str(pack.path({'file':item['dragLoopFile']}))+';assets/character/playback'])
     env = native_build_environment(command)

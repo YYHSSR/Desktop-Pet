@@ -1,76 +1,44 @@
-# Claude 娘桌宠
+# Claude desktop pet
 
-书页陪伴角色，使用 Gpt 同款布局的暖纸色紧凑卡片、Python / PySide6 和共享流式动画引擎。
+A warm paper card with book-themed character actions. The current character uses its own 12 original MP4s and the first idle frame as the shared pose reference. The fixed transparent playback canvas preserves character proportions; all actions return to the same pose.
 
-## 启动
+## Run
 
-Windows x64 / Python 3.13，从本目录执行：
+From this directory on Windows x64 with Python 3.13:
 
 ```powershell
 python -m pip install -r requirements.txt
 python app/main.py
 ```
 
-也可运行 `run.ps1`，或双击打包后的 `dist/ClaudePet/ClaudePet.exe`（整个 `dist/ClaudePet/` 文件夹需放在一起，可为 exe 建快捷方式）。源码依赖同级 `share/`。
+`run.ps1` starts the same entry point. The sibling `share/` directory is required. A packaged copy runs from `dist/ClaudePet/ClaudePet.exe`; distribute the whole `ClaudePet` folder.
 
-## 基本交互
+## Interactions
 
-- 单击人物打开或收起陪伴卡片，并按内置权重做个小回应（多半是书后偷看）；双击挥手、行礼或撒花光。
-- 开启“在桌面上走动”时，她偶尔会抱着书朝有空位的一侧走一段：向左慢慢走，向右连跳，窗口随步子一起移动，走完转回正面再回到待机。右键“暂停自主走动”可随时关闭；锁定位置时不会走动。
-- 自己活动时按权重挑选：招手、灵光、偷看最常见，书页光点、风吹、转圈是偶尔的惊喜，赠花低频出现，也可手动触发；清晨更爱招手，夜间减少大幅度动作。
-- 右键人物和卡片使用与 Gpt 相同的菜单结构：查看状态、自主走动、桌面操作、角色动作、桌宠设置、退出。桌面操作包括人物显示、置顶、锁定、气泡显示、找回和复位；托盘提供找回、状态、设置、人物显示和退出。
-- 默认卡片为 268 × 188 逻辑像素的圆角双栏；主区并排展示 5h 剩余和周剩余。工具栏为刷新、网页、设置，底栏显示今日 Token。
-- 卡片底栏显示“今日 Token”和当天实际总量；点击底栏查看完整宽度的今日小时曲线，可返回额度。统计来自Claude Code（含桌面端 Code 页）的本机对话记录，每分钟后台增量读取，失败时保留上次有效记录。累计日报、模型日报及顶部日报入口已移除。
-- 点选新动作会**立即**换上：两段动画同时播放、柔和交叠 0.25 秒，不再等当前动作播完；手动动作仍通过右键“角色动作”选择。
-- 设置与详情在同一卡片中展开；打开、展开、返回与收起使用固定原生画布和缓存快照过渡，不逐帧调整窗口尺寸。Esc 从详情返回状态，再按一次收起。
-- 设置采用与 Gpt 一致的标签页、表单及草稿流程：常规 / 动作，底部提供“本页恢复默认 / 放弃修改 / 应用 / 返回”，Ctrl+S 应用。切页或返回状态保留草稿，点击“应用”才生效。
-  - 常规：登录 Windows 时启动、角色大小倍率、显示人物、视频全屏让位、状态卡片、本机额度、卡片停留秒数、自定义网页地址。置顶和锁定只在右键菜单中设置。
-  - 动作：自动随机动作、在桌面上走动、点选立即切换。动作权重、间隔、播放速度和点击回应都是内置的。
+- Click for a response and the companion card. Double-click selects a larger response.
+- Right-click for actions, walking, desktop controls, settings or exit. Tray recovery restores the character and card.
+- Dragging requires a pressed mouse button and pointer movement; a stationary press remains a click. A short drag finishes the complete action and original return. A long drag holds the last lifted pose until release, then resumes the return.
+- The always-on-top option is respected. Normal maximized workspaces do not trigger fullscreen hiding. Screenshot overlays keep the character mapped; actual native z-order is checked again when they close. Genuine borderless fullscreen content can still use the fullscreen-yield preference.
+- Settings use General / Actions tabs and explicit Apply, Discard and Restore controls. Locking position also stops autonomous movement. Expanded views share the card's fixed native canvas.
+- The character is silent. Manual actions can take over immediately; disabling that preference queues the latest choice. Automatic actions do not interrupt interactions or completion reminders.
 
-本地设置和 Token 统计缓存保存在 `%LOCALAPPDATA%\ClaudeDesktopPet`，与其他角色分开；诊断写入同目录 `diagnostics.log`。旧专注记录保留在本机，程序不再读取或新增。
+## Local data
 
-### 与 Claude 桌面端联动
+The quota card and today's Token chart use Claude desktop usage and Claude Code transcripts. Missing data stays unavailable instead of being invented; the last valid snapshot is retained when a read fails. Local quota reading can be disabled in settings.
 
-Claude 桌面端会每隔几分钟把套餐用量记在本机的 `plan-usage-history.json`（Microsoft Store 版位于 `%LOCALAPPDATA%\Claude-Data\claude_*\`）。Claude 娘每分钟看一眼这个文件（文件没变就不重读），在“Claude · 额度”页显示 5 小时与本周额度的已用比例、桌面端是否在运行、最后更新时间；紧凑卡片左栏显示剩余比例，点击展开状态卡片，托盘提示里也有。
+User state is under `%LOCALAPPDATA%/ClaudeDesktopPet`, separate from other roles. Settings, logs, transcripts and credentials are excluded from Git.
 
-- 额度刷新（已用比例明显回落）时她会开心地亮起书页光点；某项用掉 80% 时会从书后偷看，提醒你留一点给重要的问题。
-- 重置倒计时：桌面端没有记录重置时间，Claude 根据用量变化推算——窗口从首次使用开始计时，用量从 0 升起或回落就能框出窗口开始的区间，连续几次框选通常能精确到几分钟；显示为“约1小时05分后重置”，悬停可看具体时刻。区间太宽时不显示。
-- 只读本机文件：不登录、不联网、不碰任何令牌。
-- 可在“设置 · 常规”关闭“读取本机额度”。
-
-网页按钮使用默认浏览器打开 Claude。角色回应是本地固定文案。
-
-## 动画素材
-
-10 段原始 WebP 在分类目录，其中萤火虫只保留原片。当前播放包为 9 个角色动作：抱书静候、向你挥手、书后偷看、灵感来了、书页花光、风中整理、转圈行礼、书中赠花、被拖着走。
-
-旧看书、瞌睡动作已移除。抱书静候使用新的站立抱书片段。赠花播放完整新片段。萤火虫新片仍是深色夜景，不加入透明播放包。
-
-播放素材单独放在 `assets/character/playback/`，统一透明 512 × 512 画布，保留白色裙装，按人物体积对齐，添加共同参考姿势与入场、收尾过渡；花光与人物分开渐隐。原片与运行清单 `character.json` 分工明确。
-
-## 检查、构建与启动测速
+## Prepare, verify and build
 
 ```powershell
-python tools/check.py
-python tools/build.py              # 文件夹版 dist/ClaudePet/，推荐
-python tools/bench_startup.py      # 启动 → 首帧 → 卡片就绪的耗时
-```
-
-完整检查会验证源片校验和、每一帧透明内容及动画首尾。构建只包含处理后的播放素材、共享字体与许可，不包含原片、账户或本机记录，并剔除用不到的 Qt 组件（QML、PDF、SVG、软件 OpenGL、翻译、图像插件等，约 49 MB）。
-
-默认构建为文件夹版：启动时无需解包，约 0.3 秒出现人物。`python tools/build.py --onefile` 仍可生成单文件 `dist/ClaudePet.exe`，但每次启动要先把约 250 MB 解压到临时目录，出现人物需约 2.4 秒。
-
-重新处理素材时：
-
-```powershell
-python -m pip install --target build/asset-tools -r ../share/requirements-assets.txt
+python -m pip install -r ../share/requirements-assets.txt
 python tools/prepare_assets.py
+python tools/check.py
+python tools/build.py
 ```
 
-处理缓存及预览留在 `build/`。更多实现说明见 [架构说明](docs/ARCHITECTURE.md)。
+`prepare_assets.py` is the stable entry for `prepare_mp4_character.py`. Sources remain in `assets/character/MP4/`; transparent resources are in `playback-mp4/`. The original inventory and runtime descriptor carry sizes and SHA-256 checksums. Original videos are not bundled into the executable folder. Preparation cannot reconstruct artwork already outside a source video's boundaries.
 
-动画用途、菜单顺序、基础权重及素材选择见 [动画安排](docs/ANIMATIONS.md)。右键动作统一为“角色动作”，单列、无分类、无重复。
+Verification output and build caches belong in `build/`; current programs belong in `dist/`. Both directories are excluded from Git. Git LFS is required to obtain the MP4 and WebP assets after cloning.
 
-新版动作及拖拽已重新编排：普通动作统一参考姿势，拖动期间立即播放完整人物段，持续拖动进入循环，松手收回；原片保留。具体权重与出画段处理见 [动画安排](docs/ANIMATIONS.md)。
-
-界面与 Gpt 统一：顶部“状态 / 设置”两项，设置只有“常规 / 动作”两页，无固定草稿说明或角色管理页。额度卡片可展开为 360px 状态页；从设置返回时保留进入前的状态大小。
+See [animation contracts](docs/ANIMATIONS.md) and [architecture](docs/ARCHITECTURE.md).

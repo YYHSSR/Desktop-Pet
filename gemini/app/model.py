@@ -16,7 +16,7 @@ GREETINGS = (
 
 CONSTELLATION = 7  # Gemini: a week of stars joins into the twins.
 WALKS = ('walk-left', 'walk-right')
-MENU_ORDER = ('idle','greeting','curious','glance','meow','stretch','hop','pout','chase','pounce','catch','lift','drag', *WALKS)
+MENU_ORDER = ('idle','greeting','curious','glance','meow','stretch','hop','pout','chase','pounce','catch','drag', *WALKS)
 # How often each action turns up on its own: small cat moments are common,
 # the big chase and pounce are rare treats, catching a star is kept for
 # manual interaction. Walks only happen when she may wander.
@@ -28,7 +28,7 @@ CLICK_WEIGHTS = dict(curious=3., meow=2., glance=1.)
 DOUBLE_WEIGHTS = dict(meow=2., hop=2., chase=1.)
 SCHEMA = extended(
     ear_meow=('bool', True),
-    hop_after_drag=('bool', True),
+    hop_after_drag=('bool', False),
     sparkles=('bool', True),
 )
 

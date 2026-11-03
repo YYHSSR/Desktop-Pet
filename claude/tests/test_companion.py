@@ -343,6 +343,9 @@ class CompanionCase(unittest.TestCase):
         self.root = Path(self.temporary.name)
         fixture(self.root)
         from companion import Companion
+        # Unit fixtures must not inspect or reorder the user's real desktop.
+        native_patch=patch('companion.native_windows',return_value=None)
+        native_patch.start();self.addCleanup(native_patch.stop)
         self.companion = Companion(APP, self.root/'state', root=self.root, tray=False,
                                    entry=ROOT/'app/main.py')
 

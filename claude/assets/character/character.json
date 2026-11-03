@@ -1,650 +1,277 @@
 {
   "character": "claude",
-  "name": "Claude 娘",
+  "name": "Claude",
+  "sourceFormat": "mp4",
   "idle": "idle",
   "drag": "drag",
+  "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621",
   "actions": [
     {
       "id": "idle",
-      "name": "抱书静候",
-      "group": "陪伴",
-      "file": "playback/idle.webp",
+      "name": "\u5f85\u673a",
+      "group": "Actions",
+      "file": "playback-mp4/idle.webp",
       "loop": true,
-      "durationMs": 3792,
-      "frames": 91,
-      "bytes": 23570710,
-      "sha256": "f4c215c3d23bec25ccd15b8a1844172925283939011f0d02e079ee5ce7983293",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "陪伴/抱书静候.webp",
-      "sourceSha256": "4005bcdb2a31859c5604129260c1cf1acc9b248944b98a618d7dfd9b76f962b0",
-      "transform": {
-        "scale": 0.6366279069767442,
-        "centre": 361.5,
-        "baseline": 704,
-        "union": [
-          5,
-          9,
-          710,
-          704
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [],
-        "patchedPixels": 2719
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "8d45cdbf8bcb4886e73f43b39333cc21be30b82cc18ae6e13a4f6f856fff5f22",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null
-      },
+      "durationMs": 12417,
+      "frames": 298,
+      "bytes": 56670886,
+      "sha256": "20b9562d79364c37073a0b27bc4ac9cd2a99f7c687ffe9f8950fbdb9b1cb208e",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u5f85\u673a.mp4",
+      "sourceSha256": "a78ff9bc6736fcdfbdd6e3b3098f476d4147917c111adf36bdf923614091f2c1",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 0,
       "entryBridgeFrames": 0,
-      "exitBridgeFrames": 6,
-      "bridgeCut": [
-        11,
-        96
-      ],
-      "endpointDifference": 0.0,
+      "exitBridgeFrames": 9,
       "randomWeight": 0.0,
-      "random": false
+      "random": false,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
+    },
+    {
+      "id": "rest",
+      "name": "\u62b1\u4e66\u9759\u5019",
+      "group": "Actions",
+      "file": "playback-mp4/rest.webp",
+      "loop": false,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 58332362,
+      "sha256": "f80eb8906e67ec140d4cdbe6f7361343f49fc480a2c0bc5b6548850610c820ee",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u62b1\u4e66\u9759\u5019.mp4",
+      "sourceSha256": "81d7e90e70c38920eeb04d32c2c828b03d5d78cd379317621fffd3be0c3c743f",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
+      "randomWeight": 0.9,
+      "random": true,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "wave",
-      "name": "向你挥手",
-      "group": "互动",
-      "file": "playback/wave.webp",
+      "name": "\u5411\u4f60\u6325\u624b",
+      "group": "Actions",
+      "file": "playback-mp4/wave.webp",
       "loop": false,
-      "durationMs": 11250,
-      "frames": 270,
-      "bytes": 70690732,
-      "sha256": "9234d9068e72ee7d5beedd055fac88654898ee528b567b69561c36ce758479a0",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "招呼/挥手.webp",
-      "sourceSha256": "583fe05a39e91a966d0903f5561696fd6949728bfb3e087702018a29922916b6",
-      "transform": {
-        "scale": 0.6450662739322534,
-        "centre": 361.5,
-        "baseline": 720,
-        "union": [
-          20,
-          16,
-          711,
-          720
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [],
-        "patchedPixels": 17900
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "8de8f741479179727b1d42db27a1796a76a95b7d374a9da40aadf2a8f18f0fc8",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null
-      },
-      "entryBridgeFrames": 15,
-      "exitBridgeFrames": 19,
-      "bridgeCut": [
-        2,
-        239
-      ],
-      "endpointDifference": 0.0,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 58269188,
+      "sha256": "b2908be8dac71b0f975047bc1a16a154d3cde52ec4ce502de34a99fa09e28841",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u5411\u4f60\u6325\u624b.mp4",
+      "sourceSha256": "f0c87f8eac419c2e8c1473d2c2761779406f5529f6768cb9e6d591f7ada1fc3c",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
       "randomWeight": 3.2,
-      "random": true
+      "random": true,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "peek",
-      "name": "书后偷看",
-      "group": "互动",
-      "file": "playback/peek.webp",
+      "name": "\u4e66\u540e\u5077\u770b",
+      "group": "Actions",
+      "file": "playback-mp4/peek.webp",
       "loop": false,
-      "durationMs": 10209,
-      "frames": 245,
-      "bytes": 64647998,
-      "sha256": "15c713465c0c373657b24de4d0312ef7ed66bbc0d109985c2a5b7ecaf99be86a",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "情绪/书挡脸.webp",
-      "sourceSha256": "90531404a1d51bb27795adc43dc6c69ed416c74338684bd318f3d495d3d6a97a",
-      "transform": {
-        "scale": 0.6422287390029325,
-        "centre": 360.5,
-        "baseline": 707,
-        "union": [
-          27,
-          20,
-          692,
-          708
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [],
-        "patchedPixels": 27959
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "8d505d4a16de21e5c7766c8e0d45867dffee7c7da817ece25c0ac83bfcd9b5bd",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null
-      },
-      "entryBridgeFrames": 10,
-      "exitBridgeFrames": 16,
-      "bridgeCut": [
-        17,
-        237
-      ],
-      "endpointDifference": 0.0,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 57399784,
+      "sha256": "9fba880ced2c904322912796c958c3779ca00821750bfcc8e3b4537459503014",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u4e66\u540e\u5077\u770b.mp4",
+      "sourceSha256": "284214f0aaa9d85e67ed6157e36c4ccbb15d48bd9370894213f3a1b21920d653",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
       "randomWeight": 2.8,
-      "random": true
+      "random": true,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "idea",
-      "name": "灵感来了",
-      "group": "日常",
-      "file": "playback/idea.webp",
+      "name": "\u7075\u611f\u6765\u4e86",
+      "group": "Actions",
+      "file": "playback-mp4/idea.webp",
       "loop": false,
-      "durationMs": 14209,
-      "frames": 341,
-      "bytes": 87582872,
-      "sha256": "1df4ab2a176344aea919843b8d8d7b12195510950e7fd31038d29d8c1b0737eb",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "特殊/灵光一闪.webp",
-      "sourceSha256": "f34323367b75fdafa175e7cb1f4bb74cf67e4297c368f33a1955e1233f1fcef4",
-      "transform": {
-        "scale": 0.6412884333821376,
-        "centre": 357.5,
-        "baseline": 707,
-        "union": [
-          24,
-          13,
-          693,
-          708
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [],
-        "patchedPixels": 28115
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "a6769c54ea130df78965230b1c44b35daaeb90b2b7543550e1c6f936a3bf2f6f",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null
-      },
-      "entryBridgeFrames": 11,
-      "exitBridgeFrames": 17,
-      "bridgeCut": [
-        27,
-        341
-      ],
-      "endpointDifference": 0.0,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 58842282,
+      "sha256": "b6ba4d7a9401f4a979d6c0c0bc547cbfa5066b99ee976c09d254b9073b7de684",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u7075\u611f\u6765\u4e86.mp4",
+      "sourceSha256": "1337e7cab60209a33bdf8e572ca63ed6edc6cd9493c84955289b183eb1f15dc3",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
       "randomWeight": 2.0,
-      "random": true
+      "random": true,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "sparkles",
-      "name": "书页花光",
-      "group": "特别",
-      "file": "playback/sparkles.webp",
+      "name": "\u4e66\u9875\u82b1\u5149",
+      "group": "Actions",
+      "file": "playback-mp4/sparkles.webp",
       "loop": false,
-      "durationMs": 15875,
-      "frames": 381,
-      "bytes": 103653400,
-      "sha256": "8654ce8056cfeb862aca842e591c926d49f17d6f1d99f0de24bb904128357ae3",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "特殊/书页光点.webp",
-      "sourceSha256": "8f734703f1ce580454e241d3cc34017fb1e01038ae8c655bd7fd87c48c76d948",
-      "transform": {
-        "scale": 0.6460176991150443,
-        "centre": 360.5,
-        "baseline": 708,
-        "union": [
-          0,
-          0,
-          720,
-          720
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [],
-        "patchedPixels": 50013
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "676fe180e9c4499325e31d61dbab019cec1d26091d40d88b482ff1f1ca38b7ec",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null
-      },
-      "entryBridgeFrames": 10,
-      "exitBridgeFrames": 18,
-      "bridgeCut": [
-        6,
-        360
-      ],
-      "endpointDifference": 0.0,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 61006886,
+      "sha256": "81f4c2106e0187ceb61d0b120c9d2ecc2d223d341f073108647b79c8ed923c32",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u4e66\u9875\u82b1\u5149.mp4",
+      "sourceSha256": "cac13b0e1bfdfba4641edb905bc8a5aa173709f6b4588d9c543fec3fcecad28d",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
       "randomWeight": 0.65,
-      "random": true
+      "random": true,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "wind",
-      "name": "风中整理",
-      "group": "日常",
-      "file": "playback/wind.webp",
+      "name": "\u98ce\u4e2d\u6574\u7406",
+      "group": "Actions",
+      "file": "playback-mp4/wind.webp",
       "loop": false,
-      "durationMs": 13000,
-      "frames": 312,
-      "bytes": 83620858,
-      "sha256": "f541d1e1c6c587501d69578801bf5b2d431d701492117917201b706b17466ebd",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "情绪/被风吹乱.webp",
-      "sourceSha256": "b0a016be42a22427fc373df6ea4b07f249228faca36de258689d9556c34cbfbd",
-      "transform": {
-        "scale": 0.6517857142857143,
-        "centre": 362.25,
-        "baseline": 704,
-        "union": [
-          0,
-          16,
-          720,
-          704
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [
-          198
-        ],
-        "patchedPixels": 154192
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "ddad5e77c18477b30c1228c5b4bc33d1bbcfa581261153ec2341182e6ba8bb37",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null
-      },
-      "entryBridgeFrames": 12,
-      "exitBridgeFrames": 13,
-      "bridgeCut": [
-        0,
-        288
-      ],
-      "endpointDifference": 0.0,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 58028032,
+      "sha256": "57c21cb4f5f9606a5b881aa6ccd65e410779293eddfa9c5a4e0a77b4afde499b",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u98ce\u4e2d\u6574\u7406.mp4",
+      "sourceSha256": "fe41620b8f2cf7f13dd291db46fb1f5a9289bbd2045b97620be830b86db10c3d",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
       "randomWeight": 0.25,
-      "random": true
+      "random": true,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "bow",
-      "name": "转圈行礼",
-      "group": "互动",
-      "file": "playback/bow.webp",
+      "name": "\u8f6c\u5708\u884c\u793c",
+      "group": "Actions",
+      "file": "playback-mp4/bow.webp",
       "loop": false,
-      "durationMs": 12542,
-      "frames": 301,
-      "bytes": 70308132,
-      "sha256": "79da4aad97d56a8224dc65ef5c3c72bc94a55112f0e5aff88f1c23331bb21b98",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "动作/转圈行礼.webp",
-      "sourceSha256": "16113abac6b83f453f056dc405e3f403cb54b8f7f80260fcd0316ad5a1f8e0cc",
-      "transform": {
-        "scale": 0.6527570789865872,
-        "centre": 359.75,
-        "baseline": 708,
-        "union": [
-          0,
-          25,
-          720,
-          709
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [
-          38,
-          39,
-          40,
-          41,
-          42,
-          43,
-          44,
-          45,
-          46,
-          47,
-          48,
-          65,
-          66,
-          67,
-          68,
-          69,
-          77,
-          78,
-          79,
-          80,
-          81,
-          98,
-          99,
-          100,
-          101,
-          102,
-          103,
-          104,
-          105
-        ],
-        "patchedPixels": 99997
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "563f0bc6a3b4e32dcf9889c197a8fc145b6f43773d3ac94dc5ec84afde554a15",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null
-      },
-      "entryBridgeFrames": 11,
-      "exitBridgeFrames": 14,
-      "bridgeCut": [
-        7,
-        284
-      ],
-      "endpointDifference": 0.0,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 53076816,
+      "sha256": "355fa8ec7877366f270dc4021f71bf1d29768a13f30b653b6fece8c76f19fc66",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u8f6c\u5708\u884c\u793c.mp4",
+      "sourceSha256": "59b6050069d4dd30a0e01653faf008fac1ce0c0f3197c6a29b5d05ed10f2f7a8",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
       "randomWeight": 0.35,
-      "random": true
+      "random": true,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "flower",
-      "name": "书中赠花",
-      "group": "特别",
-      "file": "playback/flower.webp",
+      "name": "\u4e66\u4e2d\u8d60\u82b1",
+      "group": "Actions",
+      "file": "playback-mp4/flower.webp",
       "loop": false,
-      "durationMs": 11292,
-      "frames": 271,
-      "bytes": 70926258,
-      "sha256": "2d74569b10ab9adb32a7c5bd016b76818d8b81fa32fbbe4ab917e105fb99759e",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "特殊/送出花朵.webp",
-      "sourceSha256": "93a5b79b34b4c781ce6902e7774b586fc0a7e9fa7884465b2e41463edb691a11",
-      "transform": {
-        "scale": 0.652271034996277,
-        "centre": 359.0,
-        "baseline": 711,
-        "union": [
-          25,
-          26,
-          691,
-          711
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [],
-        "patchedPixels": 13880
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "06ae5da1f5518fcf288b37821fedd113451ef2f0e0fbb7568c39590c2361ac53",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null
-      },
-      "entryBridgeFrames": 13,
-      "exitBridgeFrames": 18,
-      "bridgeCut": [
-        2,
-        243
-      ],
-      "endpointDifference": 0.0,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 57513450,
+      "sha256": "4df249fdf1fb97f14a189e9c829fdcfccc9ee8293164b071ba62adbf5cb907a7",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u4e66\u4e2d\u8d60\u82b1.mp4",
+      "sourceSha256": "cc2e02354fcc3aae7f19d7ccbc87e8b4b491b9d351f5b8d85d14850c1801d23f",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
       "randomWeight": 0.12,
-      "random": true
+      "random": true,
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "drag",
-      "name": "被拖着走",
-      "group": "互动",
-      "file": "playback/drag.webp",
+      "name": "\u62d6\u62fd",
+      "group": "Actions",
+      "file": "playback-mp4/drag.webp",
       "loop": false,
-      "durationMs": 7847,
-      "frames": 187,
-      "bytes": 39799274,
-      "sha256": "535c035808b9eafec2f100a60058f1918652494509deae3da3031402fd37e794",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "互动/拖拽.webp",
-      "sourceSha256": "120c523512638254844e46d12b112e9717d8c9815dfefe122d6fb41ad2fbaeed",
-      "transform": {
-        "scale": 0.6389261744966444,
-        "centre": 372.5,
-        "baseline": 698,
-        "union": [
-          0,
-          0,
-          720,
-          698
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": [
-        24,
-        191
-      ],
-      "repair": {
-        "refilledFrames": [],
-        "patchedPixels": 30704
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "6f2a97202710d770b0d262f792bca32fd5905072f4e105c081872ba3497b6101",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": null,
-        "drag": null,
-        "hold": [
-          116,
-          8
-        ]
-      },
-      "entryBridgeFrames": 4,
-      "exitBridgeFrames": 18,
-      "bridgeCut": [
-        0,
-        166
-      ],
-      "dragStartFrame": 3,
-      "dragLoopEnd": 119,
-      "releaseFrame": 119,
-      "liftCompletes": true,
-      "dragLoopFile": "playback/drag-held.webp",
-      "dragLoopFrames": 16,
-      "dragLoopSha256": "8ea7bb29b5174aa7b5d47fe258825a9c9a0c0945f1aa85eccb2201bcad02c4a7",
-      "dragLoopBytes": 3136076,
-      "dragLoopSourceRange": [
-        108,
-        116
-      ],
-      "endpointDifference": 0.0,
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 56478166,
+      "sha256": "366299208b697ea51c7ef8ff42152275af22ca8733b181c25d620d9741ad6e01",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u62d6\u62fd.mp4",
+      "sourceSha256": "5cdb9ce38c4c552035fd09551126faeb0eda33d33763f563fd28fea83b0a379f",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
       "randomWeight": 0.0,
-      "random": false
+      "random": false,
+      "dragStartFrame": 42,
+      "dragHoldFrame": 182,
+      "releaseFrame": 183,
+      "liftCompletes": true,
+      "dragHoldPolicy": "complete-action-static-pose-until-release",
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "walk-left",
-      "name": "向左走走",
-      "group": "移动",
-      "file": "playback/walk-left.webp",
+      "name": "\u5411\u5de6\u8d70\u8d70",
+      "group": "Actions",
+      "file": "playback-mp4/walk-left.webp",
       "loop": false,
-      "durationMs": 13250,
-      "frames": 318,
-      "bytes": 69788010,
-      "sha256": "91714b586322a0533a92f9e418ed386e7bcc7045c5650681f3e48388e59e252a",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "移动/向左.webp",
-      "sourceSha256": "3e99b48cd5fb6effd2663f4923fa251d522e27b86a2c82351e365051adf5f7bf",
-      "transform": {
-        "scale": 0.47686445291235713,
-        "centre": 531.5,
-        "baseline": 956,
-        "union": [
-          0,
-          0,
-          960,
-          956
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [],
-        "patchedPixels": 6242
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "838583ae009b180dd9d15ea2887e12ab104d18f6f3500326d8f451277348893d",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": [
-          -1,
-          26,
-          218
-        ],
-        "drag": null
-      },
-      "entryBridgeFrames": 16,
-      "exitBridgeFrames": 22,
-      "bridgeCut": [
-        0,
-        281
-      ],
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 52685700,
+      "sha256": "bce26242926d5e0177b44c0718fe8cab7c53d934157a9ab89902fc5260418646",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u5411\u5de6\u8d70\u8d70.mp4",
+      "sourceSha256": "b62f5a97783866ac640084d38540aa7393b9e81872dad76a3e8929d23c7df59c",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
+      "randomWeight": 0.0,
+      "random": false,
       "walk": {
         "direction": -1,
-        "start": 41,
-        "end": 233
+        "start": 30,
+        "end": 236
       },
-      "endpointDifference": 0.0,
-      "randomWeight": 0.0,
-      "random": false
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     },
     {
       "id": "walk-right",
-      "name": "向右跳步",
-      "group": "移动",
-      "file": "playback/walk-right.webp",
+      "name": "\u5411\u53f3\u8d70\u8d70",
+      "group": "Actions",
+      "file": "playback-mp4/walk-right.webp",
       "loop": false,
-      "durationMs": 10084,
-      "frames": 242,
-      "bytes": 50634100,
-      "sha256": "d7a80bbcdf196eb298e7cfaa5e08d530b354ede8d19051375b798f90d0146aca",
-      "recipe": "claude-lace-matte-temporal-repair-exact",
-      "source": "移动/向右.webp",
-      "sourceSha256": "adc2c584478a5ff5b0045cb0867b434ecf026a7151d3fc4eb4c0484c97cb965a",
-      "transform": {
-        "scale": 0.4807903402854007,
-        "centre": 493.5,
-        "baseline": 949,
-        "union": [
-          0,
-          16,
-          960,
-          949
-        ],
-        "effectsCrop": true
-      },
-      "sourceWindow": null,
-      "repair": {
-        "refilledFrames": [
-          27,
-          28,
-          29,
-          30,
-          31,
-          32,
-          33,
-          34,
-          35,
-          36,
-          48,
-          76,
-          77,
-          78,
-          91,
-          92,
-          93,
-          104,
-          105,
-          106,
-          116,
-          117,
-          118,
-          119,
-          120,
-          121,
-          124,
-          157,
-          158,
-          159,
-          160,
-          161,
-          162,
-          163
-        ],
-        "patchedPixels": 209091
-      },
-      "transitionRecipe": "trimmed-hold-adaptive-bridge-best-cut-v2-exact",
-      "baseSha256": "a61e5dbf3e9c2324c336c8e841b4c17c687c14942ccba761dfa927dfaebeb6e3",
-      "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796",
-      "bridgeSettings": {
-        "walk": [
-          1,
-          18,
-          186
-        ],
-        "drag": null
-      },
-      "entryBridgeFrames": 14,
-      "exitBridgeFrames": 20,
-      "bridgeCut": [
-        0,
-        209
-      ],
+      "durationMs": 12667,
+      "frames": 304,
+      "bytes": 48957424,
+      "sha256": "948ac1dd2ad6c042fa5a049e97c9b97e1b4e9ec9401b05be4532403123eb1868",
+      "recipe": "claude-mp4-contour-native-rgb-shared-idle",
+      "source": "MP4/\u5411\u53f3\u8d70\u8d70.mp4",
+      "sourceSha256": "29d126453cfaef9cab73362cde51f1856d2baeb35292b52bdb9bf6ecc0888180",
+      "sourceFrames": 289,
+      "sourceFrameOffset": 6,
+      "entryBridgeFrames": 6,
+      "exitBridgeFrames": 9,
+      "randomWeight": 0.0,
+      "random": false,
       "walk": {
         "direction": 1,
-        "start": 31,
-        "end": 199
+        "start": 30,
+        "end": 236
       },
-      "endpointDifference": 0.0,
-      "randomWeight": 0.0,
-      "random": false
+      "referencePose": "2296a23e496d63b56a810a075389ed55be3e2e251f3b245a640248d6af47a621"
     }
-  ],
-  "selectionNotes": {
-    "excluded": [
-      {
-        "source": "特殊/萤火虫.webp",
-        "reason": "新版仍是深色夜景，白底抠图会留下整块暗底，只保留分类原片。"
-      }
-    ],
-    "removed": [
-      "翻页陪伴",
-      "抱书小憩"
-    ],
-    "trimmed": [
-      {
-        "id": "drag",
-        "startFrame": 24,
-        "endFrame": 191,
-        "reason": "前 24 帧只是站着，第 190 帧后已站定不动；拎起从被抬起的那一刻开始，放下用原片自己的落地。"
-      }
-    ]
-  },
-  "referencePose": "73e98fbb212cb78cfbd85b77877cb93cdfe3b2bbb7ba3b954dfd7cd9a986b796"
+  ]
 }

@@ -1,53 +1,19 @@
-# ChatGpt 动画安排
+# Current ChatGPT animations
 
-当前接入 24 段原片（含向左、向右两段行走）。权重是日常随机动作的相对基础权重，不是百分比；还会结合时段及近期播放历史调整。0 权重动作仍可手动选择。权重与节奏都是内置的，设置里不再提供动作间隔、播放速度、走动速度等调节项。
+The active pack contains 23 actions from original MP4s: idle, two directional walks, nineteen gestures and drag. The source inventory lives in `assets/character/manifest.json`; `app/material_catalog.json` records the bundled resource checksums. The original MP4s remain under `MP4/`, and runtime resources live under `playback-mp4/`.
 
-| 角色动作 | 基础权重 | 播放安排 |
-| --- | ---: | --- |
-| 待机 | 0 | 常驻待机，首尾衔接 |
-| 待机变化 | 0 | 轻微待机变化、移动陪伴与手动播放 |
-| 招手/打招呼 | 3 | 日常随机与手动播放 |
-| 灵感 | 2.2 | 日常随机与手动播放 |
-| 得意 | 1.8 | 日常随机与手动播放 |
-| 贴贴 | 2.5 | 日常随机与手动播放 |
-| 傲娇 | 0.9 | 日常随机与手动播放 |
-| 小生气 | 0.3 | 日常随机与手动播放 |
-| 困倦 | 1.1 | 日常随机与手动播放 |
-| 庆祝 | 0 | 仅完成提醒或手动触发 |
-| 眷属印记 | 0.25 | 日常随机与手动播放 |
-| 幼龙吐息 | 0.15 | 日常随机与手动播放 |
-| 偷吃 | 1.3 | 日常随机与手动播放 |
-| 比心 | 2.7 | 日常随机与手动播放 |
-| 龙族契约 | 0.1 | 日常随机与手动播放 |
-| 宝藏收藏 | 0.65 | 日常随机与手动播放 |
-| 逆鳞信任 | 0.2 | 日常随机与手动播放 |
-| 收到任务 | 0 | 收到新任务时回应 |
-| 处理任务 | 0 | 处理、编辑及执行任务；中段持续循环 |
-| 放大镜查看细节 | 0 | 思考、阅读、查找及核对；中段持续循环 |
-| 查阅额度 | 0 | 额度交互或手动触发，不进入随机池 |
-| 拖拽 | 0 | 越过鼠标拖动阈值即播放，持续拖动进入独立循环 |
-| 向左走走 / 向右走走 | 0 | 仅在“在桌面上走动”开启时自主触发，不进菜单、不进随机池 |
+The idle MP4 first frame anchors every action. Contour-aware white-background removal keeps enclosed pale clothing opaque. Opaque native RGB is unchanged. Native 480 x 480 artwork is centered on a transparent 512 x 512 canvas without per-frame fitting, optical-flow texture borrowing or upscaling. Short premultiplied whole-frame bridges connect every action to the same exact reference pose.
 
-清晨提高招手权重；午餐、晚餐时段提高偷吃权重；午后和夜间更容易困倦。招手、比心、贴贴等轻互动更常见，龙族契约、吐息、逆鳞等剧情动作低频出现。庆祝保留给完成提醒，工作与额度动作不混入日常随机池。
+All original frames remain in order. The independent-frame lossless WebP writer verifies decoded RGBA frames, frame counts and timing. The current source videos, frame ranges and individual checksums are authoritative in the runtime manifest; source clipping cannot be repaired by enlarging the window.
 
-## 衔接与拖拽
+## Actions
 
-- 原片保留在分类目录，运行素材统一放在 `playback/`。每段使用固定人物中心、尺寸与脚底基线，逐帧不重新缩放定位。
-- 普通动作以共同参考姿势入场和收尾，待机补齐循环接缝；全部播放文件的首尾参考姿势像素差为 0。过渡使用预先生成的身体配准、局部补间与独立特效渐隐。
-- 原片开头的静止等待与结尾的定格会先剪掉（各留 2 帧缓冲），桥接长度按姿势差自动取 4–16 帧入场、8–22 帧收尾：姿势本来就接近时一闪而过，差得远时慢慢收回，不会先停在共同姿势上等一会儿。待机开头 7 帧静止也剪掉了，循环接缝从 21 帧停顿缩到 7 帧。
-- 原片自带的透明通道有逐帧丢失：拖拽第 11–25 帧、向左走背影第 32–83 帧整片头发透明，部分动作的翅膀和裙摆偶尔闪掉一帧。生成时先用前后完整帧的光流重建缺失部分（只补在人物轮廓之内），再修补一两帧的闪烁，所以做动作时不会再有部位消失。
-- 原片抠图还把淡色的蕾丝衬裙、龙尾鳞片和翼膜当成背景挖成每帧形状不同的洞，桌面上看就是裙子闪烁、纹理缺失。原片在这些洞下仍保留着原画颜色（有损编码只把整块全透明的 4×4 块抹成纯色），所以生成时逐帧检查轮廓内的洞：底下是带淡紫色调的原画就恢复成实心（亮度取原片保留纹理，色调取周围完整原画，避免有损色度造成的色斑）；纯白、纯色块或偏离角色配色的视为真正的空隙，保持透明。之后再把前后多数帧都是实心的小洞补上（只补不挖）。
-- 自然播完的动作与待机循环换圈都直接切换（首尾逐像素一致），不再叠加定格残影；只有手动中途切换使用短画面交接。不在界面线程计算光流或等待解码线程退出。
-- 自主动作在待机循环结束前约 20 帧就选好，并在后台先解码那段的开头；到接缝时直接接上，首帧只停一帧（实测 43–60 ms，原来约 119 ms）。期间若被点击或拖动打断，预解码随即丢弃。
-- 工作动作由新任务记下、笔记本处理和放大镜核对组成。处理任务、放大镜配有独立中段接缝，持续工作时只循环中段，状态变化后播放原片收尾。
-- 鼠标移动超过拖动阈值后，经 4 帧短入场进入拖拽姿势，整轮拎起（张翅、被拎走、龙尾甩一圈、晕乎乎定住）播到第 96 帧（`releaseFrame`）。拎起的同时后台解码从这一帧回到共同姿势的收尾段。
-- 很快松手：拎起这一轮照常播完，到第 96 帧再直接接“放下”收尾（同一帧，无交叠），然后回到待机；这期间再次抓起会接着当前这一轮继续，不会从头开始。
-- 长时间拖住：一轮播完后停在晕乎乎张翅的姿势，`playback/drag-held.webp` 只在第 88–96 帧之间轻微来回（16 帧），不再重播龙尾甩圈；松手后从当前帧短交接到“放下”。
-- 行走：开启“在桌面上走动”后，自主活动有一定比例改为走一段。按两侧剩余空间选方向，向左用 `移动/向左.webp`、向右用 `移动/向右.webp`（不再镜像），片段播放一次；在原片迈步的那段帧里窗口跟着平移（速度约每秒 0.26 个人物宽，起步和停下各有缓动），转回正面的收尾动作原地完成，然后回到待机。导入的角色包若没有带方向的行走片段，仍按旧方式随机移动。
-- 角色动作菜单按实际播放文件去重，包含 22 个逻辑动作；行走片段和循环接缝不出现在菜单中。
+Interactive variants are proud, greeting, inspiration, affection, snack, tsundere, sleepy, annoyed, dragon-breath, celebrate, heart, bond-mark, task-process, treasure, task-receive, inspect, quota-check, trust and dragon-pact. Directional walks move the window when space and settings allow. Existing Codex work and completion reaction mappings remain intact.
 
-## 重新处理与校验
+## Dragging
 
-运行 `python tools/prepare_character.py`。工具按原片校验值和共同参考姿势缓存生成结果，更新运行清单、原尺寸播放文件与 `material_catalog.json`，不打包程序。
+Holding the left button for 220 ms starts dragging even without movement; moving while pressed starts immediately. A quick click invalidates the hold callback. The source entrance starts at frame 27, reaches its last inverted pose at frame 170, and holds there while the pointer remains down. Early release completes the entrance before the original landing. Release resumes the next source frame and the untouched return. Menu previews play the entire supplied clip. Pointer capture loss, re-grabbing, inertia and window hiding have dedicated regression coverage.
 
-播放画布为 512px，不生成 720px 放大副本。当前播放素材逐帧验证无损像素与时序，生成证明位于 `build/character-preparation/verification.json`。
+## Commands
+
+From this role's directory, run `python tools/prepare_character.py` to rebuild and `python tools/check.py test_mp4_matte test_mp4_character test_mp4_drag test_exit_and_single_pack` to validate. The default core suite checks application behavior separately. See `DEVELOPMENT.md` for data and packaging boundaries.

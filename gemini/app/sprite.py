@@ -3,10 +3,10 @@ import math
 import time
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QColor, QPainter, QPainterPath
-from share.desktop.sprite_window import SpriteWindow
+from gemini_motion import GeminiMotionSprite
 
 
-class GeminiSprite(SpriteWindow):
+class GeminiSprite(GeminiMotionSprite):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sparkle_epoch = time.perf_counter()

@@ -1,100 +1,46 @@
-# Gemini 娘桌宠
+# Gemini desktop pet
 
-浅色圆角卡片与星光主题的 Windows 桌面陪伴角色。沿用 [公共动画引擎](../share/README.md)，使用紧凑陪伴卡片、今日 Token 统计和独立配置，不导入 ChatGPT 的业务界面。
+A starlit cat companion with ambient stars and ear interactions. The current character uses its own 14 original MP4s and the first idle frame as the shared pose reference. The fixed transparent playback canvas preserves character proportions; all actions return to the same pose.
 
-## 运行
+## Run
 
-Windows x64 / Python 3.13，从本目录执行：
+From this directory on Windows x64 with Python 3.13:
 
 ```powershell
 python -m pip install -r requirements.txt
 python app/main.py
 ```
 
-本机也可运行 `run.ps1`，或构建后双击 `dist/GeminiPet/GeminiPet.exe`。人物先出现，卡片在首帧之后才构建（源码约 0.37 秒出现）；`python tools/bench_startup.py` 可测速。源码启动依赖同级 `share/`；打包后的程序包含运行库和已处理角色素材。
+`run.ps1` starts the same entry point. The sibling `share/` directory is required. A packaged copy runs from `dist/GeminiPet/GeminiPet.exe`; distribute the whole `GeminiPet` folder.
 
-## 交互
+## Interactions
 
-- 单击人物打开或收起陪伴卡片，并按内置权重做个小回应（多半是好奇探头）；双击喵喵、轻跳或追尾巴。
-- 开启“在桌面上走动”时，她偶尔会朝有空位的一侧走一段：向左追着尾巴转过去，向右蹲下扑过去，窗口随步子一起移动，转回正面再回到待机。右键“暂停自主走动”可随时关闭；锁定位置时不会走动。
-- 拖动人物改变位置，释放后轻轻一跳；滚轮调整大小。
-- 右键“角色动作”可选择 12 个互动动作，默认使用“平常”循环待机。自己活动时按权重挑选：回眸、喵喵、好奇最常见，追尾巴和扑过来是傍晚的小疯狂、深夜会收敛，早上和午后更爱伸懒腰，接住星星由手动触发。点选新动作会**立即**换上：两段动画同时播放、柔和交叠 0.25 秒，不再等当前动作播完（可在设置中关闭）。
-- 右键人物和卡片使用与 Gpt 相同的菜单结构：查看状态、自主走动、桌面操作、角色动作、桌宠设置、退出。桌面操作包括人物显示、置顶、锁定、气泡显示、找回和复位；托盘提供找回、状态、设置、人物显示和退出。
+- Click for a response and the companion card. Double-click selects a larger response.
+- Right-click for actions, walking, desktop controls, settings or exit. Tray recovery restores the character and card.
+- Dragging requires a pressed mouse button and pointer movement; a stationary press remains a click. A short drag finishes the complete action and original return. A long drag holds the last lifted pose until release, then resumes the return.
+- The always-on-top option is respected. Normal maximized workspaces do not trigger fullscreen hiding. Screenshot overlays keep the character mapped; actual native z-order is checked again when they close. Genuine borderless fullscreen content can still use the fullscreen-yield preference.
+- Settings use General / Actions tabs and explicit Apply, Discard and Restore controls. Locking position also stops autonomous movement. Expanded views share the card's fixed native canvas.
+- The character is silent. Manual actions can take over immediately; disabling that preference queues the latest choice. Automatic actions do not interrupt interactions or completion reminders.
 
-### 设置（常规 / 动作）
+The optional post-drag hop is disabled by default. If enabled, it runs after the original return; completion actions take priority. Ambient stars retain their phase across action changes, and ear petting can be disabled.
 
-- 常规：登录 Windows 时启动、角色大小倍率、显示人物、视频全屏让位、状态卡片、本机额度、卡片停留秒数、自定义网页地址。置顶和锁定只在右键菜单中设置。
-- 动作：自动随机动作、在桌面上走动、点选立即切换、状态点喵一声、放下后轻跳、星光效果。动作权重、间隔、播放速度和点击回应都是内置的。
-- 设置修改先保存在草稿中，每页可恢复默认；点击“应用”后生效。
+## Local data
 
-动作无音频。用户设置和 Token 缓存位于 `%LOCALAPPDATA%\GeminiDesktopPet`，与其他角色独立。旧专注记录保留在本机，程序不再读取或新增。
+The quota card and today's Token chart use Antigravity model quotas and local transcripts. Missing data stays unavailable instead of being invented; the last valid snapshot is retained when a read fails. Local quota reading can be disabled in settings.
 
-这是本地桌面陪伴应用；“打开 Gemini”使用默认浏览器。当前没有接入 Gemini 网页账户或 CLI；额度与 Token 统计都来自本机 Antigravity。
+User state is under `%LOCALAPPDATA%/GeminiDesktopPet`, separate from other roles. Settings, logs, transcripts and credentials are excluded from Git.
 
-## 目录
-
-```text
-gemini/
-├── app/                        # 入口、星光界面、动作调度和本机统计
-├── assets/character/
-│   ├── manifest.json           # 用户提供的原始 WebP 校验清单
-│   ├── character.json          # 运行时动作与完整性描述
-│   ├── playback/               # 透明、对齐后的播放资源
-│   └── 原分类目录/             # 15 段原始 WebP，保持原样
-├── docs/                       # 架构和后续开发说明
-├── tests/                      # 状态、资源、透明处理与界面回归
-├── tools/                      # 素材准备、检查及独立打包
-└── requirements.txt            # 引用 ../share/requirements.txt
-```
-
-## 动作与素材
-
-已选用 13 段动画：平常、伸懒腰、打招呼、好奇、生气又软下来、惊鸿一瞥、喵喵喵、跳一跳、追尾巴、扑过来、接住星星、被拎起来、拖拽。“日常”与待机几乎一样、色调却偏淡，切换时像褪色，已从播放包移除（原片保留）。被拎起来是原来的拖拽片段，改为手动播放；拖拽换成新的悬挂挣扎。
-
-默认待机使用“平常”；“伸懒腰、好奇、回眸、喵喵、轻跳”可进入随机动作池。“追尾巴、扑过来”等大幅度动作由手动触发。“接住星星”用于手动互动。“星星魔法”原片存在镜头放大和人物裁切，因此保留原文件，未选入默认播放包。
-
-透明化处理移除浅色背景并保留中心白色服装，对齐到 512 × 512 画布；循环待机选择接近姿势并增加短接缝。播放文件使用高质量 RGB 编码及透明通道。拖拽原片已替换，其余原始 WebP 仍按清单校验。自动处理仍可能在极细发丝或近白色特效边缘留下少量原片痕迹。
-
-## 检查和构建
+## Prepare, verify and build
 
 ```powershell
+python -m pip install -r ../share/requirements-assets.txt
+python tools/prepare_assets.py
 python tools/check.py
-python tools/build.py --onefile
+python tools/build.py
 ```
 
-完整检查覆盖素材校验和每一帧的透明内容。默认构建为目录版 `dist/GeminiPet/GeminiPet.exe`；`--onefile` 输出单文件 `dist/GeminiPet.exe`。仅包含已选的透明动画，不打包原始素材、账户数据或素材处理依赖。
+`prepare_assets.py` is the stable entry for `prepare_mp4_character.py`. Sources remain in `assets/character/MP4/`; transparent resources are in `playback-mp4/`. The original inventory and runtime descriptor carry sizes and SHA-256 checksums. Original videos are not bundled into the executable folder. Preparation cannot reconstruct artwork already outside a source video's boundaries.
 
-需要重新处理素材时，安装 `../share/requirements-assets.txt` 后运行 `python tools/prepare_assets.py`。本次本机处理依赖隔离在 `build/asset-tools/`；诊断预览位于 `build/asset-previews/`，不提交开发缓存。
+Verification output and build caches belong in `build/`; current programs belong in `dist/`. Both directories are excluded from Git. Git LFS is required to obtain the MP4 and WebP assets after cloning.
 
-架构与后续平台接入边界见 [架构说明](docs/ARCHITECTURE.md)。
-
-## 卡片与动作衔接
-
-默认卡片为 268 × 272 逻辑像素的蓝紫额度网格：仅展示 Gemini、Other Model 两组，各有 5h 与周额度栏。每组显示最低剩余比例，不平均独立模型额度；数据源未提供周额度时显示“—”。工具栏为刷新、网页、设置，底栏显示今日 Token。
-
-卡片底栏显示“今日 Token”和当天实际总量；点击底栏查看今日小时曲线，可返回额度。统计来自Antigravity 本机对话库，每分钟后台增量读取，失败时保留上次有效记录。累计日报、模型日报及顶部日报入口已移除。
-
-设置和详情在同一窗口内展开。打开、展开、返回与收起使用固定原生画布及缓存快照，逐帧只绘制图像，不重建控件或改变原生窗口大小；缩小时使用独立透明落地画面遮住 backing store 交接。Esc 从详情返回状态，再按一次收起。
-
-设置与 Gpt 一样使用标签页、表单及草稿：常规 / 动作，下方是“本页恢复默认 / 放弃修改 / 应用 / 返回”。切页或返回保留草稿，应用后才生效，Ctrl+S 同样可应用。右键菜单移除网页入口，卡片工具栏的网页按钮保留。
-
-紧凑卡片的状态点可点击喵喵回应；它和人物身边星光、放下后蹦一下都在动作页里开关。
-
-### 与 Antigravity 联动
-
-Antigravity IDE 会把账户状态（套餐、每个模型的剩余额度和重置时间）缓存在本机的 `%APPDATA%\Antigravity IDE\User\globalStorage\state.vscdb`。Gemini 娘以只读方式打开这个数据库，只解出套餐名和模型额度（不读邮箱、不碰登录令牌），在“Gemini · 额度”页按模型显示剩余比例与重置时间，同档位的模型（如 Flash 高/中/低）合成一行；紧凑卡片左栏直接显示剩余额度。
-
-- 额度刷新时她会开心地蹦一下；某个模型只剩不到 20% 时会鼓起脸提醒你省着用。
-- IDE 未运行时显示最后一次同步的数据并注明；可在“设置 · 常规”关闭“读取本机额度”。
-
-手动选择新动作时默认立即接管：旧动作继续播放已解码的几帧并淡出，新动作同时开始入场，人物轮廓在交叠时保持不透明；关闭“立即切换”则恢复为等当前动作收尾、只保留最近一次请求。播放素材以共同参考姿势进入和返回，人物先做比例/位置配准，再做短过渡；星光特效独立渐隐。“接住星星”按人物而非全屏粒子确定缩放，边缘粒子在安全边界内渐隐。少量原片本身的姿势和画风差异仍通过短过渡衔接，不会重绘原片内容。
-
-环境星光使用连续时钟，切换动作不会重新开始闪烁周期。角色没有任何声音。
-
-原片仍保留在原目录；基础透明帧缓存放 `build/animation-base/`，最终带入场/收尾的动画放 `assets/character/playback/`。`python tools/prepare_assets.py` 会依次生成基础素材和过渡；已有基础缓存时也可单独运行 `python tools/prepare_transitions.py`。逐帧预览在 `build/transition-previews/`。
-
-动画用途、菜单顺序、基础权重及素材选择见 [动画安排](docs/ANIMATIONS.md)。右键动作统一为“角色动作”，单列、无分类、无重复。
-
-界面与 Gpt 统一：顶部“状态 / 设置”两项，设置只有“常规 / 动作”两页，无固定草稿说明或角色管理页。额度卡片可展开为 360px 状态页；从设置返回时保留进入前的状态大小。
-
-新版拖拽使用单独的短入场播放文件，拖动直接从悬挂挣扎开始，随后进入放松姿势循环；松手回到待机或按设置轻跳。原片完整保留，旧拖拽以“被拎起来”作为独立手动动作。单独重新生成拖拽运行 `python tools/prepare_drag.py`；完整素材流程也会生成持续循环，辅助文件不重复显示在动作菜单。
+See [animation contracts](docs/ANIMATIONS.md) and [architecture](docs/ARCHITECTURE.md).
